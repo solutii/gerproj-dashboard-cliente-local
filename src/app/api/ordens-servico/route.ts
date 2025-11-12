@@ -19,26 +19,55 @@ interface OS {
   HRFIM_OS: string;
   OBS_OS: string;
   STATUS_OS: string;
-  CHAMADO_OS?: string;
+  CHAMADO_OS?: string | null;
+  VALCLI_OS?: string | null;
   NUM_OS: string;
   COMP_OS: string;
   DTINC_OS: string;
-  CODTRF_OS?: number;
+  CODTRF_OS?: number | null;
   COD_CLIENTE: number;
   NOME_CLIENTE: string;
   COD_RECURSO: number;
   NOME_RECURSO: string;
-  STATUS_CHAMADO?: string;
+  STATUS_CHAMADO?: string | null;
 }
 
 interface OSComHoras extends OS {
   TOTAL_HRS_OS: number;
 }
 
+// ==================== UTILITÁRIO PARA NORMALIZAR VALORES ====================
+function normalizarValor(valor: any): any {
+  // Se for string vazia, retorna null
+  if (typeof valor === 'string' && valor.trim() === '') {
+    return null;
+  }
+  // Se for undefined, retorna null
+  if (valor === undefined) {
+    return null;
+  }
+  // Retorna o valor original
+  return valor;
+}
+
+function normalizarObjeto<T extends Record<string, any>>(obj: T): T {
+  const objNormalizado = {} as T;
+  
+  for (const [key, value] of Object.entries(obj)) {
+    objNormalizado[key as keyof T] = normalizarValor(value) as T[keyof T];
+  }
+  
+  return objNormalizado;
+}
+
+function normalizarArray<T extends Record<string, any>>(array: T[]): T[] {
+  return array.map(item => normalizarObjeto(item));
+}
+
 // ==================== VALIDAÇÕES ====================
 function validarParametros(searchParams: URLSearchParams): QueryParams | NextResponse {
   const isAdmin = searchParams.get('isAdmin') === 'true';
-  const codCliente = searchParams.get('codCliente')?.trim();
+  const codCliente = searchParams.get('codCliente')?.trim() || undefined;
   const mes = Number(searchParams.get('mes'));
   const ano = Number(searchParams.get('ano'));
 
@@ -68,9 +97,9 @@ function validarParametros(searchParams: URLSearchParams): QueryParams | NextRes
     codCliente,
     mes,
     ano,
-    codClienteFilter: searchParams.get('codClienteFilter')?.trim(),
-    codRecursoFilter: searchParams.get('codRecursoFilter')?.trim(),
-    status: searchParams.get('status') || undefined
+    codClienteFilter: searchParams.get('codClienteFilter')?.trim() || undefined,
+    codRecursoFilter: searchParams.get('codRecursoFilter')?.trim() || undefined,
+    status: searchParams.get('status')?.trim() || undefined
   };
 }
 
@@ -96,6 +125,7 @@ const SQL_BASE = `
     OS.OBS_OS,
     OS.STATUS_OS,
     OS.CHAMADO_OS,
+    OS.VALCLI_OS,
     OS.NUM_OS,
     OS.COMP_OS,
     OS.DTINC_OS,
@@ -110,7 +140,7 @@ const SQL_BASE = `
   LEFT JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
   LEFT JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
   LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
-  LEFT JOIN CHAMADO ON CAST(OS.CHAMADO_OS AS INTEGER) = CHAMADO.COD_CHAMADO
+  LEFT JOIN CHAMADO ON CASE WHEN TRIM(OS.CHAMADO_OS) = '' THEN NULL ELSE CAST(OS.CHAMADO_OS AS INTEGER) END = CHAMADO.COD_CHAMADO
   WHERE OS.DTINI_OS >= ? AND OS.DTINI_OS < ?
 `;
 
@@ -124,7 +154,7 @@ const SQL_TOTALIZADORES_BASE = `
   LEFT JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
   LEFT JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
   LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
-  LEFT JOIN CHAMADO ON CAST(OS.CHAMADO_OS AS INTEGER) = CHAMADO.COD_CHAMADO
+  LEFT JOIN CHAMADO ON CASE WHEN TRIM(OS.CHAMADO_OS) = '' THEN NULL ELSE CAST(OS.CHAMADO_OS AS INTEGER) END = CHAMADO.COD_CHAMADO
   WHERE OS.DTINI_OS >= ? AND OS.DTINI_OS < ?
 `;
 
@@ -161,11 +191,15 @@ function aplicarFiltros(
 }
 
 // ==================== CÁLCULOS ====================
-function calcularHorasTrabalhadas(hrIni: string = '0000', hrFim: string = '0000'): number {
-  const horaIni = parseInt(hrIni.substring(0, 2));
-  const minIni = parseInt(hrIni.substring(2, 4));
-  const horaFim = parseInt(hrFim.substring(0, 2));
-  const minFim = parseInt(hrFim.substring(2, 4));
+function calcularHorasTrabalhadas(hrIni: string | null = '0000', hrFim: string | null = '0000'): number {
+  // Tratar valores null
+  const hrIniNorm = hrIni || '0000';
+  const hrFimNorm = hrFim || '0000';
+  
+  const horaIni = parseInt(hrIniNorm.substring(0, 2));
+  const minIni = parseInt(hrIniNorm.substring(2, 4));
+  const horaFim = parseInt(hrFimNorm.substring(0, 2));
+  const minFim = parseInt(hrFimNorm.substring(2, 4));
   
   const totalMinutos = (horaFim * 60 + minFim) - (horaIni * 60 + minIni);
   return parseFloat((totalMinutos / 60).toFixed(2));
@@ -198,6 +232,260 @@ function agruparHoras(chamados: OSComHoras[]): {
   });
 
   return { horasPorChamado, horasPorTarefa };
+}
+
+// ==================== AGREGAÇÕES PARA GRÁFICOS ====================
+function extrairDiaDoDate(dtiniOs: any): number {
+  // Tratar valores null ou vazios
+  if (!dtiniOs) return 0;
+  
+  // Se vier como string (formato DD.MM.YYYY)
+  if (typeof dtiniOs === 'string') {
+    const [dia] = dtiniOs.split('.');
+    return parseInt(dia) || 0;
+  }
+  
+  // Se vier como objeto Date
+  if (dtiniOs instanceof Date) {
+    return dtiniOs.getDate();
+  }
+  
+  // Tentar converter para Date se for timestamp ou outro formato
+  const data = new Date(dtiniOs);
+  if (!isNaN(data.getTime())) {
+    return data.getDate();
+  }
+  
+  return 0; // Fallback
+}
+
+function gerarHorasPorDia(chamados: OSComHoras[], mes: number, ano: number) {
+  const diasNoMes = new Date(ano, mes, 0).getDate();
+  const horasPorDia = new Map<number, number>();
+  
+  // Inicializar todos os dias com 0
+  for (let dia = 1; dia <= diasNoMes; dia++) {
+    horasPorDia.set(dia, 0);
+  }
+  
+  // Acumular horas por dia
+  chamados.forEach(os => {
+    const diaNum = extrairDiaDoDate(os.DTINI_OS);
+    if (diaNum > 0 && diaNum <= diasNoMes) {
+      const horasAtuais = horasPorDia.get(diaNum) || 0;
+      horasPorDia.set(diaNum, horasAtuais + (os.TOTAL_HRS_OS || 0));
+    }
+  });
+  
+  // Converter para array ordenado
+  return Array.from(horasPorDia.entries())
+    .map(([dia, horas]) => ({
+      dia,
+      horas: parseFloat(horas.toFixed(2)),
+      data: `${dia.toString().padStart(2, '0')}/${mes.toString().padStart(2, '0')}`
+    }))
+    .sort((a, b) => a.dia - b.dia);
+}
+
+function gerarTopChamados(chamados: OSComHoras[], limite: number = 10) {
+  const horasPorChamado = new Map<string, { horas: number; cliente: string; status: string }>();
+  
+  chamados.forEach(os => {
+    if (!os.CHAMADO_OS) return;
+    
+    const atual = horasPorChamado.get(os.CHAMADO_OS) || { 
+      horas: 0, 
+      cliente: os.NOME_CLIENTE || 'Sem cliente',
+      status: os.STATUS_CHAMADO || 'Sem status'
+    };
+    
+    horasPorChamado.set(os.CHAMADO_OS, {
+      ...atual,
+      horas: atual.horas + (os.TOTAL_HRS_OS || 0)
+    });
+  });
+  
+  return Array.from(horasPorChamado.entries())
+    .map(([chamado, dados]) => ({
+      chamado,
+      horas: parseFloat(dados.horas.toFixed(2)),
+      cliente: dados.cliente,
+      status: dados.status
+    }))
+    .sort((a, b) => b.horas - a.horas)
+    .slice(0, limite);
+}
+
+function gerarHorasPorStatus(chamados: OSComHoras[]) {
+  const horasPorStatus = new Map<string, number>();
+  
+  chamados.forEach(os => {
+    const status = os.STATUS_CHAMADO || 'Sem status';
+    const horasAtuais = horasPorStatus.get(status) || 0;
+    horasPorStatus.set(status, horasAtuais + (os.TOTAL_HRS_OS || 0));
+  });
+  
+  return Array.from(horasPorStatus.entries())
+    .map(([status, horas]) => ({
+      status,
+      horas: parseFloat(horas.toFixed(2)),
+      percentual: 0 // Será calculado depois
+    }))
+    .sort((a, b) => b.horas - a.horas);
+}
+
+function gerarHorasPorRecurso(chamados: OSComHoras[]) {
+  const horasPorRecurso = new Map<string, { 
+    codRecurso: number;
+    horas: number; 
+    quantidadeOS: number 
+  }>();
+  
+  chamados.forEach(os => {
+    const recurso = os.NOME_RECURSO || 'Sem recurso';
+    const atual = horasPorRecurso.get(recurso) || { 
+      codRecurso: os.COD_RECURSO,
+      horas: 0, 
+      quantidadeOS: 0 
+    };
+    
+    horasPorRecurso.set(recurso, {
+      codRecurso: atual.codRecurso,
+      horas: atual.horas + (os.TOTAL_HRS_OS || 0),
+      quantidadeOS: atual.quantidadeOS + 1
+    });
+  });
+  
+  return Array.from(horasPorRecurso.entries())
+    .map(([recurso, dados]) => ({
+      recurso,
+      codRecurso: dados.codRecurso,
+      horas: parseFloat(dados.horas.toFixed(2)),
+      quantidadeOS: dados.quantidadeOS,
+      mediaHorasPorOS: parseFloat((dados.horas / dados.quantidadeOS).toFixed(2))
+    }))
+    .sort((a, b) => b.horas - a.horas);
+}
+
+function gerarHorasPorCliente(chamados: OSComHoras[]) {
+  const horasPorCliente = new Map<string, { 
+    codCliente: number;
+    horas: number; 
+    quantidadeOS: number;
+    quantidadeChamados: Set<string>;
+  }>();
+  
+  chamados.forEach(os => {
+    const cliente = os.NOME_CLIENTE || 'Sem cliente';
+    const atual = horasPorCliente.get(cliente) || { 
+      codCliente: os.COD_CLIENTE,
+      horas: 0, 
+      quantidadeOS: 0,
+      quantidadeChamados: new Set<string>()
+    };
+    
+    if (os.CHAMADO_OS) {
+      atual.quantidadeChamados.add(os.CHAMADO_OS);
+    }
+    
+    horasPorCliente.set(cliente, {
+      codCliente: atual.codCliente,
+      horas: atual.horas + (os.TOTAL_HRS_OS || 0),
+      quantidadeOS: atual.quantidadeOS + 1,
+      quantidadeChamados: atual.quantidadeChamados
+    });
+  });
+  
+  return Array.from(horasPorCliente.entries())
+    .map(([cliente, dados]) => ({
+      cliente,
+      codCliente: dados.codCliente,
+      horas: parseFloat(dados.horas.toFixed(2)),
+      quantidadeOS: dados.quantidadeOS,
+      quantidadeChamados: dados.quantidadeChamados.size,
+      mediaHorasPorOS: parseFloat((dados.horas / dados.quantidadeOS).toFixed(2))
+    }))
+    .sort((a, b) => b.horas - a.horas);
+}
+
+async function gerarHorasPorMes(ano: number, params: QueryParams) {
+  const mesesNomes = [
+    'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun',
+    'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'
+  ];
+  
+  const horasPorMes: Array<{ mes: string; horas: number; mesNum: number }> = [];
+  
+  // Buscar dados de todos os meses do ano
+  for (let mes = 1; mes <= 12; mes++) {
+    const { dataInicio, dataFim } = construirDatas(mes, ano);
+    
+const sqlMensal = `
+      SELECT 
+        OS.HRINI_OS,
+        OS.HRFIM_OS
+      FROM OS
+      LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
+      LEFT JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
+      LEFT JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
+      LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
+      LEFT JOIN CHAMADO ON CASE WHEN TRIM(OS.CHAMADO_OS) = '' THEN NULL ELSE CAST(OS.CHAMADO_OS AS INTEGER) END = CHAMADO.COD_CHAMADO
+      WHERE OS.DTINI_OS >= ? AND OS.DTINI_OS < ?
+    `;
+    
+    const paramsMensal = [dataInicio, dataFim];
+    
+    // Aplicar filtros opcionais
+    let sqlFiltrado = sqlMensal;
+    if (!params.isAdmin && params.codCliente) {
+      sqlFiltrado += ` AND CLIENTE.COD_CLIENTE = ?`;
+      paramsMensal.push(params.codCliente);
+    }
+    if (params.codClienteFilter) {
+      sqlFiltrado += ` AND CLIENTE.COD_CLIENTE = ?`;
+      paramsMensal.push(params.codClienteFilter);
+    }
+    if (params.codRecursoFilter) {
+      sqlFiltrado += ` AND RECURSO.COD_RECURSO = ?`;
+      paramsMensal.push(params.codRecursoFilter);
+    }
+    if (params.status) {
+      sqlFiltrado += ` AND UPPER(CHAMADO.STATUS_CHAMADO) LIKE UPPER(?)`;
+      paramsMensal.push(`%${params.status}%`);
+    }
+    
+    try {
+      const resultados = await firebirdQuery(sqlFiltrado, paramsMensal);
+      const normalizados = normalizarArray(resultados);
+      
+      const totalHoras = normalizados.reduce((acc, os) => {
+        return acc + calcularHorasTrabalhadas(os.HRINI_OS, os.HRFIM_OS);
+      }, 0);
+      
+      horasPorMes.push({
+        mes: mesesNomes[mes - 1],
+        mesNum: mes,
+        horas: parseFloat(totalHoras.toFixed(2))
+      });
+    } catch (error) {
+      console.error(`Erro ao buscar dados do mês ${mes}:`, error);
+      horasPorMes.push({
+        mes: mesesNomes[mes - 1],
+        mesNum: mes,
+        horas: 0
+      });
+    }
+  }
+  
+  return horasPorMes;
+}
+
+function calcularPercentuais(dados: Array<{ horas: number; [key: string]: any }>) {
+  const total = dados.reduce((acc, item) => acc + item.horas, 0);
+  return dados.map(item => ({
+    ...item,
+    percentual: total > 0 ? parseFloat(((item.horas / total) * 100).toFixed(2)) : 0
+  }));
 }
 
 function calcularTotalizadores(
@@ -264,10 +552,13 @@ export async function GET(request: Request) {
     );
 
     // Executar queries em paralelo para melhor performance
-    const [chamados, totalizadoresDB] = await Promise.all([
+    const [chamadosRaw, totalizadoresDB] = await Promise.all([
       firebirdQuery(sqlFinal, paramsPrincipal),
       firebirdQuery(sqlTotais, paramsTotais)
     ]);
+
+    // NORMALIZAR DADOS - Converter strings vazias em null
+    const chamados = normalizarArray(chamadosRaw);
 
     // Processar dados
     const chamadosComHoras = processarChamadosComHoras(chamados);
@@ -279,9 +570,28 @@ export async function GET(request: Request) {
       totalizadoresDB
     );
 
+    // Gerar dados para gráficos
+    const horasPorDia = gerarHorasPorDia(chamadosComHoras, params.mes, params.ano);
+    const topChamados = gerarTopChamados(chamadosComHoras, 10);
+    const horasPorStatusRaw = gerarHorasPorStatus(chamadosComHoras);
+    const horasPorStatus = calcularPercentuais(horasPorStatusRaw);
+    const horasPorRecurso = gerarHorasPorRecurso(chamadosComHoras);
+    const horasPorCliente = params.isAdmin ? gerarHorasPorCliente(chamadosComHoras) : undefined;
+    
+    // Gerar dados anuais (todos os meses do ano)
+    const horasPorMes = await gerarHorasPorMes(params.ano, params);
+
     return NextResponse.json({
-      chamados: chamadosComHoras,
-      totalizadores
+      ordensServico: chamadosComHoras,
+      totalizadores,
+      graficos: {
+        horasPorDia,          // Gráfico de linha - evolução diária
+        topChamados,          // Gráfico de barras - top chamados
+        horasPorStatus,       // Gráfico de pizza - distribuição por status
+        horasPorRecurso,      // Gráfico de barras horizontais - horas por recurso
+        horasPorCliente,      // Gráfico comparativo (apenas admin)
+        horasPorMes           // Gráfico de barras - horas por mês (ano completo)
+      }
     });
 
   } catch (error) {

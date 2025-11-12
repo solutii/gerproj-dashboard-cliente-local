@@ -75,7 +75,8 @@ function corrigirManual(texto: string): string {
     'Âª': 'ª',
     'Â°': '°',
     'Â': '',
-    '�': '', // remove replacement character
+    '�O': 'ÃO', // remove replacement character
+    '�A': 'ÇA', // remove replacement character
   };
 
   let corrigido = texto;

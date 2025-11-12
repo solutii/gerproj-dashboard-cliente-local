@@ -4,15 +4,14 @@
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { ReactNode, useEffect, useState } from 'react';
-import MobileHeader from '../utils/Mobile_Header';
-import Sidebar from '../utils/Sidebar';
+import { Sidebar } from '../utils/Sidebar';
 
 interface LayoutProps {
   children: ReactNode;
   pageTitle: string; // Adiciona uma prop opcional para o título da página
 }
 
-export default function DashboardLayout({ children, pageTitle }: LayoutProps) {
+export function DashboardLayout({ children, pageTitle }: LayoutProps) {
   // Estado para controlar a abertura do sidebar
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const router = useRouter();
@@ -43,13 +42,6 @@ export default function DashboardLayout({ children, pageTitle }: LayoutProps) {
   return (
     // Container principal do layout do dashboard
     <div className="kodchasan flex h-screen text-black lg:overflow-hidden">
-      {/* Cabeçalho para dispositivos móveis */}
-      <MobileHeader
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        pageTitle={pageTitle}
-      />
-
       {/* Overlay do sidebar (aparece no mobile quando o sidebar está aberto) */}
       {sidebarOpen && (
         <div

@@ -3,7 +3,7 @@
 import { ReactNode, useEffect, useState } from 'react';
 import MobileHeader from '../utils/Mobile_Header';
 import ProtecaoRotas from '../utils/ProtecaoRotas';
-import Sidebar from '../utils/Sidebar';
+import {Sidebar} from '../utils/Sidebar';
 
 // Define as props esperadas pelo componente LayoutTabela.
 interface LayoutProps {

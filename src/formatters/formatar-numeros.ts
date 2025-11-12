@@ -6,15 +6,16 @@ export const formatarCodNumber = (num: number | null | undefined): string => {
 };
 // ===================================================================================================
 
-export const formatarCodString = (value: string | null | undefined): string => {
-   if (!value) return '';
-
-   // Remove tudo que não for dígito
-   const onlyDigits = value.replace(/\D/g, '');
-   if (!onlyDigits) return '';
-
-   // Converte para número e formata
-   return new Intl.NumberFormat('de-DE').format(Number(onlyDigits));
+export const formatarCodString = (value: string | number | null | undefined): string => {
+  if (!value && value !== 0) return '';
+  
+  // Garante conversão para string
+  const stringValue = String(value);
+  
+  const onlyDigits = stringValue.replace(/\D/g, '');
+  if (!onlyDigits) return '';
+  
+  return new Intl.NumberFormat('de-DE').format(Number(onlyDigits));
 };
 // ====================================================================================================
 

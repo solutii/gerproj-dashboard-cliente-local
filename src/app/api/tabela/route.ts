@@ -25,8 +25,6 @@ interface ApontamentoFirebird {
   HRFIM_OS?: string;
   OBS_OS?: string;
   VALCLI_OS?: string;
-  DTHRINI_APONT?: Date;
-  DTHRFIM_APONT?: Date;
 }
 
 interface ApontamentoProcessado {
@@ -46,7 +44,7 @@ interface ApontamentoProcessado {
 // ==================== VALIDAÇÕES ====================
 function validarParametros(searchParams: URLSearchParams): QueryParams | NextResponse {
   const isAdmin = searchParams.get('isAdmin') === 'true';
-  const codCliente = searchParams.get('codCliente')?.trim();
+  const codCliente = searchParams.get('codCliente')?.trim() || undefined;
   const mes = Number(searchParams.get('mes'));
   const ano = Number(searchParams.get('ano'));
 
@@ -76,9 +74,9 @@ function validarParametros(searchParams: URLSearchParams): QueryParams | NextRes
     codCliente,
     mes,
     ano,
-    codClienteFilter: searchParams.get('cliente')?.trim(),
-    codRecursoFilter: searchParams.get('recurso')?.trim(),
-    status: searchParams.get('status') || undefined
+    codClienteFilter: searchParams.get('codClienteFilter')?.trim() || undefined,
+    codRecursoFilter: searchParams.get('codRecursoFilter')?.trim() || undefined,
+    status: searchParams.get('status')?.trim() || undefined
   };
 }
 
@@ -114,7 +112,7 @@ const SQL_BASE = `
   LEFT JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
   LEFT JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
   LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
-  LEFT JOIN CHAMADO ON CAST(OS.CHAMADO_OS AS INTEGER) = CHAMADO.COD_CHAMADO
+  LEFT JOIN CHAMADO ON CASE WHEN TRIM(OS.CHAMADO_OS) = '' THEN NULL ELSE CAST(OS.CHAMADO_OS AS INTEGER) END = CHAMADO.COD_CHAMADO
   WHERE OS.DTINI_OS >= ? AND OS.DTINI_OS < ?
 `;
 
@@ -131,15 +129,15 @@ function aplicarFiltros(
     paramsArray.push(parseInt(params.codCliente));
   }
   
-  // Filtros opcionais
+  // Filtros opcionais (MESMA LÓGICA DA API DE OS)
   if (params.codClienteFilter) {
-    sql += ` AND UPPER(CLIENTE.NOME_CLIENTE) LIKE UPPER(?)`;
-    paramsArray.push(`%${params.codClienteFilter}%`);
+    sql += ` AND CLIENTE.COD_CLIENTE = ?`;
+    paramsArray.push(parseInt(params.codClienteFilter));
   }
 
   if (params.codRecursoFilter) {
-    sql += ` AND UPPER(RECURSO.NOME_RECURSO) LIKE UPPER(?)`;
-    paramsArray.push(`%${params.codRecursoFilter}%`);
+    sql += ` AND RECURSO.COD_RECURSO = ?`;
+    paramsArray.push(parseInt(params.codRecursoFilter));
   }
 
   if (params.status) {
@@ -191,8 +189,13 @@ function formatarDuracao(totalMinutos: number): string {
   // Se tiver horas, formata completo (h para singular, hs para plural)
   const sufixoHora = horas === 1 ? 'h' : 'hs';
   
-  // Se não tiver minutos, retorna apenas as horas
-  if (minutos === 0) {
+  // Se não tiver minutos e horas for menor que 10, retorna apenas as horas com uma casa
+  if (minutos === 0 && horas < 10) {
+    return `${String(horas).padStart(1, '0')}${sufixoHora}`;
+  }
+
+  // Se não tiver minutos e horas for 10 ou mais, retorna apenas as horas com duas casas
+  if (minutos === 0 && horas >= 10) {
     return `${String(horas).padStart(2, '0')}${sufixoHora}`;
   }
   
@@ -274,6 +277,11 @@ export async function GET(request: Request) {
     const sqlFinal = `${sql} ORDER BY RECURSO.NOME_RECURSO ASC, OS.DTINI_OS ASC, OS.HRINI_OS ASC`;
 
     console.log('[API] Executando query no Firebird...');
+    console.log('[API] Filtros aplicados:', {
+      codClienteFilter: params.codClienteFilter,
+      codRecursoFilter: params.codRecursoFilter,
+      status: params.status
+    });
 
     const apontamentos = await firebirdQuery(sqlFinal, sqlParams);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import Filtros from '@/components/utils/Filtros';
+import {Filtros} from '@/components/utils/Filtros';
 import LayoutTabela from '@/components/tabela/Layout_Tabela';
 import TabelaChamados from '@/components/tabela/Tabela_Chamados';
 import { useAuth } from '@/context/AuthContext';

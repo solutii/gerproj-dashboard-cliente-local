@@ -2,11 +2,10 @@ import { useAuth } from '@/context/AuthContext';
 import { useFilters } from '@/context/FiltersContext';
 import { formatarHoraSufixo } from '@/formatters/formatar-hora';
 import axios from 'axios';
-import { X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { IoClose } from 'react-icons/io5';
 import { MdFilterAlt } from 'react-icons/md';
 import { useDebounce } from 'use-debounce';
-import { IoClose } from "react-icons/io5";
 
 // Interface para as props do componente de filtro
 interface FiltersProps {
@@ -20,7 +19,7 @@ interface FiltersProps {
 }
 
 // Componente principal de filtros do dashboard
-export default function ContainerFiltro({ onFiltersChange }: FiltersProps) {
+export function Filtros({ onFiltersChange }: FiltersProps) {
   // Obtém a data atual
   const hoje = new Date();
   // Hooks de contexto para filtros globais
@@ -31,13 +30,17 @@ export default function ContainerFiltro({ onFiltersChange }: FiltersProps) {
   const [mes, setMes] = useState(filters.mes || hoje.getMonth() + 1);
 
   // Estados para lista de clientes e cliente selecionado
-  const [cliente, setCliente] = useState<string[]>([]);
+  const [cliente, setCliente] = useState<Array<{ cod: string; nome: string }>>(
+    [],
+  );
   const [clienteSelecionado, setClienteSelecionado] = useState(
     filters.cliente || '',
   );
 
   // Estados para lista de recursos e recurso selecionado
-  const [recurso, setRecurso] = useState<string[]>([]);
+  const [recurso, setRecurso] = useState<Array<{ cod: string; nome: string }>>(
+    [],
+  );
   const [recursoSelecionado, setRecursoSelecionado] = useState(
     filters.recurso || '',
   );
@@ -112,7 +115,7 @@ export default function ContainerFiltro({ onFiltersChange }: FiltersProps) {
         params.append('codCliente', codCliente);
       }
 
-      const url = `/api/filtro/cliente?${params.toString()}`;
+      const url = `/api/clientes?${params.toString()}`;
 
       axios
         .get(url)
@@ -154,7 +157,7 @@ export default function ContainerFiltro({ onFiltersChange }: FiltersProps) {
         params.append('cliente', clienteSelecionado);
       }
 
-      const url = `/api/filtro/recurso?${params.toString()}`;
+      const url = `/api/recursos?${params.toString()}`;
 
       axios
         .get(url)
@@ -212,7 +215,7 @@ export default function ContainerFiltro({ onFiltersChange }: FiltersProps) {
         params.append('recurso', recursoSelecionado);
       }
 
-      const url = `/api/filtro/status?${params.toString()}`;
+      const url = `/api/status?${params.toString()}`;
 
       axios
         .get(url)
@@ -306,10 +309,12 @@ export default function ContainerFiltro({ onFiltersChange }: FiltersProps) {
           disabled={disabled}
           className={className}
         >
-          <option value="">{placeholder}</option>
+          <option value="" key="placeholder-option">
+            {placeholder}
+          </option>
           {options.map((opt) => (
             <option
-              key={opt.value}
+              key={`option-${opt.value}`} // ← ADICIONEI A KEY ÚNICA
               value={opt.value}
               className="tracking-widest font-medium italic select-none"
             >
@@ -327,7 +332,10 @@ export default function ContainerFiltro({ onFiltersChange }: FiltersProps) {
             className="group absolute right-10 top-1/2 -translate-y-1/2 bg-slate-300 p-1 rounded-full hover:bg-red-500 cursor-pointer shadow-sm shadow-black"
             title="Limpar filtro"
           >
-            <IoClose size={24} className="text-black group-hover:text-white group-hover:rotate-180 transition-all" />
+            <IoClose
+              size={24}
+              className="text-black group-hover:text-white group-hover:rotate-180 transition-all"
+            />
           </button>
         )}
       </div>
@@ -362,122 +370,6 @@ export default function ContainerFiltro({ onFiltersChange }: FiltersProps) {
           )}
         </span>
       </header>
-
-      {/* Filtros para mobile (dentro de card) */}
-      <div className="mb-4 lg:hidden">
-        <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-3 flex items-center font-medium text-gray-700">
-            <span className="mr-2">🔍</span>
-            Filtros de Busca
-            {isLoading && (
-              <span className="ml-2 animate-pulse text-xs text-purple-600">
-                Carregando...
-              </span>
-            )}
-          </h3>
-
-          <div className="space-y-3">
-            {/* Linha com Ano e Mês */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* Ano */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Ano
-                </label>
-                <select
-                  value={ano}
-                  onChange={(e) => setAno(Number(e.target.value))}
-                  className="w-full rounded-lg border border-gray-300 p-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-purple-500"
-                >
-                  {years.map((yearOption) => (
-                    <option key={yearOption} value={yearOption}>
-                      {yearOption}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Mês */}
-              <div>
-                <label className="mb-1 block text-xs font-medium text-gray-600">
-                  Mês
-                </label>
-                <select
-                  value={mes}
-                  onChange={(e) => setMes(Number(e.target.value))}
-                  className="w-full rounded-lg border border-gray-300 p-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-purple-500"
-                >
-                  {months.map((monthName, i) => (
-                    <option key={i} value={i + 1}>
-                      {monthName}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Cliente */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
-                Cliente
-              </label>
-              <select
-                value={clienteSelecionado}
-                onChange={(e) => setClienteSelecionado(e.target.value)}
-                disabled={!cliente.length}
-                className="w-full rounded-lg border border-gray-300 p-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-purple-500 disabled:bg-gray-50"
-              >
-                <option value="">Todos os clientes</option>
-                {cliente.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Recurso */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
-                Recurso
-              </label>
-              <select
-                value={recursoSelecionado}
-                onChange={(e) => setRecursoSelecionado(e.target.value)}
-                disabled={!recurso.length || isLoading}
-                className="w-full rounded-lg border border-gray-300 p-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-purple-500 disabled:bg-gray-50"
-              >
-                <option value="">Todos os recursos</option>
-                {recurso.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Status */}
-            <div>
-              <label className="mb-1 block text-xs font-medium text-gray-600">
-                Status
-              </label>
-              <select
-                value={statusSelecionado}
-                onChange={(e) => setStatusSelecionado(e.target.value)}
-                disabled={!status.length || isLoading}
-                className="w-full rounded-lg border border-gray-300 p-2.5 text-sm focus:border-transparent focus:ring-2 focus:ring-purple-500 disabled:bg-gray-50"
-              >
-                <option value="">Todos os status</option>
-                {status.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
 
       {/* Filtros para desktop */}
       <div className="hidden lg:block">
@@ -524,23 +416,22 @@ export default function ContainerFiltro({ onFiltersChange }: FiltersProps) {
             onChange={setClienteSelecionado}
             onClear={() => setClienteSelecionado('')}
             disabled={!cliente.length || !!codCliente}
-            options={cliente.map((c) => ({ value: c, label: c }))}
+            options={cliente.map((c) => ({ value: c.cod, label: c.nome }))}
             placeholder="Selecione o cliente"
             showClear={!codCliente}
             className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-lg select-none border p-3 shadow-md shadow-black transition-all hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed disabled:text-slate-300"
           />
 
-          {/* Recurso */}
           <SelectWithClear
             value={recursoSelecionado}
             onChange={setRecursoSelecionado}
             onClear={() => setRecursoSelecionado('')}
             disabled={!recurso.length || isLoading}
-            options={recurso.map((r) => ({ value: r, label: r }))}
+            options={recurso.map((r) => ({ value: r.cod, label: r.nome }))}
             placeholder={
               isLoading ? 'Carregando recursos...' : 'Selecione o recurso'
             }
-            className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-lg select-none border p-3 shadow-md shadow-black transition-all hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-lg select-none border p-3 shadow-md shadow-black transition-all hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed disabled:text-slate-300"
           />
 
           {/* Status */}

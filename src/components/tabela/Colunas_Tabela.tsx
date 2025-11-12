@@ -1,16 +1,12 @@
 import { formatarDataParaBR } from '@/formatters/formatar-data';
-import {
-  formatarHorasTotaisSufixo,
-  formatarHoraSufixo,
-} from '@/formatters/formatar-hora';
+import { formatarHoraSufixo } from '@/formatters/formatar-hora';
 import {
   formatarCodNumber,
   formatarCodString,
 } from '@/formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 import { ColumnDef } from '@tanstack/react-table';
-import { Clock } from 'lucide-react';
-import { FaCheckCircle, FaClock, FaTimesCircle } from 'react-icons/fa';
+import { FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 import { TooltipTabela } from '../utils/Tooltip';
 
 // Define o tipo das propriedades de cada linha da tabela
@@ -52,7 +48,6 @@ const ValidacaoBadge = ({ status }: { status?: string | null }) => {
 
   return (
     <div className="inline-flex items-center gap-2 rounded-lg bg-slate-200 px-4 py-2 text-xs font-extrabold text-slate-800 tracking-widest select-none italic">
-      <FaClock className="text-slate-700" size={20} />
       {status ?? 'n/a'}
     </div>
   );
@@ -74,6 +69,14 @@ export const columns: ColumnDef<TableRowProps>[] = [
       </div>
     ),
     enableColumnFilter: true,
+    filterFn: (row, columnId, filterValue) => {
+      if (!filterValue || filterValue.trim() === '') return true;
+      const cellValue = row.getValue(columnId);
+      if (cellValue == null) return false;
+      const cellString = String(cellValue).replace(/\D/g, '');
+      const filterString = String(filterValue).replace(/\D/g, '');
+      return cellString.includes(filterString);
+    },
   },
   // =====
 
@@ -86,11 +89,19 @@ export const columns: ColumnDef<TableRowProps>[] = [
       </div>
     ),
     cell: ({ getValue }) => (
-      <div className="text-center font-medium select-none tracking-widest text-slate-800  text-sm">
+      <div className="text-center font-medium select-none tracking-widest text-slate-800 text-sm">
         {formatarCodNumber(getValue() as number)}
       </div>
     ),
     enableColumnFilter: true,
+    filterFn: (row, columnId, filterValue) => {
+      if (!filterValue || filterValue.trim() === '') return true;
+      const cellValue = row.getValue(columnId);
+      if (cellValue == null) return false;
+      const cellString = String(cellValue).replace(/\D/g, '');
+      const filterString = String(filterValue).replace(/\D/g, '');
+      return cellString.includes(filterString);
+    },
   },
   // =====
 
@@ -148,11 +159,19 @@ export const columns: ColumnDef<TableRowProps>[] = [
       </div>
     ),
     cell: ({ getValue }) => (
-      <div className="text-left font-medium tracking-widest select-none text-slate-800  text-sm">
+      <div className="text-left font-medium tracking-widest select-none text-slate-800 text-sm">
         {getValue() as string}
       </div>
     ),
     enableColumnFilter: true,
+    filterFn: (row, columnId, filterValue) => {
+      if (!filterValue || filterValue.trim() === '') return true;
+      const cellValue = row.getValue(columnId);
+      if (cellValue == null) return false;
+      const cellString = String(cellValue).toLowerCase().trim();
+      const filterString = String(filterValue).toLowerCase().trim();
+      return cellString.includes(filterString);
+    },
   },
   // =====
 
@@ -165,13 +184,18 @@ export const columns: ColumnDef<TableRowProps>[] = [
       </div>
     ),
     cell: ({ getValue }) => {
-      const fullName = (getValue() as string) ?? '';
-      const parts = fullName.trim().split(/\s+/).filter(Boolean);
+      const raw = (getValue() as string) ?? '';
+      const corrected = corrigirTextoCorrompido(raw);
+      const parts = corrected.trim().split(/\s+/).filter(Boolean);
       const display =
         parts.length <= 2 ? parts.join(' ') : parts.slice(0, 2).join(' ');
       return (
-        <div className="text-left tracking-widest select-none font-medium text-slate-800  text-sm">
-          {display}
+        <div className="w-full">
+          <TooltipTabela content={corrected} maxWidth="200px">
+            <div className="text-left tracking-widest select-none font-medium text-slate-800 text-sm truncate">
+              {display}
+            </div>
+          </TooltipTabela>
         </div>
       );
     },
@@ -231,7 +255,7 @@ export const columns: ColumnDef<TableRowProps>[] = [
       const value = getValue() as string;
       return (
         <div className="text-center tracking-widest select-none font-extrabold text-base text-green-600 italic">
-          {formatarHorasTotaisSufixo(value)}
+          {value}
         </div>
       );
     },
@@ -256,11 +280,11 @@ export const columns: ColumnDef<TableRowProps>[] = [
     filterFn: (row, _columnId, filterValue) => {
       // Se não há filtro aplicado, mostra todas as linhas
       if (!filterValue) return true;
-      
+
       const value = row.getValue('valcli_os') as string | null | undefined;
       const cellValueUpper = (value ?? '').toString().toUpperCase().trim();
       const filterValueUpper = filterValue.toString().toUpperCase().trim();
-      
+
       // Comparação exata para SIM ou NAO
       return cellValueUpper === filterValueUpper;
     },

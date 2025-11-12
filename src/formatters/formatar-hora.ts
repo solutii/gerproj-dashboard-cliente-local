@@ -41,16 +41,8 @@ export const formatarHoraSufixo = (
   const horasFormatadas = hours.toString().padStart(2, '0');
   const minutosFormatados = minutes.toString().padStart(2, '0');
 
-  // Aplica o sufixo baseado nas horas
-  if (hours === 0) {
-    return `${minutosFormatados}min`;
-  }
 
-  if (hours === 1) {
-    return `${horasFormatadas}h : ${minutosFormatados}min`;
-  }
-
-  return `${horasFormatadas}hs : ${minutosFormatados}min`;
+  return `${horasFormatadas}:${minutosFormatados}`;
 };
 // ====================================================================================================
 

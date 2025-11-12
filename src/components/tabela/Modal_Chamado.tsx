@@ -187,7 +187,7 @@ export function ModalChamado({
 
   const saveValidation = useCallback(
     async (chamado: TableRowProps) => {
-      const response = await fetch('/api/save-validation', {
+      const response = await fetch('/api/salvar-validacao', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

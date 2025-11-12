@@ -10,7 +10,7 @@ interface SidebarProps {
   setSidebarOpen: (open: boolean) => void;
 }
 
-export default function Sidebar({ setSidebarOpen }: SidebarProps) {
+export function Sidebar({ setSidebarOpen }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
@@ -73,8 +73,8 @@ export default function Sidebar({ setSidebarOpen }: SidebarProps) {
               </div>
 
               <p className="animate-pulse text-sm font-semibold text-white tracking-widest select-none">
-                {targetRoute === '/dashboard' && 'Carregando Dashboard'}
-                {targetRoute === '/tabela-chamado' && "Carregando OS's"}
+                {targetRoute === '/paginas/dashboard' && 'Carregando Dashboard'}
+                {targetRoute === '/paginas/tabela' && "Carregando OS's"}
               </p>
             </div>
 
@@ -123,32 +123,32 @@ export default function Sidebar({ setSidebarOpen }: SidebarProps) {
           <div className="flex w-full flex-1 flex-col gap-12">
             {/* Dashboard Link */}
             <Link
-              href="/dashboard"
-              onClick={(e) => handleNavigation(e, '/dashboard')}
+              href="/paginas/dashboard"
+              onClick={(e) => handleNavigation(e, '/paginas/dashboard')}
               className={`group relative flex items-center rounded-2xl px-5 py-4 transition-all ${
-                pathname === '/dashboard'
+                pathname === '/paginas/dashboard'
                   ? 'bg-gradient-to-r from-purple-950 to-blue-950 ring-2 ring-teal-500'
                   : 'bg-white/20 hover:bg-white/30 shadow-md shadow-black hover:shadow-lg hover:shadow-black hover:scale-105'
               } ${
-                isNavigating && targetRoute === '/dashboard'
+                isNavigating && targetRoute === '/paginas/dashboard'
                   ? 'pointer-events-none opacity-60'
                   : 'hover:scale-[1.02] active:scale-95'
               }`}
             >
 
               {/* Barra lateral indicadora */}
-              {pathname === '/dashboard' && (
+              {pathname === '/paginas/dashboard' && (
                 <div className="absolute left-0 top-1/2 h-3/4 w-1.5 -translate-y-1/2 rounded-r-full bg-teal-500 shadow-lg shadow-black animate-pulse"></div>
               )}
 
               {/* Ícone ou Spinner */}
               <div className="relative flex items-center justify-center">
-                {isNavigating && targetRoute === '/dashboard' ? (
+                {isNavigating && targetRoute === '/paginas/dashboard' ? (
                   <div className="h-7 w-7 animate-spin rounded-full border-3 border-white/20 border-t-white"></div>
                 ) : (
                   <IoHome
                     className={`h-7 w-7 transition-all ${
-                      pathname === '/dashboard'
+                      pathname === '/paginas/dashboard'
                         ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
                         : 'text-white/80 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]'
                     }`}
@@ -159,7 +159,7 @@ export default function Sidebar({ setSidebarOpen }: SidebarProps) {
               {/* Label */}
               <span
                 className={`ml-4 text-lg font-extrabold tracking-widest select-none transition-all ${
-                  pathname === '/dashboard'
+                  pathname === '/paginas/dashboard'
                     ? 'text-white'
                     : 'text-white/80'
                 }`}
@@ -170,32 +170,32 @@ export default function Sidebar({ setSidebarOpen }: SidebarProps) {
 
             {/* Chamados Link */}
             <Link
-              href="/tabela-chamado"
-              onClick={(e) => handleNavigation(e, '/tabela-chamado')}
+              href="/paginas/tabela"
+              onClick={(e) => handleNavigation(e, '/paginas/tabela')}
               className={`group relative flex items-center rounded-2xl px-5 py-4 transition-all ${
-                pathname === '/tabela-chamado'
+                pathname === '/paginas/tabela'
                   ? 'bg-gradient-to-r from-purple-950 to-blue-950 ring-2 ring-teal-500'
                   : 'bg-white/20 hover:bg-white/30 shadow-md shadow-black hover:shadow-lg hover:shadow-black hover:scale-105'
               } ${
-                isNavigating && targetRoute === '/tabela-chamado'
+                isNavigating && targetRoute === '/paginas/tabela'
                   ? 'pointer-events-none opacity-60'
                   : 'hover:scale-[1.02] active:scale-95'
               }`}
             >
 
               {/* Barra lateral indicadora */}
-              {pathname === '/tabela-chamado' && (
+              {pathname === '/paginas/tabela' && (
                 <div className="absolute left-0 top-1/2 h-3/4 w-1.5 -translate-y-1/2 rounded-r-full bg-teal-500 shadow-lg shadow-black animate-pulse"></div>
               )}
 
               {/* Ícone ou Spinner */}
               <div className="relative flex items-center justify-center">
-                {isNavigating && targetRoute === '/tabela-chamado' ? (
+                {isNavigating && targetRoute === '/paginas/tabela' ? (
                   <div className="h-7 w-7 animate-spin rounded-full border-3 border-white/20 border-t-white"></div>
                 ) : (
                   <IoMdAnalytics
                     className={`h-7 w-7 transition-all ${
-                      pathname === '/tabela-chamado'
+                      pathname === '/paginas/tabela'
                         ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
                         : 'text-white/80 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]'
                     }`}
@@ -206,7 +206,7 @@ export default function Sidebar({ setSidebarOpen }: SidebarProps) {
               {/* Label */}
               <span
                 className={`ml-4 text-lg font-extrabold tracking-widest select-none transition-all ${
-                  pathname === '/tabela-chamado'
+                  pathname === '/paginas/tabela'
                     ? 'text-white'
                     : 'text-white/80'
                 }`}

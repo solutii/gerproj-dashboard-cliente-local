@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect } from 'react';
 
 // components
+import { Graficos } from '@/components/dashboard/graficos/Graficos';
 import { useFilters } from '@/context/FiltersContext';
-import ContainerHoraRecursoHoraApontada from '../../../components/dashboard/Container_Cards_Graficos';
-import DashboardLayout from '../../../components/dashboard/Layout_Dashboard';
-import ContainerCardsMetricas from '../../../components/dashboard/metricas/Container_Cards';
-import Filtros from '../../../components/utils/Filtros';
+import { DashboardLayout } from '../../../components/dashboard/Layout_Dashboard';
+import { ContainerCardsMetricas } from '../../../components/dashboard/metricas/Container_Cards_Metricas';
+import { Filtros } from '../../../components/utils/Filtros';
 
 export default function DashboardPage() {
   const { isLoggedIn, isAdmin, codCliente } = useAuth();
@@ -42,7 +42,17 @@ export default function DashboardPage() {
     <DashboardLayout pageTitle="Dashboard">
       <Filtros onFiltersChange={handleFiltersChange} />
       <ContainerCardsMetricas filters={filters} />
-      <ContainerHoraRecursoHoraApontada filters={filters} />
+      <div>
+        <Graficos
+          filters={{
+            ano: filters.ano,
+            mes: filters.mes,
+            cliente: filters.cliente,
+            recurso: filters.recurso,
+            status: filters.status,
+          }}
+        />
+      </div>
     </DashboardLayout>
   );
 }

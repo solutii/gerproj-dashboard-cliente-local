@@ -14,6 +14,10 @@ GET http://localhost:3000/api/ordens-servico?isAdmin=true&mes=11&ano=2025&codCli
 
 # ===============================================================================================================================================
 
+
+
+
+
 # ========================================
 # API - HRS-CONTRATADAS-HRS-EXECUTADAS
 # ========================================
@@ -30,10 +34,59 @@ GET http://localhost:3000/api/hrs-contratadas-hrs-executadas?isAdmin=true&mes=11
 
 # ===============================================================================================================================================
 
+
+
+
+
 # ========================================
 # API - TABELA
 # ========================================
 ### Buscar todos os dados da tabela com (admin)
 GET http://localhost:3000/api/tabela?isAdmin=true&mes=11&ano=2025
 
+### Buscar todos os dados da tabela com (admin) e filtra por codCliente
+GET http://localhost:3000/api/tabela?isAdmin=true&mes=11&ano=2025&codClienteFilter=120
+
+### Buscar todos os dados da tabela com (admin) e filtra por codCliente e codRecurso
+GET http://localhost:3000/api/tabela?isAdmin=true&mes=11&ano=2025&codClienteFilter=120&codRecursoFilter=122
+
 # ===============================================================================================================================================
+
+
+
+
+
+# ========================================
+# API - CLIENTES
+# ========================================
+### Buscar todos os clientes com (admin)
+GET http://localhost:3000/api/clientes?isAdmin=true&mes=11&ano=2025
+
+# ===============================================================================================================================================
+
+
+
+
+
+# ========================================
+# API - RECURSOS
+# ========================================
+### Buscar todos os recursos com (admin)
+GET http://localhost:3000/api/recursos?isAdmin=true&mes=11&ano=2025
+
+# ===============================================================================================================================================
+
+
+
+
+
+# ========================================
+# API - STATUS
+# ========================================
+### Buscar todos os status com (admin)
+GET http://localhost:3000/api/status?isAdmin=true&mes=11&ano=2025
+
+# ===============================================================================================================================================
+
+
+
