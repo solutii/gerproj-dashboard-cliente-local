@@ -63,11 +63,16 @@ export const columns: ColumnDef<TableRowProps>[] = [
         CHAMADO
       </div>
     ),
-    cell: ({ getValue }) => (
-      <div className="text-center font-medium select-none tracking-widest text-slate-800 text-sm">
-        {formatarCodString(getValue() as string)}
-      </div>
-    ),
+    cell: ({ getValue }) => {
+      const value = getValue() as string | null | undefined;
+      const displayValue = value ? formatarCodString(value) : 'n/a';
+
+      return (
+        <div className="text-center font-medium select-none tracking-widest text-slate-800 text-sm">
+          {displayValue}
+        </div>
+      );
+    },
     enableColumnFilter: true,
     filterFn: (row, columnId, filterValue) => {
       if (!filterValue || filterValue.trim() === '') return true;

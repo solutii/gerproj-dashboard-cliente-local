@@ -5,10 +5,9 @@ import {
   ColumnFiltersState,
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import axios from 'axios';
+import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FaEraser } from 'react-icons/fa';
 import { IoCall } from 'react-icons/io5';
@@ -41,7 +40,7 @@ interface ApiResponse {
 
 // ==================== CONSTANTES ====================
 const PDF_COLUMNS: { key: keyof TableRowProps; label: string }[] = [
-  { key: 'chamado_os', label: 'N° OS' },
+  { key: 'chamado_os', label: 'N° Chamado' },
   { key: 'cod_os', label: 'CÓD. OS' },
   { key: 'nome_cliente', label: 'Cliente' },
   { key: 'dtini_os', label: 'Data' },
@@ -63,14 +62,45 @@ const createAuthHeaders = () => ({
 });
 
 const parseHorasParaMinutos = (horaStr: string): number => {
-  if (!horaStr || horaStr === '-') return 0;
+  if (!horaStr || horaStr === '-' || horaStr.trim() === '') return 0;
 
-  const match = horaStr.match(/(\d+)(hs?)?:?(\d+)?min/i);
-  if (!match) return 0;
+  const str = horaStr.trim().toLowerCase();
 
-  const horas = parseInt(match[1]) || 0;
-  const minutos = parseInt(match[3]) || 0;
-  return horas * 60 + minutos;
+  // Formato: "2hs:30min" ou "2h:30min" ou "2hs30min"
+  const regexHsMin = /(\d+)\s*h[s]?\s*:?\s*(\d+)\s*min/i;
+  const matchHsMin = str.match(regexHsMin);
+  if (matchHsMin) {
+    const horas = parseInt(matchHsMin[1]) || 0;
+    const minutos = parseInt(matchHsMin[2]) || 0;
+    return horas * 60 + minutos;
+  }
+
+  // Formato: "30min" ou "45 min"
+  const regexSoMin = /(\d+)\s*min/i;
+  const matchSoMin = str.match(regexSoMin);
+  if (matchSoMin) {
+    const minutos = parseInt(matchSoMin[1]) || 0;
+    return minutos;
+  }
+
+  // Formato: "2hs" ou "2h" (sem minutos)
+  const regexSoHs = /(\d+)\s*h[s]?$/i;
+  const matchSoHs = str.match(regexSoHs);
+  if (matchSoHs) {
+    const horas = parseInt(matchSoHs[1]) || 0;
+    return horas * 60;
+  }
+
+  // Formato: "2:30" (HH:MM)
+  const regexHHMM = /(\d+):(\d+)/;
+  const matchHHMM = str.match(regexHHMM);
+  if (matchHHMM) {
+    const horas = parseInt(matchHHMM[1]) || 0;
+    const minutos = parseInt(matchHHMM[2]) || 0;
+    return horas * 60 + minutos;
+  }
+
+  return 0;
 };
 
 const formatarMinutosParaHoras = (totalMinutos: number): string => {
@@ -92,6 +122,49 @@ const formatarMinutosParaHoras = (totalMinutos: number): string => {
   return `${String(horas).padStart(2, '0')}${sufixoHora}:${String(minutos).padStart(2, '0')}min`;
 };
 
+// ==================== FUNÇÃO DE FETCH ====================
+const fetchChamados = async ({
+  ano,
+  mes,
+  isAdmin,
+  codCliente,
+  cliente,
+  recurso,
+  status,
+}: {
+  ano: string;
+  mes: string;
+  isAdmin: boolean;
+  codCliente: string | null;
+  cliente?: string;
+  recurso?: string;
+  status?: string;
+}): Promise<ApiResponse> => {
+  const params = new URLSearchParams({
+    ano,
+    mes,
+    isAdmin: String(isAdmin),
+    ...(cliente && { codClienteFilter: cliente }),
+    ...(recurso && { codRecursoFilter: recurso }),
+    ...(status && { status }),
+  });
+
+  if (!isAdmin && codCliente) {
+    params.append('codCliente', codCliente);
+  }
+
+  const response = await fetch(`/api/tabela?${params.toString()}`, {
+    headers: createAuthHeaders(),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Erro ao carregar chamados');
+  }
+
+  return response.json();
+};
+
 // ==================== COMPONENTE PRINCIPAL ====================
 export default function TabelaChamados({
   ano,
@@ -100,11 +173,8 @@ export default function TabelaChamados({
   recurso,
   status,
 }: FiltersProps) {
-  // Estados principais
-  const [data, setData] = useState<TableRowProps[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [totalHorasGeral, setTotalHorasGeral] = useState('');
+  // Contexto
+  const { isAdmin, codCliente, isLoggedIn } = useAuth();
 
   // Estados do modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -113,10 +183,36 @@ export default function TabelaChamados({
   // Estados de filtros
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
-  // Contexto
-  const { isAdmin, codCliente, isLoggedIn } = useAuth();
   const { columnFilterFn } = useFiltrosChamados();
 
+  // ==================== REACT QUERY ====================
+  const {
+    data: apiData,
+    isLoading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: ['chamados', ano, mes, cliente, recurso, status, isAdmin, codCliente],
+    queryFn: () =>
+      fetchChamados({
+        ano,
+        mes,
+        isAdmin,
+        codCliente,
+        cliente,
+        recurso,
+        status,
+      }),
+    enabled: isLoggedIn,
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    retry: 2,
+  });
+
+const data = useMemo(
+    () => apiData?.apontamentos ?? [],
+    [apiData?.apontamentos],
+  );
+  const totalHorasGeral = apiData?.totalHorasGeral || '';
   // ==================== CALLBACKS ====================
   const openModal = useCallback((row: TableRowProps) => {
     setSelectedRow(row);
@@ -128,13 +224,13 @@ export default function TabelaChamados({
     setSelectedRow(null);
   }, []);
 
-  const handleSaveValidation = useCallback((updatedRow: TableRowProps) => {
-    setData((prevData) =>
-      prevData.map((row) =>
-        row.cod_os === updatedRow.cod_os ? updatedRow : row,
-      ),
-    );
-  }, []);
+  const handleSaveValidation = useCallback(
+    (updatedRow: TableRowProps) => {
+      // Atualiza o cache do React Query
+      refetch();
+    },
+    [refetch]
+  );
 
   const clearAllFilters = useCallback(() => {
     setColumnFilters([]);
@@ -142,7 +238,7 @@ export default function TabelaChamados({
 
   // ==================== MEMOIZAÇÕES ====================
 
-  // Dados corrigidos (texto)
+  // 1. Dados corrigidos (texto)
   const dataCorrigida = useMemo(() => {
     return data.map((item) => ({
       ...item,
@@ -150,138 +246,174 @@ export default function TabelaChamados({
     }));
   }, [data]);
 
-  // Configuração da tabela
+  // 2. Detectar filtros ativos
+  const hasActiveFilters = useMemo(() => {
+    return columnFilters.some((filter) => {
+      const value = filter.value;
+      if (value == null) return false;
+      if (typeof value === 'string') {
+        return value.trim() !== '';
+      }
+      return true;
+    });
+  }, [columnFilters]);
+
+  // 3. APLICAR FILTROS MANUALMENTE
+  const dadosFiltrados = useMemo(() => {
+    if (!hasActiveFilters) {
+      return dataCorrigida;
+    }
+
+    return dataCorrigida.filter((row) => {
+      return columnFilters.every((filter) => {
+        const columnId = filter.id;
+        const filterValue = filter.value;
+
+        if (
+          !filterValue ||
+          (typeof filterValue === 'string' && filterValue.trim() === '')
+        ) {
+          return true;
+        }
+
+        const normalizedFilterValue =
+          typeof filterValue === 'string' ? filterValue : String(filterValue);
+
+        const fakeRow: any = {
+          getValue: (id: string) => row[id as keyof TableRowProps],
+        };
+
+        return columnFilterFn(fakeRow, columnId as string, normalizedFilterValue);
+      });
+    });
+  }, [dataCorrigida, columnFilters, hasActiveFilters, columnFilterFn]);
+
+  // 4. Configurar a tabela
   const table = useReactTable<TableRowProps>({
-    data: dataCorrigida,
+    data: dadosFiltrados,
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     state: {
       columnFilters,
     },
     onColumnFiltersChange: setColumnFilters,
-    filterFns: {
-      custom: columnFilterFn,
-    },
   });
 
-  // Dados filtrados
-  const filteredData = useMemo(() => {
-    const filteredRows = table.getFilteredRowModel().rows;
-    const filtered = filteredRows.map((row) => row.original);
-    return filtered;
-  }, [table]);
-
-  // Contador de filtros ativos
-  const activeFiltersCount = columnFilters.length;
-
-  // Totais SEM filtros da tabela
+  // 5. Totais SEM filtros (dados originais)
   const totalChamados = useMemo(() => {
+    // Conta chamados únicos (chamado_os)
+    const chamadosUnicos = Array.from(
+      new Set(data.map((item) => item.chamado_os))
+    ).filter(Boolean);
+    return chamadosUnicos.length;
+  }, [data]);
+
+  const totalOS = useMemo(() => {
+    // Conta O.S. únicas (cod_os)
     return data.length;
   }, [data]);
 
   const totalRecursos = useMemo(() => {
     const recursos = Array.from(
-      new Set(data.map((item) => item.nome_recurso || '')),
+      new Set(data.map((item) => item.nome_recurso || ''))
     ).filter(Boolean).length;
     return recursos;
   }, [data]);
 
-  const totalHorasSemFiltro = useMemo(() => {
-    return totalHorasGeral;
-  }, [totalHorasGeral]);
+  const totalHorasSemFiltro = useMemo(() => totalHorasGeral, [totalHorasGeral]);
 
-  // Totais COM filtros da tabela
+  // 6. Totais COM filtros
   const totalChamadosFiltrados = useMemo(() => {
-    const total = filteredData.length;
-    return total;
-  }, [filteredData]);
+    const chamadosUnicos = Array.from(
+      new Set(dadosFiltrados.map((item) => item.chamado_os))
+    ).filter(Boolean);
+    return chamadosUnicos.length;
+  }, [dadosFiltrados]);
+
+  const totalOSFiltrados = useMemo(() => {
+    return dadosFiltrados.length;
+  }, [dadosFiltrados]);
 
   const totalRecursosFiltrados = useMemo(() => {
     const recursos = Array.from(
-      new Set(filteredData.map((item) => item.nome_recurso || '')),
+      new Set(dadosFiltrados.map((item) => item.nome_recurso || ''))
     ).filter(Boolean).length;
     return recursos;
-  }, [filteredData]);
+  }, [dadosFiltrados]);
 
   const totalHorasFiltrado = useMemo(() => {
-    const totalMinutes = filteredData.reduce((acc, item) => {
+    const totalMinutes = dadosFiltrados.reduce((acc, item) => {
       const minutos = parseHorasParaMinutos(item.total_horas);
       return acc + minutos;
     }, 0);
+    return formatarMinutosParaHoras(totalMinutes);
+  }, [dadosFiltrados]);
 
-    const horasFormatadas = formatarMinutosParaHoras(totalMinutes);
-
-    return horasFormatadas;
-  }, [filteredData]);
-
-  // Valores de exibição - CORRIGIDOS
+  // 7. Valores para exibição
   const chamadosExibidos = useMemo(() => {
-    return activeFiltersCount > 0 ? totalChamadosFiltrados : totalChamados;
-  }, [activeFiltersCount, totalChamadosFiltrados, totalChamados]);
+    return hasActiveFilters ? totalChamadosFiltrados : totalChamados;
+  }, [hasActiveFilters, totalChamadosFiltrados, totalChamados]);
+
+  const osExibidas = useMemo(() => {
+    return hasActiveFilters ? totalOSFiltrados : totalOS;
+  }, [hasActiveFilters, totalOSFiltrados, totalOS]);
 
   const recursosExibidos = useMemo(() => {
-    return activeFiltersCount > 0 ? totalRecursosFiltrados : totalRecursos;
-  }, [activeFiltersCount, totalRecursosFiltrados, totalRecursos]);
+    return hasActiveFilters ? totalRecursosFiltrados : totalRecursos;
+  }, [hasActiveFilters, totalRecursosFiltrados, totalRecursos]);
 
   const horasExibidas = useMemo(() => {
-    const resultado =
-      activeFiltersCount > 0 ? totalHorasFiltrado : totalHorasSemFiltro;
+    const resultado = hasActiveFilters ? totalHorasFiltrado : totalHorasSemFiltro;
     return resultado || '0h:00min';
-  }, [activeFiltersCount, totalHorasFiltrado, totalHorasSemFiltro]);
+  }, [hasActiveFilters, totalHorasFiltrado, totalHorasSemFiltro]);
 
-  // ==================== EFEITOS ====================
-
-  // Buscar dados da API
+  // 8. LOG PARA DEBUG
   useEffect(() => {
-    if (!isLoggedIn) {
-      setError('Você precisa estar logado para visualizar os chamados');
-      return;
-    }
-
-    const params = new URLSearchParams({
-      ano,
-      mes,
-      isAdmin: String(isAdmin),
-      ...(cliente && { codClienteFilter: cliente }),
-      ...(recurso && { codRecursoFilter: recurso }),
-      ...(status && { status }),
+    console.log('🔍 DEBUG COMPLETO:', {
+      hasActiveFilters,
+      columnFilters: columnFilters.map((f) => ({
+        id: f.id,
+        value: f.value,
+        tipo: typeof f.value,
+      })),
+      dataOriginalLength: data.length,
+      dadosFiltradosLength: dadosFiltrados.length,
+      tableRowsLength: table.getRowModel().rows.length,
+      totalizadores: {
+        chamados: chamadosExibidos,
+        os: osExibidas,
+        recursos: recursosExibidos,
+        horas: horasExibidas,
+      },
     });
-
-    if (!isAdmin && codCliente) {
-      params.append('codCliente', codCliente);
-    }
-
-    setLoading(true);
-    setError(null);
-
-    axios
-      .get<ApiResponse>(`/api/tabela?${params.toString()}`, {
-        headers: createAuthHeaders(),
-      })
-      .then((response) => {
-        setData(response.data.apontamentos);
-        setTotalHorasGeral(response.data.totalHorasGeral);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error('❌ Erro ao carregar chamados:', err);
-        const errorMessage =
-          err.response?.data?.error ||
-          err.message ||
-          'Erro ao carregar chamados';
-        setError(errorMessage);
-        setData([]);
-        setLoading(false);
-      });
-  }, [ano, mes, cliente, recurso, status, isLoggedIn, isAdmin, codCliente]);
+  }, [
+    hasActiveFilters,
+    columnFilters,
+    data.length,
+    dadosFiltrados.length,
+    table,
+    chamadosExibidos,
+    osExibidas,
+    recursosExibidos,
+    horasExibidas,
+  ]);
 
   // ==================== RENDERIZAÇÃO CONDICIONAL ====================
 
-  if (loading) {
+  if (!isLoggedIn) {
+    return (
+      <IsError
+        isError={true}
+        error={new Error('Você precisa estar logado para visualizar os chamados')}
+        title="Acesso Negado"
+      />
+    );
+  }
+
+  if (isLoading) {
     return (
       <IsLoading
-        isLoading={loading}
+        isLoading={isLoading}
         title="Aguarde, buscando dados no servidor"
       />
     );
@@ -291,7 +423,7 @@ export default function TabelaChamados({
     return (
       <IsError
         isError={!!error}
-        error={new Error(error)}
+        error={error as Error}
         title="Erro ao Carregar Chamados"
       />
     );
@@ -307,12 +439,14 @@ export default function TabelaChamados({
           isAdmin={isAdmin}
           totalChamados={totalChamados}
           totalChamadosFiltrados={chamadosExibidos}
+          totalOS={totalOS}
+          totalOSFiltrados={osExibidas}
           totalRecursos={totalRecursos}
           totalRecursosFiltrados={recursosExibidos}
           horasExibidas={horasExibidas}
-          activeFiltersCount={activeFiltersCount}
+          hasActiveFilters={hasActiveFilters}
           clearAllFilters={clearAllFilters}
-          filteredData={filteredData}
+          filteredData={dadosFiltrados}
           mes={mes}
           ano={ano}
         />
@@ -356,10 +490,12 @@ interface HeaderSectionProps {
   isAdmin: boolean;
   totalChamados: number;
   totalChamadosFiltrados: number;
+  totalOS: number;
+  totalOSFiltrados: number;
   totalRecursos: number;
   totalRecursosFiltrados: number;
   horasExibidas: string;
-  activeFiltersCount: number;
+  hasActiveFilters: boolean;
   clearAllFilters: () => void;
   filteredData: TableRowProps[];
   mes: string;
@@ -370,10 +506,12 @@ function HeaderSection({
   isAdmin,
   totalChamados,
   totalChamadosFiltrados,
+  totalOS,
+  totalOSFiltrados,
   totalRecursos,
   totalRecursosFiltrados,
   horasExibidas,
-  activeFiltersCount,
+  hasActiveFilters,
   clearAllFilters,
   filteredData,
   mes,
@@ -387,31 +525,36 @@ function HeaderSection({
           <IoCall className="text-white animate-pulse" size={48} />
         </div>
         <h2 className="text-4xl tracking-widest select-none font-bold text-white">
-          ORDENS DE SERVIÇO
+          TABELA DE DADOS - {mes}/{ano}
         </h2>
       </div>
 
       {/* Badges e Ações */}
       <div className="flex w-full items-center justify-between gap-4">
-        {/* Badges Totalizadores - CORRIGIDOS */}
+        {/* Badges Totalizadores */}
         <div className="flex items-center justify-start flex-1 gap-4">
           <BadgeTotalizador
-            label="Total"
+            label={totalChamadosFiltrados === 1 ? 'Chamado' : 'Chamados'}
             valor={totalChamadosFiltrados}
-            valorTotal={activeFiltersCount > 0 ? totalChamados : undefined}
+            valorTotal={hasActiveFilters ? totalChamados : undefined}
           />
           <BadgeTotalizador
-            label="Consultores"
+            label={totalOSFiltrados === 1 ? 'OS' : "OS's"}
+            valor={totalOSFiltrados}
+            valorTotal={hasActiveFilters ? totalOS : undefined}
+          />
+          <BadgeTotalizador
+            label={totalRecursosFiltrados === 1 ? 'Consultor' : 'Consultores'}
             valor={totalRecursosFiltrados}
-            valorTotal={activeFiltersCount > 0 ? totalRecursos : undefined}
+            valorTotal={hasActiveFilters ? totalRecursos : undefined}
           />
           <BadgeTotalizador label="Horas" valor={horasExibidas} />
         </div>
 
         {/* Botões de Ação */}
-        <div className="flex items-center justify-end gap-4">
+        <div className="flex items-center justify-end gap-20">
           {/* Botão Limpar Filtros */}
-          {activeFiltersCount > 0 && (
+          {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
               title="Limpar Filtros"
@@ -425,13 +568,13 @@ function HeaderSection({
           )}
 
           {/* Botões de Exportação */}
-
           <div className="flex gap-2">
             <ExportaExcelButton
               data={filteredData as any}
               filename={`relatorio_chamados_${mes}_${ano}.xlsx`}
               buttonText=""
               className=""
+              disabled={filteredData.length === 0}
             />
             <ExportaPDFButton
               data={filteredData as any}
@@ -441,6 +584,7 @@ function HeaderSection({
               logoUrl="/caminho/para/logo.png"
               footerText="Gerado pelo sistema em"
               className="ml-2"
+              disabled={filteredData.length === 0}
             />
           </div>
 
@@ -467,11 +611,11 @@ interface BadgeTotalizadorProps {
 
 function BadgeTotalizador({ label, valor, valorTotal }: BadgeTotalizadorProps) {
   return (
-    <div className="group flex items-center gap-2 rounded-md bg-white px-6 py-2 transition-all text-lg tracking-widest font-bold select-none italic shadow-md shadow-black min-w-fit">
+    <div className="group flex items-center gap-2 rounded-md bg-white px-6 py-2 transition-all  shadow-md shadow-black w-[300px]">
       <div className="h-2 w-2 animate-pulse rounded-full bg-purple-500"></div>
-      <span className="text-slate-800 whitespace-nowrap">
+      <span className="text-lg tracking-widest font-bold select-none text-black">
         {label}:{' '}
-        <span className="text-purple-600">
+      <span className="text-lg tracking-widest font-bold select-none text-purple-500">
           {valor}
           {valorTotal !== undefined && (
             <span className="ml-1">/{valorTotal}</span>

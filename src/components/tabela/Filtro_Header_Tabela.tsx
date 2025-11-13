@@ -22,27 +22,32 @@ interface DropdownValidacaoProps {
 // ================================================================================
 // CONSTANTES
 // ================================================================================
-const DEBOUNCE_DELAY = 300;
+const DEBOUNCE_DELAY = 600;
 
 // Limites de caracteres por coluna
 const COLUMN_MAX_LENGTH: Record<string, number> = {
-  chamado_os: 5,
-  cod_os: 5,
-  dtini_os: 2,
+  chamado_os: 6, // Aumentado para suportar separador (ex: 13.455)
+  cod_os: 6,     // Aumentado para suportar separador (ex: 13.455)
+  dtini_os: 10,
   nome_cliente: 15,
   status_chamado: 15,
   nome_recurso: 15,
-  hrini_os: 4,
-  hrfim_os: 4,
-  total_horas: 2,
+  hrini_os: 5,   // Aumentado para suportar formato HH:MM
+  hrfim_os: 5,   // Aumentado para suportar formato HH:MM
   obs: 30,
 };
 
 // Colunas de data
 const DATE_COLUMNS = new Set(['dtini_os']);
 
-// Colunas numéricas
-const NUMERIC_COLUMNS = new Set(['cod_os']);
+// Colunas numéricas com separador de milhar
+const NUMERIC_COLUMNS = new Set(['cod_os', 'chamado_os']);
+
+// Colunas de hora
+const TIME_COLUMNS = new Set(['hrini_os', 'hrfim_os']);
+
+// Limite de caracteres para campos de hora (HH:MM = 5 caracteres)
+const TIME_MAX_LENGTH = 5;
 
 // ================================================================================
 // FUNÇÕES AUXILIARES
@@ -67,15 +72,64 @@ function formatDateString(input: string): string {
 }
 
 /**
- * Normaliza uma data para comparação
+ * Formata números com separador de milhar (ex: 13455 -> 13.455)
+ */
+function formatNumberWithThousands(input: string): string {
+  const numbersOnly = input.replace(/\D/g, '');
+  
+  if (numbersOnly.length === 0) return '';
+  if (numbersOnly.length <= 3) return numbersOnly;
+  
+  // Adiciona o ponto separador após o primeiro ou segundo dígito
+  // Ex: 1234 -> 1.234, 12345 -> 12.345
+  const withSeparator = numbersOnly.replace(/^(\d{1,2})(\d{3})$/, '$1.$2');
+  
+  return withSeparator;
+}
+
+/**
+ * Formata hora no formato HH:MM de forma mais permissiva
+ */
+function formatTimeString(input: string): string {
+  const numbersOnly = input.replace(/\D/g, '');
+  
+  if (numbersOnly.length === 0) return '';
+  if (numbersOnly.length <= 2) return numbersOnly;
+  
+  // Adiciona o separador ':' após os dois primeiros dígitos
+  const hours = numbersOnly.slice(0, 2);
+  const minutes = numbersOnly.slice(2, 4);
+  
+  return `${hours}:${minutes}`;
+}
+
+/**
+ * Normaliza uma data para comparação, mantendo zeros à esquerda
  */
 function normalizeDateForComparison(dateStr: string | null): string {
   if (!dateStr) return '';
 
+  // Se já está no formato DD/MM/YYYY, retorna como está
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateStr)) {
     return dateStr;
   }
 
+  // Se é uma data parcial (ex: "03" ou "03/01"), normaliza para comparação
+  if (/^\d{1,2}(\/\d{1,2})?(\/\d{4})?$/.test(dateStr)) {
+    const parts = dateStr.split('/');
+    
+    // Adiciona zeros à esquerda se necessário
+    if (parts[0]) {
+      parts[0] = parts[0].padStart(2, '0');
+    }
+    if (parts[1]) {
+      parts[1] = parts[1].padStart(2, '0');
+    }
+    
+    return parts.join('/');
+  }
+
+  // Tenta converter formato ISO ou outros formatos
   try {
     const date = new Date(dateStr);
     if (!isNaN(date.getTime())) {
@@ -88,6 +142,7 @@ function normalizeDateForComparison(dateStr: string | null): string {
     // Se falhar, continua
   }
 
+  // Tenta extrair data de string com timestamp
   const datePart = dateStr.split(/[\sT]/)[0];
 
   if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
@@ -237,6 +292,11 @@ const InputFilterWithDebounce = memo(
       [columnId],
     );
 
+    const isTimeColumn = useMemo(
+      () => (columnId ? TIME_COLUMNS.has(columnId) : false),
+      [columnId],
+    );
+
     // Sincroniza o valor local quando o valor externo muda (exceto quando o usuário está digitando)
     useEffect(() => {
       if (!isUserTyping.current && value !== localValue) {
@@ -259,32 +319,45 @@ const InputFilterWithDebounce = memo(
       };
     }, [debouncedOnChange]);
 
-    const handleChange = useCallback(
-      (e: React.ChangeEvent<HTMLInputElement>) => {
-        isUserTyping.current = true;
-        let inputValue = e.target.value;
+   const handleChange = useCallback(
+  (e: React.ChangeEvent<HTMLInputElement>) => {
+    isUserTyping.current = true;
+    let inputValue = e.target.value;
 
-        // Aplica limites de comprimento
-        if (maxLength && inputValue.length > maxLength) {
-          inputValue = inputValue.slice(0, maxLength);
-        }
+    let processedValue = inputValue;
 
-        // Permite apenas números para colunas numéricas
-        if (isNumericColumn) {
-          inputValue = inputValue.replace(/\D/g, '');
-        }
+    // Para campos de tempo, permite apagar livremente
+    if (isTimeColumn) {
+      // Se o usuário está apagando (valor atual é menor que o anterior)
+      if (inputValue.length < localValue.length) {
+        // Remove apenas números, mantém a lógica de formatação
+        const numbersOnly = inputValue.replace(/\D/g, '');
+        processedValue = numbersOnly.length === 0 ? '' : formatTimeString(numbersOnly);
+      } else {
+        // Se está adicionando caracteres, formata normalmente
+        processedValue = formatTimeString(inputValue);
+      }
+    }
+    // Formata números com separador de milhar para colunas numéricas
+    else if (isNumericColumn) {
+      processedValue = formatNumberWithThousands(inputValue);
+    }
+    // Formata data para colunas de data
+    else if (isDateColumn) {
+      processedValue = formatDateString(inputValue.replace(/\D/g, ''));
+    }
 
-        // Formata data para colunas de data
-        let processedValue = inputValue;
-        if (isDateColumn) {
-          processedValue = formatDateString(inputValue.replace(/\D/g, ''));
-        }
+    // Aplica limites de comprimento APÓS a formatação
+    const effectiveMaxLength = isTimeColumn ? TIME_MAX_LENGTH : maxLength;
+    if (effectiveMaxLength && processedValue.length > effectiveMaxLength) {
+      processedValue = processedValue.slice(0, effectiveMaxLength);
+    }
 
-        setLocalValue(processedValue);
-        debouncedOnChange(processedValue);
-      },
-      [debouncedOnChange, maxLength, isDateColumn, isNumericColumn],
-    );
+    setLocalValue(processedValue);
+    debouncedOnChange(processedValue);
+  },
+  [debouncedOnChange, maxLength, isDateColumn, isNumericColumn, isTimeColumn, localValue.length],
+);
 
     const handleClear = useCallback(() => {
       isUserTyping.current = false;
@@ -319,7 +392,6 @@ const InputFilterWithDebounce = memo(
           value={localValue}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          maxLength={maxLength}
           placeholder="Filtrar..."
           className={`hover:bg-opacity-90 w-full rounded-md px-3 py-2 text-sm font-bold shadow-sm shadow-black transition-all select-none focus:ring-2 focus:ring-purple-500 focus:outline-none active:scale-95 ${
             localValue
@@ -371,7 +443,7 @@ export const FiltroHeaderChamados = memo(
 FiltroHeaderChamados.displayName = 'FiltroHeaderChamados';
 
 // ================================================================================
-// HOOK PERSONALIZADO PARA FUNÇÕES DE FILTRO - CORRIGIDO
+// HOOK PERSONALIZADO PARA FUNÇÕES DE FILTRO
 // ================================================================================
 export const useFiltrosChamados = () => {
   const columnFilterFn = useCallback(
@@ -391,13 +463,6 @@ export const useFiltrosChamados = () => {
 
       // Converte o valor da célula para string
       const cellString = String(cellValue).trim();
-      
-      console.log(`🔍 Filtrando ${columnId}:`, {
-        cellValue,
-        cellString,
-        filterValue: filterTrimmed,
-        tipo: typeof cellValue
-      });
 
       // Tratamento especial para validação (SIM/NAO)
       if (columnId === 'valcli_os') {
@@ -408,37 +473,34 @@ export const useFiltrosChamados = () => {
 
       // Tratamento especial para campos de data
       if (DATE_COLUMNS.has(columnId)) {
-        const normalizedDate = normalizeDateForComparison(cellString);
+        const normalizedCell = normalizeDateForComparison(cellString);
         const normalizedFilter = normalizeDateForComparison(filterTrimmed);
-        return normalizeText(normalizedDate).includes(
-          normalizeText(normalizedFilter),
-        );
+        
+        // Permite busca parcial em datas (ex: "03" encontra dias 03, "03/01" encontra 03 de janeiro)
+        return normalizedCell.startsWith(normalizedFilter);
       }
 
       // Tratamento para campos numéricos (cod_os, chamado_os)
       if (NUMERIC_COLUMNS.has(columnId)) {
-        // Remove caracteres não numéricos para comparação
+        // Remove caracteres não numéricos para comparação (remove o ponto separador)
         const cellNumbers = cellString.replace(/\D/g, '');
         const filterNumbers = filterTrimmed.replace(/\D/g, '');
-        
-        console.log(`🔢 Comparação numérica:`, {
-          cellNumbers,
-          filterNumbers,
-          resultado: cellNumbers.includes(filterNumbers)
-        });
-        
+
         return cellNumbers.includes(filterNumbers);
+      }
+
+      // Tratamento para campos de hora (hrini_os, hrfim_os)
+      if (TIME_COLUMNS.has(columnId)) {
+        // Remove os dois pontos para comparação
+        const cellTime = cellString.replace(/:/g, '');
+        const filterTime = filterTrimmed.replace(/:/g, '');
+
+        return cellTime.includes(filterTime);
       }
 
       // Tratamento padrão para texto (case insensitive e sem acentos)
       const normalizedCell = normalizeText(cellString);
       const normalizedFilter = normalizeText(filterTrimmed);
-
-      console.log(`📝 Comparação texto:`, {
-        normalizedCell,
-        normalizedFilter,
-        resultado: normalizedCell.includes(normalizedFilter)
-      });
 
       return normalizedCell.includes(normalizedFilter);
     },

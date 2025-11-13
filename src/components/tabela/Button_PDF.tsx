@@ -2,8 +2,8 @@
 
 // IMPORTS
 import jsPDF from 'jspdf';
-import { useState } from 'react';
 import autoTable from 'jspdf-autotable';
+import { useState } from 'react';
 
 // HELPERS
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
@@ -15,30 +15,31 @@ import { FaFilePdf } from 'react-icons/fa';
 // INTERFACES
 // ================================================================================
 export interface TableRowProps {
-   chamado_os: string;
-   cod_os: number;
-   nome_cliente: string;
-   nome_recurso?: string;
-   dtini_os: string;
-   status_chamado: string;
-   hrini_os: string;
-   hrfim_os: string;
-   total_horas: string;
-   valcli_os: string;
-   obs: string;
+  chamado_os: string;
+  cod_os: number;
+  nome_cliente: string;
+  nome_recurso?: string;
+  dtini_os: string;
+  status_chamado: string;
+  hrini_os: string;
+  hrfim_os: string;
+  total_horas: string;
+  valcli_os: string;
+  obs: string;
 }
 
 interface ExportaPDFButtonProps {
-   data: TableRowProps[];
-   fileName: string;
-   title: string;
-   columns: Array<{
-      key: keyof TableRowProps;
-      label: string;
-   }>;
-   logoUrl?: string;
-   footerText?: string;
-   className?: string;
+  data: TableRowProps[];
+  fileName: string;
+  title: string;
+  columns: Array<{
+    key: keyof TableRowProps;
+    label: string;
+  }>;
+  logoUrl?: string;
+  footerText?: string;
+  className?: string;
+  disabled?: boolean; // ← ADICIONAR
 }
 
 // ================================================================================
@@ -46,309 +47,308 @@ interface ExportaPDFButtonProps {
 // ================================================================================
 
 function formatarData(data: string): string {
-   if (!data) return 'n/a';
-   
-   // Se já está no formato DD/MM/YYYY
-   if (data.includes('/')) return data;
-   
-   // Se está no formato YYYY-MM-DD
-   const [ano, mes, dia] = data.split('-');
-   return `${dia}/${mes}/${ano}`;
+  if (!data) return 'n/a';
+
+  // Se já está no formato DD/MM/YYYY
+  if (data.includes('/')) return data;
+
+  // Se está no formato YYYY-MM-DD
+  const [ano, mes, dia] = data.split('-');
+  return `${dia}/${mes}/${ano}`;
 }
 
 function formatarHora(hora: string): string {
-   if (!hora) return 'n/a';
-   return hora;
+  if (!hora) return 'n/a';
+  return hora;
 }
 
 function getNomeMes(mes: string): string {
-   const meses = [
-      '',
-      'Janeiro',
-      'Fevereiro',
-      'Março',
-      'Abril',
-      'Maio',
-      'Junho',
-      'Julho',
-      'Agosto',
-      'Setembro',
-      'Outubro',
-      'Novembro',
-      'Dezembro',
-   ];
-   return meses[parseInt(mes)] || '';
+  const meses = [
+    '',
+    'Janeiro',
+    'Fevereiro',
+    'Março',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
+  ];
+  return meses[parseInt(mes)] || '';
 }
 
 // ================================================================================
 // COMPONENTE
 // ================================================================================
 export function ExportaPDFButton({
-   data,
-   fileName,
-   title,
-   columns,
-   logoUrl,
-   footerText = 'Gerado pelo sistema em',
-   className = '',
+  data,
+  fileName,
+  title,
+  columns,
+  footerText = 'Gerado pelo sistema em',
+  className = '',
+  disabled = false, // ← ADICIONAR
 }: ExportaPDFButtonProps) {
-   const [isExporting, setIsExporting] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
-   const exportToPDF = () => {
-      if (data.length === 0) {
-         alert('Não há dados para exportar!');
-         return;
-      }
+  const exportToPDF = () => {
+    if (data.length === 0) {
+      alert('Não há dados para exportar!');
+      return;
+    }
 
-      setIsExporting(true);
+    setIsExporting(true);
 
-      try {
-         const doc = new jsPDF('l', 'mm', 'a4');
-         let yPosition = 15;
+    try {
+      const doc = new jsPDF('l', 'mm', 'a4');
+      let yPosition = 15;
 
-         // ================================================================================
-         // CABEÇALHO DO RELATÓRIO
-         // ================================================================================
-         doc.setFillColor(15, 118, 110);
-         doc.rect(0, 0, 297, 20, 'F');
+      // ================================================================================
+      // CABEÇALHO DO RELATÓRIO
+      // ================================================================================
+      doc.setFillColor(15, 118, 110);
+      doc.rect(0, 0, 297, 20, 'F');
 
-         doc.setTextColor(255, 255, 255);
-         doc.setFontSize(18);
-         doc.setFont('helvetica', 'bold');
-         doc.text(title.toUpperCase(), 148.5, 11, {
-            align: 'center',
-         });
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text(title.toUpperCase(), 148.5, 11, {
+        align: 'center',
+      });
 
-         doc.setFontSize(9);
-         doc.setFont('helvetica', 'italic');
-         doc.text(
-            `${footerText}: ${new Date().toLocaleString('pt-BR')}`,
-            148.5,
-            17,
-            {
-               align: 'center',
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'italic');
+      doc.text(
+        `${footerText}: ${new Date().toLocaleString('pt-BR')}`,
+        148.5,
+        17,
+        {
+          align: 'center',
+        },
+      );
+
+      yPosition = 26;
+
+      // ================================================================================
+      // TOTALIZADORES
+      // ================================================================================
+      doc.setFillColor(0, 0, 0);
+      doc.rect(15, yPosition, 80, 6, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('TOTALIZADORES', 55, yPosition + 4, { align: 'center' });
+
+      yPosition += 6;
+
+      // Calcular totalizadores
+      const totalChamados = data.length;
+      const totalRecursos = Array.from(
+        new Set(data.map((item) => item.nome_recurso || '')),
+      ).filter(Boolean).length;
+
+      // Calcular total de horas
+      let totalMs = 0;
+      data.forEach((item) => {
+        if (item.total_horas && item.total_horas !== '-') {
+          const match = item.total_horas.match(/(\d+)h:?(\d+)/);
+          if (match) {
+            const horas = parseInt(match[1]);
+            const minutos = parseInt(match[2]);
+            totalMs += (horas * 60 + minutos) * 60 * 1000;
+          }
+        }
+      });
+
+      const totalMinutes = Math.floor(totalMs / (1000 * 60));
+      const horas = Math.floor(totalMinutes / 60);
+      const minutos = totalMinutes % 60;
+      const totalHoras = `${String(horas).padStart(2, '0')}h:${String(minutos).padStart(2, '0')}min`;
+
+      const totalizadores = [
+        {
+          label: 'Total de Chamados',
+          value: totalChamados.toLocaleString('pt-BR'),
+          color: [128, 0, 128],
+        },
+        {
+          label: 'Total de Recursos',
+          value: totalRecursos.toLocaleString('pt-BR'),
+          color: [0, 0, 255],
+        },
+        {
+          label: 'Total de Horas',
+          value: totalHoras,
+          color: [75, 0, 130],
+        },
+      ];
+
+      totalizadores.forEach((tot) => {
+        // Label (cabeçalho)
+        doc.setFillColor(tot.color[0], tot.color[1], tot.color[2]);
+        doc.rect(15, yPosition, 35, 6, 'F');
+
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text(tot.label, 32.5, yPosition + 4, { align: 'center' });
+
+        // Valor
+        doc.setFillColor(255, 255, 255);
+        doc.rect(50, yPosition, 45, 6);
+        doc.setDrawColor(229, 231, 235);
+        doc.rect(50, yPosition, 45, 6);
+
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text(tot.value, 72.5, yPosition + 4, { align: 'center' });
+
+        yPosition += 6;
+      });
+
+      yPosition += 5;
+
+      // ================================================================================
+      // TABELA DE DETALHES
+      // ================================================================================
+      const tableHeaders = columns.map((col) => col.label);
+
+      const tableData = data.map((row) => {
+        return columns.map((col) => {
+          const value = row[col.key];
+
+          // Formatações específicas
+          if (col.key === 'dtini_os') {
+            return formatarData(String(value));
+          }
+          if (col.key === 'hrini_os' || col.key === 'hrfim_os') {
+            return formatarHora(String(value));
+          }
+          if (col.key === 'obs') {
+            return corrigirTextoCorrompido(String(value || ''));
+          }
+          if (col.key === 'cod_os' || col.key === 'chamado_os') {
+            return typeof value === 'number'
+              ? value.toLocaleString('pt-BR')
+              : String(value);
+          }
+
+          return String(value || 'n/a');
+        });
+      });
+
+      // Configurar estilos de colunas dinamicamente
+      const columnStyles: any = {
+        0: { cellWidth: 20, halign: 'center' }, // N° OS
+        1: { cellWidth: 20, halign: 'center' }, // CÓD. OS
+        2: { cellWidth: 40, halign: 'left' }, // Cliente
+        3: { cellWidth: 20, halign: 'center' }, // Data
+        4: { cellWidth: 25, halign: 'center' }, // Status
+        5: { cellWidth: 20, halign: 'center' }, // Hora Início
+        6: { cellWidth: 20, halign: 'center' }, // Hora Fim
+        7: { cellWidth: 20, halign: 'center' }, // Duração
+        8: { cellWidth: 20, halign: 'center' }, // Validação
+        9: { cellWidth: 62, halign: 'left' }, // Observação
+      };
+
+      autoTable(doc, {
+        startY: yPosition,
+        head: [tableHeaders],
+        body: tableData,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [15, 118, 110],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          fontSize: 8,
+          halign: 'center',
+          valign: 'middle',
+        },
+        bodyStyles: {
+          fontSize: 7,
+          cellPadding: 2,
+          valign: 'middle',
+        },
+        columnStyles: columnStyles,
+        didParseCell: (data) => {
+          // Colorir células de Status
+          if (data.column.index === 4 && data.section === 'body') {
+            const status = data.cell.text[0]?.toLowerCase();
+
+            if (
+              status?.includes('concluído') ||
+              status?.includes('concluido')
+            ) {
+              data.cell.styles.fillColor = [34, 197, 94]; // Verde
+              data.cell.styles.textColor = [255, 255, 255];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (status?.includes('andamento')) {
+              data.cell.styles.fillColor = [234, 179, 8]; // Amarelo
+              data.cell.styles.textColor = [0, 0, 0];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (status?.includes('pendente')) {
+              data.cell.styles.fillColor = [239, 68, 68]; // Vermelho
+              data.cell.styles.textColor = [255, 255, 255];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (status?.includes('cancelado')) {
+              data.cell.styles.fillColor = [107, 114, 128]; // Cinza
+              data.cell.styles.textColor = [255, 255, 255];
+              data.cell.styles.fontStyle = 'bold';
             }
-         );
+          }
 
-         yPosition = 26;
+          // Colorir células de Validação
+          if (data.column.index === 8 && data.section === 'body') {
+            const validacao = data.cell.text[0]?.toUpperCase();
 
-         // ================================================================================
-         // TOTALIZADORES
-         // ================================================================================
-         doc.setFillColor(0, 0, 0);
-         doc.rect(15, yPosition, 80, 6, 'F');
-
-         doc.setTextColor(255, 255, 255);
-         doc.setFontSize(10);
-         doc.setFont('helvetica', 'bold');
-         doc.text('TOTALIZADORES', 55, yPosition + 4, { align: 'center' });
-
-         yPosition += 6;
-
-         // Calcular totalizadores
-         const totalChamados = data.length;
-         const totalRecursos = Array.from(
-            new Set(data.map((item) => item.nome_recurso || ''))
-         ).filter(Boolean).length;
-
-         // Calcular total de horas
-         let totalMs = 0;
-         data.forEach((item) => {
-            if (item.total_horas && item.total_horas !== '-') {
-               const match = item.total_horas.match(/(\d+)h:?(\d+)/);
-               if (match) {
-                  const horas = parseInt(match[1]);
-                  const minutos = parseInt(match[2]);
-                  totalMs += (horas * 60 + minutos) * 60 * 1000;
-               }
+            if (validacao === 'SIM') {
+              data.cell.styles.fillColor = [59, 130, 246]; // Azul
+              data.cell.styles.textColor = [255, 255, 255];
+              data.cell.styles.fontStyle = 'bold';
+            } else if (validacao === 'NAO' || validacao === 'NÃO') {
+              data.cell.styles.fillColor = [239, 68, 68]; // Vermelho
+              data.cell.styles.textColor = [255, 255, 255];
+              data.cell.styles.fontStyle = 'bold';
             }
-         });
+          }
+        },
+        margin: { left: 10, right: 10 },
+      });
 
-         const totalMinutes = Math.floor(totalMs / (1000 * 60));
-         const horas = Math.floor(totalMinutes / 60);
-         const minutos = totalMinutes % 60;
-         const totalHoras = `${String(horas).padStart(2, '0')}h:${String(minutos).padStart(2, '0')}min`;
+      // ================================================================================
+      // SALVAR PDF
+      // ================================================================================
+      const timestamp = new Date().getTime();
+      const nomeArquivo = `${fileName}_${timestamp}.pdf`;
+      doc.save(nomeArquivo);
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      alert('Erro ao gerar o PDF. Tente novamente.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
-         const totalizadores = [
-            {
-               label: 'Total de Chamados',
-               value: totalChamados.toLocaleString('pt-BR'),
-               color: [128, 0, 128],
-            },
-            {
-               label: 'Total de Recursos',
-               value: totalRecursos.toLocaleString('pt-BR'),
-               color: [0, 0, 255],
-            },
-            {
-               label: 'Total de Horas',
-               value: totalHoras,
-               color: [75, 0, 130],
-            },
-         ];
-
-         totalizadores.forEach(tot => {
-            // Label (cabeçalho)
-            doc.setFillColor(tot.color[0], tot.color[1], tot.color[2]);
-            doc.rect(15, yPosition, 35, 6, 'F');
-
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'bold');
-            doc.text(tot.label, 32.5, yPosition + 4, { align: 'center' });
-
-            // Valor
-            doc.setFillColor(255, 255, 255);
-            doc.rect(50, yPosition, 45, 6);
-            doc.setDrawColor(229, 231, 235);
-            doc.rect(50, yPosition, 45, 6);
-
-            doc.setTextColor(0, 0, 0);
-            doc.setFontSize(8);
-            doc.setFont('helvetica', 'normal');
-            doc.text(tot.value, 72.5, yPosition + 4, { align: 'center' });
-
-            yPosition += 6;
-         });
-
-         yPosition += 5;
-
-         // ================================================================================
-         // TABELA DE DETALHES
-         // ================================================================================
-         const tableHeaders = columns.map(col => col.label);
-
-         const tableData = data.map(row => {
-            return columns.map(col => {
-               const value = row[col.key];
-               
-               // Formatações específicas
-               if (col.key === 'dtini_os') {
-                  return formatarData(String(value));
-               }
-               if (col.key === 'hrini_os' || col.key === 'hrfim_os') {
-                  return formatarHora(String(value));
-               }
-               if (col.key === 'obs') {
-                  return corrigirTextoCorrompido(String(value || ''));
-               }
-               if (col.key === 'cod_os' || col.key === 'chamado_os') {
-                  return typeof value === 'number' 
-                     ? value.toLocaleString('pt-BR') 
-                     : String(value);
-               }
-               
-               return String(value || 'n/a');
-            });
-         });
-
-         // Configurar estilos de colunas dinamicamente
-         const columnStyles: any = {
-            0: { cellWidth: 20, halign: 'center' },  // N° OS
-            1: { cellWidth: 20, halign: 'center' },  // CÓD. OS
-            2: { cellWidth: 40, halign: 'left' },    // Cliente
-            3: { cellWidth: 20, halign: 'center' },  // Data
-            4: { cellWidth: 25, halign: 'center' },  // Status
-            5: { cellWidth: 20, halign: 'center' },  // Hora Início
-            6: { cellWidth: 20, halign: 'center' },  // Hora Fim
-            7: { cellWidth: 20, halign: 'center' },  // Duração
-            8: { cellWidth: 20, halign: 'center' },  // Validação
-            9: { cellWidth: 62, halign: 'left' },    // Observação
-         };
-
-         autoTable(doc, {
-            startY: yPosition,
-            head: [tableHeaders],
-            body: tableData,
-            theme: 'grid',
-            headStyles: {
-               fillColor: [15, 118, 110],
-               textColor: [255, 255, 255],
-               fontStyle: 'bold',
-               fontSize: 8,
-               halign: 'center',
-               valign: 'middle',
-            },
-            bodyStyles: {
-               fontSize: 7,
-               cellPadding: 2,
-               valign: 'middle',
-            },
-            columnStyles: columnStyles,
-            didParseCell: (data) => {
-               // Colorir células de Status
-               if (data.column.index === 4 && data.section === 'body') {
-                  const status = data.cell.text[0]?.toLowerCase();
-                  
-                  if (status?.includes('concluído') || status?.includes('concluido')) {
-                     data.cell.styles.fillColor = [34, 197, 94]; // Verde
-                     data.cell.styles.textColor = [255, 255, 255];
-                     data.cell.styles.fontStyle = 'bold';
-                  } else if (status?.includes('andamento')) {
-                     data.cell.styles.fillColor = [234, 179, 8]; // Amarelo
-                     data.cell.styles.textColor = [0, 0, 0];
-                     data.cell.styles.fontStyle = 'bold';
-                  } else if (status?.includes('pendente')) {
-                     data.cell.styles.fillColor = [239, 68, 68]; // Vermelho
-                     data.cell.styles.textColor = [255, 255, 255];
-                     data.cell.styles.fontStyle = 'bold';
-                  } else if (status?.includes('cancelado')) {
-                     data.cell.styles.fillColor = [107, 114, 128]; // Cinza
-                     data.cell.styles.textColor = [255, 255, 255];
-                     data.cell.styles.fontStyle = 'bold';
-                  }
-               }
-
-               // Colorir células de Validação
-               if (data.column.index === 8 && data.section === 'body') {
-                  const validacao = data.cell.text[0]?.toUpperCase();
-                  
-                  if (validacao === 'SIM') {
-                     data.cell.styles.fillColor = [59, 130, 246]; // Azul
-                     data.cell.styles.textColor = [255, 255, 255];
-                     data.cell.styles.fontStyle = 'bold';
-                  } else if (validacao === 'NAO' || validacao === 'NÃO') {
-                     data.cell.styles.fillColor = [239, 68, 68]; // Vermelho
-                     data.cell.styles.textColor = [255, 255, 255];
-                     data.cell.styles.fontStyle = 'bold';
-                  }
-               }
-            },
-            margin: { left: 10, right: 10 },
-         });
-
-         // ================================================================================
-         // SALVAR PDF
-         // ================================================================================
-         const timestamp = new Date().getTime();
-         const nomeArquivo = `${fileName}_${timestamp}.pdf`;
-         doc.save(nomeArquivo);
-
-      } catch (error) {
-         console.error('Erro ao exportar PDF:', error);
-         alert('Erro ao gerar o PDF. Tente novamente.');
-      } finally {
-         setIsExporting(false);
-      }
-   };
-
-   // ================================================================================
-   // RENDERIZAÇÃO
-   // ================================================================================
-   return (
-      <button
-         onClick={exportToPDF}
-         disabled={isExporting || data.length === 0}
-         title={data.length === 0 ? 'Não há dados para exportar' : 'Exportar para PDF'}
-         className={`group cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 p-3 shadow-md shadow-black transition-all hover:scale-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${className}`}
-      >
-         {isExporting ? (
-            <div className="flex items-center justify-center">
-               <div className="h-6 w-6 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-            </div>
-         ) : (
-            <FaFilePdf className="text-white group-hover:scale-110" size={24} />
-         )}
-      </button>
-   );
+  // ================================================================================
+  // RENDERIZAÇÃO
+  // ================================================================================
+  return (
+    <button
+      onClick={exportToPDF}
+      disabled={isExporting || disabled}
+      title={disabled ? 'Não há dados para exportar' : 'Exportar para PDF'}
+      className={`group cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 p-3 shadow-md shadow-black hover:shadow-xl hover:shadow-black transition-all hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
+    >
+      <FaFilePdf
+        className={`text-white ${isExporting ? 'animate-pulse' : 'group-hover:scale-110'}`}
+        size={24}
+      />
+    </button>
+  );
 }
