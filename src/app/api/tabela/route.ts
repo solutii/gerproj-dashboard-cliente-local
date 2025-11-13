@@ -15,6 +15,7 @@ interface QueryParams {
 interface ApontamentoFirebird {
   CHAMADO_OS?: string;
   COD_OS: string;
+  CODTRF_OS?: string;
   DTINI_OS: string;
   COD_CLIENTE?: number;
   NOME_CLIENTE?: string;
@@ -30,6 +31,7 @@ interface ApontamentoFirebird {
 interface ApontamentoProcessado {
   chamado_os: string | null;
   cod_os: string;
+  codtrf_os: string | null;
   dtini_os: string;
   nome_cliente: string | null;
   status_chamado: string | null;
@@ -97,6 +99,7 @@ const SQL_BASE = `
   SELECT 
     OS.CHAMADO_OS,
     OS.COD_OS,
+    OS.CODTRF_OS,
     OS.DTINI_OS,
     OS.HRINI_OS,
     OS.HRFIM_OS,
@@ -234,6 +237,7 @@ function processarApontamentos(apontamentos: ApontamentoFirebird[]): {
     return {
       chamado_os: apontamento.CHAMADO_OS || null,
       cod_os: apontamento.COD_OS,
+      codtrf_os: apontamento.CODTRF_OS || null,
       dtini_os: apontamento.DTINI_OS,
       nome_cliente: apontamento.NOME_CLIENTE || null,
       status_chamado: apontamento.STATUS_CHAMADO || null,

@@ -1,5 +1,5 @@
 import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
-import { formatarCodString } from '@/formatters/formatar-numeros';
+import { formatarNumeros } from '@/formatters/formatar-numeros';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Bar,
@@ -314,7 +314,7 @@ export function Graficos({ filters }: FilterProps) {
                       letterSpacing: '0.2em', // espaçamento entre letras
                       textAnchor: 'middle', // centraliza o texto
                     }}
-                    tickFormatter={formatarCodString} // 🔹 aplica sua função aqui
+                    tickFormatter={formatarNumeros} // 🔹 aplica sua função aqui
                     textAnchor="end" // ajusta o alinhamento quando rotacionado
                     interval={0} // mostra todos os rótulos (sem pular)
                     height={60} // espaço para labels longos

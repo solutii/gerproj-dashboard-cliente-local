@@ -1,13 +1,13 @@
 import { useAuth } from '@/context/AuthContext';
 import { useFilters } from '@/context/FiltersContext';
-import { formatarHoraSufixo } from '@/formatters/formatar-hora';
-import axios from 'axios';
-import { useCallback, useEffect, useState } from 'react';
+import { formatarHora } from '@/formatters/formatar-hora';
+import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { IoClose } from 'react-icons/io5';
 import { MdFilterAlt } from 'react-icons/md';
 import { useDebounce } from 'use-debounce';
 
-// Interface para as props do componente de filtro
+// ==================== INTERFACES ====================
 interface FiltersProps {
   onFiltersChange: (filters: {
     ano: number;
@@ -18,41 +18,142 @@ interface FiltersProps {
   }) => void;
 }
 
-// Componente principal de filtros do dashboard
+interface Cliente {
+  cod: string;
+  nome: string;
+}
+
+interface Recurso {
+  cod: string;
+  nome: string;
+}
+
+// ==================== FUNÇÕES DE FETCH ====================
+const fetchClientes = async ({
+  mes,
+  ano,
+  isAdmin,
+  codCliente,
+}: {
+  mes: number;
+  ano: number;
+  isAdmin: boolean;
+  codCliente: string | null;
+}): Promise<Cliente[]> => {
+  const params = new URLSearchParams();
+  params.append('mes', mes.toString());
+  params.append('ano', ano.toString());
+  params.append('isAdmin', isAdmin.toString());
+
+  if (!isAdmin && codCliente) {
+    params.append('codCliente', codCliente);
+  }
+
+  const response = await fetch(`/api/clientes?${params.toString()}`);
+  
+  if (!response.ok) {
+    throw new Error('Erro ao carregar clientes');
+  }
+
+  return response.json();
+};
+
+const fetchRecursos = async ({
+  mes,
+  ano,
+  isAdmin,
+  codCliente,
+  clienteSelecionado,
+}: {
+  mes: number;
+  ano: number;
+  isAdmin: boolean;
+  codCliente: string | null;
+  clienteSelecionado: string;
+}): Promise<Recurso[]> => {
+  const params = new URLSearchParams();
+  params.append('mes', mes.toString());
+  params.append('ano', ano.toString());
+  params.append('isAdmin', isAdmin.toString());
+
+  if (!isAdmin && codCliente) {
+    params.append('codCliente', codCliente);
+  }
+
+  if (isAdmin && clienteSelecionado) {
+    params.append('cliente', clienteSelecionado);
+  }
+
+  const response = await fetch(`/api/recursos?${params.toString()}`);
+  
+  if (!response.ok) {
+    throw new Error('Erro ao carregar recursos');
+  }
+
+  return response.json();
+};
+
+const fetchStatus = async ({
+  mes,
+  ano,
+  isAdmin,
+  codCliente,
+  clienteSelecionado,
+  recursoSelecionado,
+}: {
+  mes: number;
+  ano: number;
+  isAdmin: boolean;
+  codCliente: string | null;
+  clienteSelecionado: string;
+  recursoSelecionado: string;
+}): Promise<string[]> => {
+  const params = new URLSearchParams();
+  params.append('mes', mes.toString());
+  params.append('ano', ano.toString());
+  params.append('isAdmin', isAdmin.toString());
+
+  if (!isAdmin && codCliente) {
+    params.append('codCliente', codCliente);
+  }
+
+  if (isAdmin && clienteSelecionado) {
+    params.append('cliente', clienteSelecionado);
+  }
+
+  if (recursoSelecionado) {
+    params.append('recurso', recursoSelecionado);
+  }
+
+  const response = await fetch(`/api/status?${params.toString()}`);
+  
+  if (!response.ok) {
+    throw new Error('Erro ao carregar status');
+  }
+
+  return response.json();
+};
+
+// ==================== COMPONENTE PRINCIPAL ====================
 export function Filtros({ onFiltersChange }: FiltersProps) {
-  // Obtém a data atual
   const hoje = new Date();
-  // Hooks de contexto para filtros globais
   const { filters, setFilters } = useFilters();
+  const { isAdmin, codCliente } = useAuth();
 
   // Estados locais para ano e mês selecionados
   const [ano, setAno] = useState(filters.ano || hoje.getFullYear());
   const [mes, setMes] = useState(filters.mes || hoje.getMonth() + 1);
 
-  // Estados para lista de clientes e cliente selecionado
-  const [cliente, setCliente] = useState<Array<{ cod: string; nome: string }>>(
-    [],
-  );
+  // Estados para cliente, recurso e status selecionados
   const [clienteSelecionado, setClienteSelecionado] = useState(
     filters.cliente || '',
-  );
-
-  // Estados para lista de recursos e recurso selecionado
-  const [recurso, setRecurso] = useState<Array<{ cod: string; nome: string }>>(
-    [],
   );
   const [recursoSelecionado, setRecursoSelecionado] = useState(
     filters.recurso || '',
   );
-
-  // Estados para lista de status e status selecionado
-  const [status, setStatus] = useState<string[]>([]);
   const [statusSelecionado, setStatusSelecionado] = useState(
     filters.status || '',
   );
-
-  // Estado para indicar carregamento de dados
-  const [isLoading, setIsLoading] = useState(false);
 
   // Debounce dos filtros para evitar chamadas excessivas
   const [debouncedAno] = useDebounce(ano, 300);
@@ -61,8 +162,43 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
   const [debouncedRecursoSelecionado] = useDebounce(recursoSelecionado, 300);
   const [debouncedStatusSelecionado] = useDebounce(statusSelecionado, 300);
 
-  // Obtém informações do usuário autenticado
-  const { isAdmin, codCliente } = useAuth();
+  // ==================== REACT QUERY - CLIENTES ====================
+  const {
+    data: clientesData = [],
+    isLoading: clientesLoading,
+  } = useQuery({
+    queryKey: ['clientes', mes, ano, isAdmin, codCliente],
+    queryFn: () => fetchClientes({ mes, ano, isAdmin, codCliente }),
+    enabled: !!(mes && ano),
+    staleTime: 1000 * 60 * 5, // 5 minutos
+    retry: 2,
+  });
+
+  // ==================== REACT QUERY - RECURSOS ====================
+  const {
+    data: recursosData = [],
+    isLoading: recursosLoading,
+  } = useQuery({
+    queryKey: ['recursos', mes, ano, isAdmin, codCliente, clienteSelecionado],
+    queryFn: () => fetchRecursos({ mes, ano, isAdmin, codCliente, clienteSelecionado }),
+    enabled: !!(mes && ano && (isAdmin || codCliente)),
+    staleTime: 1000 * 60 * 5,
+    retry: 2,
+  });
+
+  // ==================== REACT QUERY - STATUS ====================
+  const {
+    data: statusData = [],
+    isLoading: statusLoading,
+  } = useQuery({
+    queryKey: ['status', mes, ano, isAdmin, codCliente, clienteSelecionado, recursoSelecionado],
+    queryFn: () => fetchStatus({ mes, ano, isAdmin, codCliente, clienteSelecionado, recursoSelecionado }),
+    enabled: !!(mes && ano && (isAdmin || codCliente)),
+    staleTime: 1000 * 60 * 5,
+    retry: 2,
+  });
+
+  // ==================== EFEITOS ====================
 
   // Atualiza o contexto de filtro e notifica o componente pai quando filtros mudam
   useEffect(() => {
@@ -90,177 +226,41 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
     setFilters,
   ]);
 
-  // -----------------------------------------------------------------------------
-
-  // Efeito para carregar a lista de clientes ao alterar ano/mês/admin/cliente
+  // Validação de cliente selecionado quando a lista de clientes muda
   useEffect(() => {
-    if (mes && ano) {
-      setCliente([]);
-
-      if (!codCliente) {
+    if (clienteSelecionado && clientesData.length > 0) {
+      const clienteExiste = clientesData.some((c) => c.cod === clienteSelecionado);
+      if (!clienteExiste) {
         setClienteSelecionado('');
+        setRecursoSelecionado('');
+        setStatusSelecionado('');
       }
-
-      setRecurso([]);
-      setRecursoSelecionado('');
-      setStatus([]);
-      setStatusSelecionado('');
-
-      const params = new URLSearchParams();
-      params.append('mes', mes.toString());
-      params.append('ano', ano.toString());
-      params.append('isAdmin', isAdmin.toString());
-
-      if (!isAdmin && codCliente) {
-        params.append('codCliente', codCliente);
-      }
-
-      const url = `/api/clientes?${params.toString()}`;
-
-      axios
-        .get(url)
-        .then((response) => {
-          const data = response.data;
-          if (Array.isArray(data)) {
-            setCliente(data);
-          } else {
-            console.error('Erro: resposta inesperada ao buscar clientes', data);
-          }
-        })
-        .catch((err) => {
-          console.error('Erro ao carregar clientes:', err);
-        });
     }
-  }, [isAdmin, codCliente, mes, ano]);
+  }, [clientesData, clienteSelecionado]);
 
-  // -----------------------------------------------------------------------------
-
-  // Função para carregar a lista de recursos baseada nos filtros atuais
-  const carregarRecursos = useCallback(async () => {
-    setIsLoading(true);
-    setRecurso([]);
-    setRecursoSelecionado('');
-    setStatus([]);
-    setStatusSelecionado('');
-
-    try {
-      const params = new URLSearchParams();
-      params.append('mes', mes.toString());
-      params.append('ano', ano.toString());
-      params.append('isAdmin', isAdmin.toString());
-
-      if (!isAdmin && codCliente) {
-        params.append('codCliente', codCliente);
-      }
-
-      if (isAdmin && clienteSelecionado) {
-        params.append('cliente', clienteSelecionado);
-      }
-
-      const url = `/api/recursos?${params.toString()}`;
-
-      axios
-        .get(url)
-        .then((response) => {
-          const data = response.data;
-          if (Array.isArray(data)) {
-            setRecurso(data);
-          } else {
-            console.error('Erro: resposta inesperada ao buscar recursos', data);
-          }
-        })
-        .catch((err) => {
-          console.error('Erro ao carregar recursos:', err);
-        });
-    } catch (err) {
-      console.error('Erro ao carregar recursos:', err);
-      setRecurso([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isAdmin, codCliente, mes, ano, clienteSelecionado]);
-
-  // Efeito para carregar recursos quando filtros relevantes mudam
+  // Validação de recurso selecionado quando a lista de recursos muda
   useEffect(() => {
-    const deveCarregarRecursos = mes && ano && (isAdmin || codCliente);
-
-    if (deveCarregarRecursos) {
-      carregarRecursos();
+    if (recursoSelecionado && recursosData.length > 0) {
+      const recursoExiste = recursosData.some((r) => r.cod === recursoSelecionado);
+      if (!recursoExiste) {
+        setRecursoSelecionado('');
+        setStatusSelecionado('');
+      }
     }
-  }, [isAdmin, codCliente, mes, ano, clienteSelecionado, carregarRecursos]);
+  }, [recursosData, recursoSelecionado]);
 
-  // -----------------------------------------------------------------------------
-
-  // Função para carregar a lista de status baseada nos filtros atuais
-  const carregarStatus = useCallback(async () => {
-    setIsLoading(true);
-    setStatus([]);
-    setStatusSelecionado('');
-
-    try {
-      const params = new URLSearchParams();
-      params.append('mes', mes.toString());
-      params.append('ano', ano.toString());
-      params.append('isAdmin', isAdmin.toString());
-
-      if (!isAdmin && codCliente) {
-        params.append('codCliente', codCliente);
-      }
-
-      if (isAdmin && clienteSelecionado) {
-        params.append('cliente', clienteSelecionado);
-      }
-
-      if (recursoSelecionado) {
-        params.append('recurso', recursoSelecionado);
-      }
-
-      const url = `/api/status?${params.toString()}`;
-
-      axios
-        .get(url)
-        .then((response) => {
-          const data = response.data;
-          if (Array.isArray(data)) {
-            setStatus(data);
-          } else {
-            console.error('Erro: resposta inesperada ao buscar status', data);
-          }
-        })
-        .catch((err) => {
-          console.error('Erro ao carregar status:', err);
-        });
-    } catch (err) {
-      console.error('Erro ao carregar status:', err);
-      setStatus([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [isAdmin, codCliente, mes, ano, clienteSelecionado, recursoSelecionado]);
-
-  // Efeito para carregar status quando filtros relevantes mudam
+  // Validação de status selecionado quando a lista de status muda
   useEffect(() => {
-    const deveCarregarRecursos = mes && ano && (isAdmin || codCliente);
-
-    if (deveCarregarRecursos) {
-      carregarStatus();
+    if (statusSelecionado && statusData.length > 0) {
+      const statusExiste = statusData.includes(statusSelecionado);
+      if (!statusExiste) {
+        setStatusSelecionado('');
+      }
     }
-  }, [
-    isAdmin,
-    codCliente,
-    mes,
-    ano,
-    clienteSelecionado,
-    recursoSelecionado,
-    carregarStatus,
-  ]);
+  }, [statusData, statusSelecionado]);
 
-  // -----------------------------------------------------------------------------
-
-  // Lista fixa de anos disponíveis para filtro
+  // ==================== CONSTANTES ====================
   const years = [2024, 2025];
-
-  // Lista fixa de meses disponíveis para filtro
   const months = [
     'Janeiro',
     'Fevereiro',
@@ -276,8 +276,9 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
     'Dezembro',
   ];
 
-  // Adicione este componente helper dentro do arquivo, antes do return:
+  const isLoading = recursosLoading || statusLoading;
 
+  // ==================== SUBCOMPONENTE ====================
   interface SelectWithClearProps {
     value: string | number;
     onChange: (value: string) => void;
@@ -314,7 +315,7 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
           </option>
           {options.map((opt) => (
             <option
-              key={`option-${opt.value}`} // ← ADICIONEI A KEY ÚNICA
+              key={`option-${opt.value}`}
               value={opt.value}
               className="tracking-widest font-medium italic select-none"
             >
@@ -342,7 +343,7 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
     );
   }
 
-  // Renderização do componente de filtros (mobile e desktop)
+  // ==================== RENDERIZAÇÃO ====================
   return (
     <div className="mb-6 lg:mb-8 lg:flex-shrink-0">
       {/* Título para desktop */}
@@ -361,7 +362,7 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
             year: 'numeric',
           })}
           {' - '}
-          {formatarHoraSufixo(
+          {formatarHora(
             new Date().toLocaleTimeString('pt-BR', {
               hour: '2-digit',
               minute: '2-digit',
@@ -390,7 +391,6 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
               </option>
             ))}
           </select>
-          {/* ===== */}
 
           {/* Mês */}
           <select
@@ -408,26 +408,26 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
               </option>
             ))}
           </select>
-          {/* ===== */}
 
           {/* Cliente */}
           <SelectWithClear
             value={clienteSelecionado}
             onChange={setClienteSelecionado}
             onClear={() => setClienteSelecionado('')}
-            disabled={!cliente.length || !!codCliente}
-            options={cliente.map((c) => ({ value: c.cod, label: c.nome }))}
-            placeholder="Selecione o cliente"
+            disabled={!clientesData.length || !!codCliente || clientesLoading}
+            options={clientesData.map((c) => ({ value: c.cod, label: c.nome }))}
+            placeholder={clientesLoading ? 'Carregando clientes...' : 'Selecione o cliente'}
             showClear={!codCliente}
             className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-lg select-none border p-3 shadow-md shadow-black transition-all hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-500 focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed disabled:text-slate-300"
           />
 
+          {/* Recurso */}
           <SelectWithClear
             value={recursoSelecionado}
             onChange={setRecursoSelecionado}
             onClear={() => setRecursoSelecionado('')}
-            disabled={!recurso.length || isLoading}
-            options={recurso.map((r) => ({ value: r.cod, label: r.nome }))}
+            disabled={!recursosData.length || isLoading}
+            options={recursosData.map((r) => ({ value: r.cod, label: r.nome }))}
             placeholder={
               isLoading ? 'Carregando recursos...' : 'Selecione o recurso'
             }
@@ -439,8 +439,8 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
             value={statusSelecionado}
             onChange={setStatusSelecionado}
             onClear={() => setStatusSelecionado('')}
-            disabled={!status.length || isLoading}
-            options={status.map((s) => ({ value: s, label: s }))}
+            disabled={!statusData.length || isLoading}
+            options={statusData.map((s) => ({ value: s, label: s }))}
             placeholder={
               isLoading ? 'Carregando status...' : 'Selecione o status'
             }

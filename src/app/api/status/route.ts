@@ -91,16 +91,16 @@ function aplicarFiltros(
     paramsArray.push(parseInt(params.codCliente));
   }
 
-  // Filtro opcional por nome de cliente (para admin)
+  // Filtro opcional por CÓDIGO de cliente (para admin)
   if (params.isAdmin && params.cliente) {
-    sql += ` AND CLIENTE.NOME_CLIENTE = ?`;
-    paramsArray.push(params.cliente);
+    sql += ` AND CLIENTE.COD_CLIENTE = ?`;  // ← MUDOU: COD ao invés de NOME
+    paramsArray.push(parseInt(params.cliente));  // ← MUDOU: parseInt
   }
 
-  // Filtro opcional por nome de recurso
+  // Filtro opcional por CÓDIGO de recurso
   if (params.recurso) {
-    sql += ` AND RECURSO.NOME_RECURSO = ?`;
-    paramsArray.push(params.recurso);
+    sql += ` AND RECURSO.COD_RECURSO = ?`;  // ← MUDOU: COD ao invés de NOME
+    paramsArray.push(parseInt(params.recurso));  // ← MUDOU: parseInt
   }
 
   // Ordenação alfabética

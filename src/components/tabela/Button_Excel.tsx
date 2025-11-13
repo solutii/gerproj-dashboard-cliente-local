@@ -1,5 +1,10 @@
 'use client';
 
+import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarHora } from '@/formatters/formatar-hora';
+import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
+import { renderizarDoisPrimeirosNomes } from '@/formatters/remover-acentuacao';
 // IMPORTS
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -7,23 +12,11 @@ import { useState } from 'react';
 
 // ICONS
 import { RiFileExcel2Fill } from 'react-icons/ri';
+import type { TableRowProps } from './Colunas_Tabela';
 
 // ================================================================================
 // INTERFACES
 // ================================================================================
-interface TableRowProps {
-  chamado_os: string;
-  cod_os: number;
-  nome_cliente: string;
-  nome_recurso?: string;
-  dtini_os: string;
-  status_chamado: string;
-  hrini_os: string;
-  hrfim_os: string;
-  total_horas: string;
-  valcli_os: string;
-  obs: string;
-}
 
 interface FiltrosRelatorio {
   ano: string;
@@ -54,19 +47,12 @@ function getColumnLetter(index: number): string {
   return letter;
 }
 
-function formatarDataParaBR(data: string): string {
-  if (!data) return 'n/a';
-  const [ano, mes, dia] = data.split('-');
-  return `${dia}/${mes}/${ano}`;
-}
-
 // ================================================================================
 // COMPONENTE
 // ================================================================================
 export function ExportaExcelButton({
   data,
   filtros,
-  buttonText = '',
   className = '',
   disabled = false, // ← ADICIONAR
 }: ExportaExcelButtonProps) {
@@ -372,15 +358,15 @@ export function ExportaExcelButton({
       // CABEÇALHOS DAS COLUNAS
       // ================================================================================
       const headers = [
-        'N° OS',
-        'CÓD. OS',
-        'CLIENTE',
-        'RECURSO',
+        'CHAMADO',
+        'OS',
         'DATA',
+        'CLIENTE',
         'STATUS',
+        'CONSULTOR',
         'HORA INÍCIO',
         'HORA FIM',
-        'DURAÇÃO',
+        "HR's GASTAS",
         'VALIDAÇÃO',
         'OBSERVAÇÃO',
       ];
@@ -410,25 +396,27 @@ export function ExportaExcelButton({
       // ================================================================================
       data.forEach((detalhe) => {
         const rowData = [
-          detalhe.chamado_os || 'n/a',
-          detalhe.cod_os || null,
-          detalhe.nome_cliente || 'n/a',
-          detalhe.nome_recurso || 'n/a',
-          formatarDataParaBR(detalhe.dtini_os) || 'n/a',
-          detalhe.status_chamado || 'n/a',
-          detalhe.hrini_os || 'n/a',
-          detalhe.hrfim_os || 'n/a',
+          formatarNumeros(detalhe.chamado_os) || (`T-${formatarNumeros(detalhe.codtrf_os)}`) || 'n/a',
+          formatarNumeros(detalhe.cod_os) || null,
+          formatarDataParaBR(detalhe.dtini_os) || null,
+          renderizarDoisPrimeirosNomes(detalhe.nome_cliente) || null,
+          detalhe.status_chamado || 'Tarefa',
+          renderizarDoisPrimeirosNomes(
+            corrigirTextoCorrompido(detalhe.nome_recurso),
+          ) || null,
+          formatarHora(detalhe.hrini_os) || null,
+          formatarHora(detalhe.hrfim_os) || null,
           detalhe.total_horas || 'n/a',
           detalhe.valcli_os || 'n/a',
-          detalhe.obs || 'n/a',
+          corrigirTextoCorrompido(detalhe.obs) || 'Sem observação',
         ];
 
         rowData.forEach((value, colIndex) => {
           const cell = worksheet.getCell(currentRow, colIndex + 1);
           cell.value = value;
 
-          const colunasCentralizadas = [0, 1, 4, 5, 6, 7, 8, 9];
-          const colunasComIndentacao = [2, 3, 10];
+          const colunasCentralizadas = [0, 1, 2, 6, 7, 8, 9];
+          const colunasComIndentacao = [3, 4, 5, 10];
 
           cell.alignment = {
             horizontal: colunasCentralizadas.includes(colIndex)
@@ -473,11 +461,11 @@ export function ExportaExcelButton({
       // ================================================================================
       const columnWidths = [
         { width: 15 }, // N° OS
-        { width: 12 }, // CÓD. OS
-        { width: 40 }, // CLIENTE
-        { width: 40 }, // RECURSO
+        { width: 15 }, // CÓD. OS
         { width: 15 }, // DATA
-        { width: 20 }, // STATUS
+        { width: 35 }, // CLIENTE
+        { width: 30 }, // STATUS
+        { width: 35 }, // RECURSO
         { width: 15 }, // HORA INÍCIO
         { width: 15 }, // HORA FIM
         { width: 15 }, // DURAÇÃO

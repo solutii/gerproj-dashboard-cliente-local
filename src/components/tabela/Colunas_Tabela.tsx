@@ -1,8 +1,7 @@
 import { formatarDataParaBR } from '@/formatters/formatar-data';
-import { formatarHoraSufixo } from '@/formatters/formatar-hora';
+import { formatarHora } from '@/formatters/formatar-hora';
 import {
-  formatarCodNumber,
-  formatarCodString,
+  formatarNumeros,
 } from '@/formatters/formatar-numeros';
 import { ColumnDef } from '@tanstack/react-table';
 import { FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
@@ -13,6 +12,7 @@ import { TooltipTabela } from '../utils/Tooltip';
 export type TableRowProps = {
   chamado_os: string;
   cod_os: string;
+  codtrf_os?: string | null;
   dtini_os: string;
   nome_cliente: string;
   status_chamado: string;
@@ -63,24 +63,60 @@ export const columns: ColumnDef<TableRowProps>[] = [
         CHAMADO
       </div>
     ),
-    cell: ({ getValue }) => {
-      const value = getValue() as string | null | undefined;
-      const displayValue = value ? formatarCodString(value) : 'n/a';
+    cell: ({ getValue, row }) => {
+      const chamado = getValue() as string | null | undefined;
+      const tarefa = row.original.codtrf_os;
 
+      // Chamado
+      if (chamado) {
+        return (
+          <TooltipTabela content={`Chamado: ${chamado}`} maxWidth="150px">
+            <div className="text-center font-medium select-none tracking-widest text-slate-800 text-sm">
+              {formatarNumeros(chamado)}
+            </div>
+          </TooltipTabela>
+        );
+      }
+
+      // Tarefa
+      if (tarefa) {
+        return (
+          <TooltipTabela content={`Tarefa: ${tarefa}`} maxWidth="150px">
+            <div className="text-center font-medium select-none tracking-widest text-orange-600 text-sm">
+              <span className="font-bold">T-</span>
+              {formatarNumeros(tarefa)}
+            </div>
+          </TooltipTabela>
+        );
+      }
+
+      // Sem valor
       return (
-        <div className="text-center font-medium select-none tracking-widest text-slate-800 text-sm">
-          {displayValue}
+        <div className="text-center font-medium select-none tracking-widest text-slate-400 text-sm italic">
+          n/a
         </div>
       );
     },
     enableColumnFilter: true,
     filterFn: (row, columnId, filterValue) => {
       if (!filterValue || filterValue.trim() === '') return true;
-      const cellValue = row.getValue(columnId);
-      if (cellValue == null) return false;
-      const cellString = String(cellValue).replace(/\D/g, '');
+
+      const chamado = row.getValue(columnId);
+      const tarefa = row.original.codtrf_os;
       const filterString = String(filterValue).replace(/\D/g, '');
-      return cellString.includes(filterString);
+
+      // Busca em ambos
+      if (chamado != null) {
+        const chamadoString = String(chamado).replace(/\D/g, '');
+        if (chamadoString.includes(filterString)) return true;
+      }
+
+      if (tarefa != null) {
+        const tarefaString = String(tarefa).replace(/\D/g, '');
+        if (tarefaString.includes(filterString)) return true;
+      }
+
+      return false;
     },
   },
   // =====
@@ -95,7 +131,7 @@ export const columns: ColumnDef<TableRowProps>[] = [
     ),
     cell: ({ getValue }) => (
       <div className="text-center font-medium select-none tracking-widest text-slate-800 text-sm">
-        {formatarCodNumber(getValue() as number)}
+        {formatarNumeros(getValue() as number)}
       </div>
     ),
     enableColumnFilter: true,
@@ -163,11 +199,18 @@ export const columns: ColumnDef<TableRowProps>[] = [
         STATUS
       </div>
     ),
-    cell: ({ getValue }) => (
-      <div className="text-left font-medium tracking-widest select-none text-slate-800 text-sm">
-        {getValue() as string}
-      </div>
-    ),
+    cell: ({ getValue }) => {
+      const value = getValue() as string | null | undefined;
+      const displayValue = value ? value : 'Tarefa';
+      const isTarefa = displayValue === 'Tarefa';
+      const colorClass = isTarefa ? 'text-red-500 italic' : 'text-slate-800';
+
+      return (
+        <div className={`text-left font-medium tracking-widest select-none ${colorClass} text-sm`}>
+          {displayValue}
+        </div>
+      );
+    },
     enableColumnFilter: true,
     filterFn: (row, columnId, filterValue) => {
       if (!filterValue || filterValue.trim() === '') return true;
@@ -220,7 +263,7 @@ export const columns: ColumnDef<TableRowProps>[] = [
       const value = getValue() as string;
       return (
         <div className="text-center tracking-widest select-none font-medium text-slate-800  text-sm">
-          {formatarHoraSufixo(value)}
+          {formatarHora(value)}
         </div>
       );
     },
@@ -240,7 +283,7 @@ export const columns: ColumnDef<TableRowProps>[] = [
       const value = getValue() as string;
       return (
         <div className="text-center tracking-widest select-none font-medium text-slate-800  text-sm">
-          {formatarHoraSufixo(value)}
+          {formatarHora(value)}
         </div>
       );
     },
@@ -306,19 +349,20 @@ export const columns: ColumnDef<TableRowProps>[] = [
     ),
     cell: ({ getValue }) => {
       const value = getValue() as string;
+      const textoCorrigido = corrigirTextoCorrompido(value);
+      const displayValue = textoCorrigido ? textoCorrigido : 'Sem observação';
+      const isNoObervation = displayValue === 'Sem observação';
+      const colorClass = isNoObervation ? 'text-red-500 italic' : 'text-slate-800';
+
       return (
-        <div className="w-full">
-          <TooltipTabela
-            content={corrigirTextoCorrompido(value)}
-            maxWidth="200px"
-          >
-            <div className="truncate tracking-widest select-none font-medium text-slate-800 text-sm">
-              {corrigirTextoCorrompido(value)}
-            </div>
-          </TooltipTabela>
-        </div>
+        <TooltipTabela content={displayValue} maxWidth="300px">
+          <div className={`truncate tracking-widest select-none font-medium text-sm w-full ${colorClass}`}>
+            {displayValue}
+          </div>
+        </TooltipTabela>
       );
     },
     enableColumnFilter: true,
+    size: 300, // Define tamanho da coluna
   },
 ];

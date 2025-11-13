@@ -25,9 +25,9 @@ import { TbAlertOctagonFilled } from 'react-icons/tb';
 import { formatarDataParaBR } from '../../formatters/formatar-data';
 import {
   formatarHorasTotaisSufixo,
-  formatarHoraSufixo,
+  formatarHora,
 } from '../../formatters/formatar-hora';
-import { formatarCodString } from '../../formatters/formatar-numeros';
+import { formatarNumeros } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 import { removerAcentos } from '../../formatters/remover-acentuacao';
 import { LoadingButton } from '../utils/Loading_Button';
@@ -321,7 +321,7 @@ export function ModalChamado({
               <InfoCard
                 icon={FaHashtag}
                 label="Número da OS"
-                value={formatarCodString(selectedRow.cod_os || 'N/A')}
+                value={formatarNumeros(selectedRow.cod_os || 'N/A')}
               />
               <InfoCard
                 icon={FaUser}
@@ -364,12 +364,12 @@ export function ModalChamado({
               <InfoCard
                 icon={FaClock}
                 label="Hora Início"
-                value={formatarHoraSufixo(selectedRow.hrini_os || 'N/A')}
+                value={formatarHora(selectedRow.hrini_os || 'N/A')}
               />
               <InfoCard
                 icon={FaClock}
                 label="Hora Fim"
-                value={formatarHoraSufixo(selectedRow.hrfim_os || 'N/A')}
+                value={formatarHora(selectedRow.hrfim_os || 'N/A')}
               />
 
               <InfoCard

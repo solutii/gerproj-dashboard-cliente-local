@@ -1,5 +1,5 @@
 // Função para formatar hora com sufixos "h", "hs" e "min"
-export const formatarHoraSufixo = (
+export const formatarHora = (
   timeString: string | null | undefined,
 ): string => {
   if (!timeString) {

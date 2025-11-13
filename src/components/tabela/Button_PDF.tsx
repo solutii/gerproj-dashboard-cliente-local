@@ -9,24 +9,16 @@ import { useState } from 'react';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 
 // ICONS
+import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarHora } from '@/formatters/formatar-hora';
+import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { renderizarDoisPrimeirosNomes } from '@/formatters/remover-acentuacao';
 import { FaFilePdf } from 'react-icons/fa';
+import type { TableRowProps } from './Colunas_Tabela';
 
 // ================================================================================
 // INTERFACES
 // ================================================================================
-export interface TableRowProps {
-  chamado_os: string;
-  cod_os: number;
-  nome_cliente: string;
-  nome_recurso?: string;
-  dtini_os: string;
-  status_chamado: string;
-  hrini_os: string;
-  hrfim_os: string;
-  total_horas: string;
-  valcli_os: string;
-  obs: string;
-}
 
 interface ExportaPDFButtonProps {
   data: TableRowProps[];
@@ -39,28 +31,12 @@ interface ExportaPDFButtonProps {
   logoUrl?: string;
   footerText?: string;
   className?: string;
-  disabled?: boolean; // ← ADICIONAR
+  disabled?: boolean;
 }
 
 // ================================================================================
 // FUNÇÕES AUXILIARES
 // ================================================================================
-
-function formatarData(data: string): string {
-  if (!data) return 'n/a';
-
-  // Se já está no formato DD/MM/YYYY
-  if (data.includes('/')) return data;
-
-  // Se está no formato YYYY-MM-DD
-  const [ano, mes, dia] = data.split('-');
-  return `${dia}/${mes}/${ano}`;
-}
-
-function formatarHora(hora: string): string {
-  if (!hora) return 'n/a';
-  return hora;
-}
 
 function getNomeMes(mes: string): string {
   const meses = [
@@ -221,22 +197,48 @@ export function ExportaPDFButton({
 
       const tableData = data.map((row) => {
         return columns.map((col) => {
-          const value = row[col.key];
+          const value = (row as any)[col.key];
 
           // Formatações específicas
+          if (col.key === 'chamado_os') {
+            if (value) {
+              return formatarNumeros(String(value));
+            }
+            if ((row as any).codtrf_os) {
+              return `T-${formatarNumeros(String((row as any).codtrf_os))}`;
+            }
+            return 'n/a';
+          }
+          if (col.key === 'cod_os') {
+            return formatarNumeros(String(value || null));
+          }
           if (col.key === 'dtini_os') {
-            return formatarData(String(value));
+            return formatarDataParaBR(String(value || null));
           }
-          if (col.key === 'hrini_os' || col.key === 'hrfim_os') {
-            return formatarHora(String(value));
+          if (col.key === 'nome_cliente') {
+            return renderizarDoisPrimeirosNomes(String(value || null));
           }
+          if (col.key === 'status_chamado') {
+            return String(value || 'Tarefa');
+          }
+          if (col.key === 'nome_recurso') {
+            return renderizarDoisPrimeirosNomes(
+              corrigirTextoCorrompido(String(value || null)),
+            );
+          }
+
+          if (col.key === 'hrini_os') {
+            return formatarHora(String(value || null));
+          }
+          if (col.key === 'hrfim_os') {
+            return formatarHora(String(value || null));
+          }
+          if (col.key === 'total_horas') {
+            return String(value || 'n/a');
+          }
+
           if (col.key === 'obs') {
-            return corrigirTextoCorrompido(String(value || ''));
-          }
-          if (col.key === 'cod_os' || col.key === 'chamado_os') {
-            return typeof value === 'number'
-              ? value.toLocaleString('pt-BR')
-              : String(value);
+            return corrigirTextoCorrompido(String(value || 'Sem observação'));
           }
 
           return String(value || 'n/a');
@@ -245,16 +247,17 @@ export function ExportaPDFButton({
 
       // Configurar estilos de colunas dinamicamente
       const columnStyles: any = {
-        0: { cellWidth: 20, halign: 'center' }, // N° OS
-        1: { cellWidth: 20, halign: 'center' }, // CÓD. OS
-        2: { cellWidth: 40, halign: 'left' }, // Cliente
-        3: { cellWidth: 20, halign: 'center' }, // Data
-        4: { cellWidth: 25, halign: 'center' }, // Status
-        5: { cellWidth: 20, halign: 'center' }, // Hora Início
-        6: { cellWidth: 20, halign: 'center' }, // Hora Fim
-        7: { cellWidth: 20, halign: 'center' }, // Duração
-        8: { cellWidth: 20, halign: 'center' }, // Validação
-        9: { cellWidth: 62, halign: 'left' }, // Observação
+        0: { cellWidth: 15, halign: 'center' }, // N° OS
+        1: { cellWidth: 15, halign: 'center' }, // CÓD. OS
+        2: { cellWidth: 15, halign: 'center' }, // Data
+        3: { cellWidth: 35, halign: 'left' }, // Cliente
+        4: { cellWidth: 30, halign: 'left' }, // Status
+        5: { cellWidth: 35, halign: 'left' }, // Consultor
+        6: { cellWidth: 15, halign: 'center' }, // HR INÍCIO
+        7: { cellWidth: 15, halign: 'center' }, // HR FIM
+        8: { cellWidth: 15, halign: 'center' }, // HR's GASTAS
+        9: { cellWidth: 15, halign: 'center' }, // Validação
+        10: { cellWidth: 60, halign: 'left' }, // Observação
       };
 
       autoTable(doc, {

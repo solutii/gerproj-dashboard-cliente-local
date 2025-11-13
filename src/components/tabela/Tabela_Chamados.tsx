@@ -1,13 +1,13 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
+import { useQuery } from '@tanstack/react-query';
 import {
   ColumnFiltersState,
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FaEraser } from 'react-icons/fa';
 import { IoCall } from 'react-icons/io5';
@@ -40,16 +40,17 @@ interface ApiResponse {
 
 // ==================== CONSTANTES ====================
 const PDF_COLUMNS: { key: keyof TableRowProps; label: string }[] = [
-  { key: 'chamado_os', label: 'N° Chamado' },
-  { key: 'cod_os', label: 'CÓD. OS' },
-  { key: 'nome_cliente', label: 'Cliente' },
-  { key: 'dtini_os', label: 'Data' },
-  { key: 'status_chamado', label: 'Status' },
-  { key: 'hrini_os', label: 'Hora Início' },
-  { key: 'hrfim_os', label: 'Hora Fim' },
-  { key: 'total_horas', label: 'Duração' },
-  { key: 'valcli_os', label: 'Validação' },
-  { key: 'obs', label: 'Observação' },
+  { key: 'chamado_os', label: 'CHAMADO' },
+  { key: 'cod_os', label: 'OS' },
+  { key: 'dtini_os', label: 'DATA' },
+  { key: 'nome_cliente', label: 'CLIENTE' },
+  { key: 'status_chamado', label: 'STATUS' },
+  { key: 'nome_recurso', label: 'CONSULTOR' },
+  { key: 'hrini_os', label: 'HR INÍCIO' },
+  { key: 'hrfim_os', label: 'HR FIM' },
+  { key: 'total_horas', label: "HR's GASTAS" },
+  { key: 'valcli_os', label: 'VALIDAÇÃO' },
+  { key: 'obs', label: 'OBSERVAÇÃO' },
 ];
 
 // ==================== UTILITÁRIOS ====================
@@ -192,7 +193,16 @@ export default function TabelaChamados({
     error,
     refetch,
   } = useQuery({
-    queryKey: ['chamados', ano, mes, cliente, recurso, status, isAdmin, codCliente],
+    queryKey: [
+      'chamados',
+      ano,
+      mes,
+      cliente,
+      recurso,
+      status,
+      isAdmin,
+      codCliente,
+    ],
     queryFn: () =>
       fetchChamados({
         ano,
@@ -208,7 +218,7 @@ export default function TabelaChamados({
     retry: 2,
   });
 
-const data = useMemo(
+  const data = useMemo(
     () => apiData?.apontamentos ?? [],
     [apiData?.apontamentos],
   );
@@ -229,7 +239,7 @@ const data = useMemo(
       // Atualiza o cache do React Query
       refetch();
     },
-    [refetch]
+    [refetch],
   );
 
   const clearAllFilters = useCallback(() => {
@@ -283,7 +293,11 @@ const data = useMemo(
           getValue: (id: string) => row[id as keyof TableRowProps],
         };
 
-        return columnFilterFn(fakeRow, columnId as string, normalizedFilterValue);
+        return columnFilterFn(
+          fakeRow,
+          columnId as string,
+          normalizedFilterValue,
+        );
       });
     });
   }, [dataCorrigida, columnFilters, hasActiveFilters, columnFilterFn]);
@@ -303,7 +317,7 @@ const data = useMemo(
   const totalChamados = useMemo(() => {
     // Conta chamados únicos (chamado_os)
     const chamadosUnicos = Array.from(
-      new Set(data.map((item) => item.chamado_os))
+      new Set(data.map((item) => item.chamado_os)),
     ).filter(Boolean);
     return chamadosUnicos.length;
   }, [data]);
@@ -315,7 +329,7 @@ const data = useMemo(
 
   const totalRecursos = useMemo(() => {
     const recursos = Array.from(
-      new Set(data.map((item) => item.nome_recurso || ''))
+      new Set(data.map((item) => item.nome_recurso || '')),
     ).filter(Boolean).length;
     return recursos;
   }, [data]);
@@ -325,7 +339,7 @@ const data = useMemo(
   // 6. Totais COM filtros
   const totalChamadosFiltrados = useMemo(() => {
     const chamadosUnicos = Array.from(
-      new Set(dadosFiltrados.map((item) => item.chamado_os))
+      new Set(dadosFiltrados.map((item) => item.chamado_os)),
     ).filter(Boolean);
     return chamadosUnicos.length;
   }, [dadosFiltrados]);
@@ -336,7 +350,7 @@ const data = useMemo(
 
   const totalRecursosFiltrados = useMemo(() => {
     const recursos = Array.from(
-      new Set(dadosFiltrados.map((item) => item.nome_recurso || ''))
+      new Set(dadosFiltrados.map((item) => item.nome_recurso || '')),
     ).filter(Boolean).length;
     return recursos;
   }, [dadosFiltrados]);
@@ -363,7 +377,9 @@ const data = useMemo(
   }, [hasActiveFilters, totalRecursosFiltrados, totalRecursos]);
 
   const horasExibidas = useMemo(() => {
-    const resultado = hasActiveFilters ? totalHorasFiltrado : totalHorasSemFiltro;
+    const resultado = hasActiveFilters
+      ? totalHorasFiltrado
+      : totalHorasSemFiltro;
     return resultado || '0h:00min';
   }, [hasActiveFilters, totalHorasFiltrado, totalHorasSemFiltro]);
 
@@ -404,7 +420,9 @@ const data = useMemo(
     return (
       <IsError
         isError={true}
-        error={new Error('Você precisa estar logado para visualizar os chamados')}
+        error={
+          new Error('Você precisa estar logado para visualizar os chamados')
+        }
         title="Acesso Negado"
       />
     );
@@ -615,7 +633,7 @@ function BadgeTotalizador({ label, valor, valorTotal }: BadgeTotalizadorProps) {
       <div className="h-2 w-2 animate-pulse rounded-full bg-purple-500"></div>
       <span className="text-lg tracking-widest font-bold select-none text-black">
         {label}:{' '}
-      <span className="text-lg tracking-widest font-bold select-none text-purple-500">
+        <span className="text-lg tracking-widest font-bold select-none text-purple-500">
           {valor}
           {valorTotal !== undefined && (
             <span className="ml-1">/{valorTotal}</span>

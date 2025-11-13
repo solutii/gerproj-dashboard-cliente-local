@@ -3,7 +3,6 @@
 import { useAuth } from '@/context/AuthContext';
 import { formatarHorasTotaisSufixo } from '../../../formatters/formatar-hora';
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
 
 interface FilterProps {
   filters: {
@@ -48,10 +47,21 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
     if (filters.recurso) params.append('codRecursoFilter', filters.recurso);
     if (filters.status) params.append('status', filters.status);
 
-    const res = await axios.get<ApiResponse>(
+    const response = await fetch(
       `/api/ordens-servico?${params.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
     );
-    return res.data;
+
+    if (!response.ok) {
+      throw new Error(`Erro na requisição: ${response.status}`);
+    }
+
+    return response.json();
   };
 
   const { data, isLoading, isError } = useQuery({

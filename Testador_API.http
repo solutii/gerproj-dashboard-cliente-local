@@ -12,6 +12,9 @@ GET http://localhost:3000/api/ordens-servico?isAdmin=true&mes=11&ano=2025&codCli
 ### Buscar todas as OS's com (admin) e filtra por codCliente e codRecurso
 GET http://localhost:3000/api/ordens-servico?isAdmin=true&mes=11&ano=2025&codClienteFilter=120&codRecursoFilter=122
 
+### Buscar todas as OS's com (admin) e filtra por codCliente, codRecurso e status
+GET http://localhost:3000/api/ordens-servico?isAdmin=true&mes=11&ano=2025&codClienteFilter=120&codRecursoFilter=122&statusFilter=finalizado
+
 # ===============================================================================================================================================
 
 

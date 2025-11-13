@@ -2,93 +2,94 @@
 'use client';
 
 import * as Tooltip from '@radix-ui/react-tooltip';
-import { useRef, useState, useEffect } from 'react';
+import { cloneElement, ReactElement, useEffect, useRef, useState } from 'react';
 
 interface TooltipTabelaProps {
   content: string;
-  children: React.ReactNode;
+  children: ReactElement<any, any>;
   maxWidth?: string;
 }
 
-export function TooltipTabela({ 
-  content, 
-  children, 
-  maxWidth = '200px' 
+export function TooltipTabela({
+  content,
+  children,
+  maxWidth = '200px',
 }: TooltipTabelaProps) {
-  const textRef = useRef<HTMLDivElement>(null);
-  const [showTooltip, setShowTooltip] = useState(false);
+  const textRef = useRef<HTMLElement>(null);
+  const [isTruncated, setIsTruncated] = useState(false);
 
   useEffect(() => {
     const checkOverflow = () => {
-      if (textRef.current && content) {
+      if (textRef.current) {
         const element = textRef.current;
-        
-        // Método mais confiável para detectar truncamento
-        const isTruncated = element.scrollWidth > element.clientWidth;
-        
-        console.log('TooltipTabela - Debug:', {
+        const isOverflowing = element.scrollWidth > element.clientWidth;
+
+        console.log('🔍 Tooltip Check:', {
           scrollWidth: element.scrollWidth,
           clientWidth: element.clientWidth,
-          isTruncated,
-          contentLength: content.length,
-          content: content.substring(0, 50) + '...' // Mostra só o início
+          isTruncated: isOverflowing,
+          content: content.substring(0, 30) + '...',
         });
-        
-        setShowTooltip(isTruncated);
+
+        setIsTruncated(isOverflowing);
       }
     };
 
-    // Usar múltiplos timeouts para garantir que a tabela foi renderizada
-    const timeout1 = setTimeout(checkOverflow, 50);
-    const timeout2 = setTimeout(checkOverflow, 200);
-    const timeout3 = setTimeout(checkOverflow, 500);
-    
+    // Aguardar renderização
+    const timeoutId = setTimeout(checkOverflow, 100);
+
+    // Observer para mudanças
+    const observer = new ResizeObserver(checkOverflow);
+    if (textRef.current) {
+      observer.observe(textRef.current);
+    }
+
     window.addEventListener('resize', checkOverflow);
 
     return () => {
-      clearTimeout(timeout1);
-      clearTimeout(timeout2);
-      clearTimeout(timeout3);
+      clearTimeout(timeoutId);
+      observer.disconnect();
       window.removeEventListener('resize', checkOverflow);
     };
   }, [content]);
 
-  // Sempre mostrar tooltip se o conteúdo for longo (fallback)
-  const shouldShowTooltip = showTooltip || (content && content.length > 50);
-
-  if (!shouldShowTooltip || !content) {
-    return (
-      <div 
-        ref={textRef} 
-        className="truncate w-full"
-        style={{ maxWidth }}
-      >
-        {children}
-      </div>
-    );
+  // Se não há conteúdo
+  if (!content || content.trim() === '') {
+    return children;
   }
 
+  // Clonar o children e adicionar a ref
+  const childProps = (children.props ?? {}) as any;
+  const childWithRef = cloneElement(children, {
+    ref: textRef,
+    style: { ...childProps.style, maxWidth },
+  } as any);
+
+  // Se não está truncado, retorna sem tooltip
+  if (!isTruncated) {
+    return childWithRef;
+  }
+
+  // Retorna com tooltip
   return (
-    <Tooltip.Provider delayDuration={300}>
+    <Tooltip.Provider delayDuration={200}>
       <Tooltip.Root>
         <Tooltip.Trigger asChild>
-          <div 
-            ref={textRef} 
-            className="truncate w-full cursor-help"
-            style={{ maxWidth }}
-          >
-            {children}
-          </div>
+          {cloneElement(children, {
+            ref: textRef,
+            className: `${childProps.className || ''} cursor-help`,
+            style: { ...childProps.style, maxWidth },
+          } as any)}
         </Tooltip.Trigger>
         <Tooltip.Portal>
           <Tooltip.Content
             side="top"
             align="end"
-            className="z-[9999] max-w-[500px] break-words rounded-md bg-black px-3 py-2 text-base text-white shadow-md shadow-black select-none tracking-widest font-medium"
-            sideOffset={30}
+            className="z-[9999] max-w-[500px] break-words rounded-md bg-slate-900 px-4 py-3 text-sm text-white shadow-xl select-none tracking-wide font-medium"
+            sideOffset={20}
           >
             {content}
-            <Tooltip.Arrow className="fill-red-500" />
+            <Tooltip.Arrow className="fill-slate-900" />
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>
