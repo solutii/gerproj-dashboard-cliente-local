@@ -4,9 +4,10 @@ import { FaDatabase } from 'react-icons/fa';
 interface LoadingOverlayProps {
   isLoading: boolean;
   title: string;
+  icon?: React.ReactNode;
 }
 
-export function IsLoading({ isLoading, title }: LoadingOverlayProps) {
+export function IsLoading({ isLoading, title, icon }: LoadingOverlayProps) {
   if (!isLoading) return null;
 
   return (
@@ -19,7 +20,7 @@ export function IsLoading({ isLoading, title }: LoadingOverlayProps) {
             <Loader2 className="animate-spin text-blue-600" size={160} />
 
             <div className="absolute inset-0 flex items-center justify-center">
-              <FaDatabase className="text-blue-600" size={60} />
+              {icon || <FaDatabase className="text-blue-600" size={60} />}
             </div>
           </div>
         </div>

@@ -225,11 +225,11 @@ const DropdownValidacao = memo(
             {value && (
               <span
                 onClick={handleClear}
-                className="bg-slate-300 p-1 rounded-full hover:bg-red-500 cursor-pointer shadow-sm shadow-black"
+                className="bg-slate-300 p-0.5 rounded-full hover:bg-red-500 cursor-pointer shadow-sm shadow-black"
                 title="Limpar Filtro"
               >
                 <IoClose
-                  size={18}
+                  size={16}
                   className="text-black group-hover:text-white group-hover:rotate-180 transition-all"
                 />
               </span>

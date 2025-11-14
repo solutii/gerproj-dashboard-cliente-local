@@ -1,4 +1,3 @@
-// app/api/save-validation/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { firebirdQuery } from '../../../lib/firebird/firebird-client';
 

@@ -44,7 +44,9 @@ interface ApontamentoProcessado {
 }
 
 // ==================== VALIDAÇÕES ====================
-function validarParametros(searchParams: URLSearchParams): QueryParams | NextResponse {
+function validarParametros(
+  searchParams: URLSearchParams,
+): QueryParams | NextResponse {
   const isAdmin = searchParams.get('isAdmin') === 'true';
   const codCliente = searchParams.get('codCliente')?.trim() || undefined;
   const mes = Number(searchParams.get('mes'));
@@ -53,21 +55,21 @@ function validarParametros(searchParams: URLSearchParams): QueryParams | NextRes
   if (!mes || mes < 1 || mes > 12) {
     return NextResponse.json(
       { error: "Parâmetro 'mes' deve ser um número entre 1 e 12" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (!ano || ano < 2000 || ano > 3000) {
     return NextResponse.json(
       { error: "Parâmetro 'ano' deve ser um número válido" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
   if (!isAdmin && !codCliente) {
     return NextResponse.json(
       { error: "Parâmetro 'codCliente' é obrigatório para usuários não admin" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
@@ -78,18 +80,22 @@ function validarParametros(searchParams: URLSearchParams): QueryParams | NextRes
     ano,
     codClienteFilter: searchParams.get('codClienteFilter')?.trim() || undefined,
     codRecursoFilter: searchParams.get('codRecursoFilter')?.trim() || undefined,
-    status: searchParams.get('status')?.trim() || undefined
+    status: searchParams.get('status')?.trim() || undefined,
   };
 }
 
 // ==================== CONSTRUÇÃO DE DATAS ====================
-function construirDatas(mes: number, ano: number): { dataInicio: string; dataFim: string } {
+function construirDatas(
+  mes: number,
+  ano: number,
+): { dataInicio: string; dataFim: string } {
   const mesFormatado = mes.toString().padStart(2, '0');
   const dataInicio = `01.${mesFormatado}.${ano}`;
-  
-  const dataFim = mes === 12 
-    ? `01.01.${ano + 1}`
-    : `01.${(mes + 1).toString().padStart(2, '0')}.${ano}`;
+
+  const dataFim =
+    mes === 12
+      ? `01.01.${ano + 1}`
+      : `01.${(mes + 1).toString().padStart(2, '0')}.${ano}`;
 
   return { dataInicio, dataFim };
 }
@@ -122,7 +128,7 @@ const SQL_BASE = `
 function aplicarFiltros(
   sqlBase: string,
   params: QueryParams,
-  paramsArray: any[]
+  paramsArray: any[],
 ): { sql: string; params: any[] } {
   let sql = sqlBase;
 
@@ -131,7 +137,7 @@ function aplicarFiltros(
     sql += ` AND CLIENTE.COD_CLIENTE = ?`;
     paramsArray.push(parseInt(params.codCliente));
   }
-  
+
   // Filtros opcionais (MESMA LÓGICA DA API DE OS)
   if (params.codClienteFilter) {
     sql += ` AND CLIENTE.COD_CLIENTE = ?`;
@@ -162,7 +168,10 @@ function converterHoraParaMinutos(hora: string | null | undefined): number {
   return horas * 60 + minutos;
 }
 
-function calcularDiferencaHoras(hrInicio: string | null | undefined, hrFim: string | null | undefined): number {
+function calcularDiferencaHoras(
+  hrInicio: string | null | undefined,
+  hrFim: string | null | undefined,
+): number {
   if (!hrInicio || !hrFim) return 0;
 
   const minutosInicio = converterHoraParaMinutos(hrInicio);
@@ -180,18 +189,18 @@ function calcularDiferencaHoras(hrInicio: string | null | undefined, hrFim: stri
 
 function formatarDuracao(totalMinutos: number): string {
   if (totalMinutos <= 0) return '-';
-  
+
   const horas = Math.floor(totalMinutos / 60);
   const minutos = totalMinutos % 60;
-  
+
   // Se for menos de 1 hora, retorna apenas os minutos
   if (horas === 0) {
     return `${minutos}min`;
   }
-  
+
   // Se tiver horas, formata completo (h para singular, hs para plural)
   const sufixoHora = horas === 1 ? 'h' : 'hs';
-  
+
   // Se não tiver minutos e horas for menor que 10, retorna apenas as horas com uma casa
   if (minutos === 0 && horas < 10) {
     return `${String(horas).padStart(1, '0')}${sufixoHora}`;
@@ -201,7 +210,7 @@ function formatarDuracao(totalMinutos: number): string {
   if (minutos === 0 && horas >= 10) {
     return `${String(horas).padStart(2, '0')}${sufixoHora}`;
   }
-  
+
   // Formata completo com horas e minutos
   return `${String(horas).padStart(2, '0')}${sufixoHora}:${String(minutos).padStart(2, '0')}min`;
 }
@@ -214,7 +223,7 @@ function normalizarValcliOs(valcli: string | null | undefined): string | null {
     // Por padrão, consideramos NULL como 'SIM' (aprovado) para manter consistência.
     return 'SIM';
   }
-  
+
   return String(valcli).trim().toUpperCase();
 }
 
@@ -225,13 +234,13 @@ function processarApontamentos(apontamentos: ApontamentoFirebird[]): {
 } {
   let totalMinutos = 0;
 
-  const apontamentosProcessados = apontamentos.map(apontamento => {
+  const apontamentosProcessados = apontamentos.map((apontamento) => {
     // Calcula minutos trabalhados
     const minutosApontamento = calcularDiferencaHoras(
       apontamento.HRINI_OS,
-      apontamento.HRFIM_OS
+      apontamento.HRFIM_OS,
     );
-    
+
     totalMinutos += minutosApontamento;
 
     return {
@@ -257,67 +266,48 @@ function processarApontamentos(apontamentos: ApontamentoFirebird[]): {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    
-    console.log('[API] Iniciando busca de apontamentos');
 
     // Validar parâmetros
     const params = validarParametros(searchParams);
     if (params instanceof NextResponse) return params;
 
-    console.log('[API] Parâmetros validados:', params);
-
     // Construir datas
     const { dataInicio, dataFim } = construirDatas(params.mes, params.ano);
-
-    console.log('[API] Período:', { dataInicio, dataFim });
-
     // Construir e executar query
-    const { sql, params: sqlParams } = aplicarFiltros(
-      SQL_BASE,
-      params,
-      [dataInicio, dataFim]
-    );
+    const { sql, params: sqlParams } = aplicarFiltros(SQL_BASE, params, [
+      dataInicio,
+      dataFim,
+    ]);
 
     const sqlFinal = `${sql} ORDER BY RECURSO.NOME_RECURSO ASC, OS.DTINI_OS ASC, OS.HRINI_OS ASC`;
 
-    console.log('[API] Executando query no Firebird...');
-    console.log('[API] Filtros aplicados:', {
-      codClienteFilter: params.codClienteFilter,
-      codRecursoFilter: params.codRecursoFilter,
-      status: params.status
-    });
-
     const apontamentos = await firebirdQuery(sqlFinal, sqlParams);
 
-    console.log(`[API] Encontrados ${apontamentos.length} apontamentos`);
-
     // Processar dados
-    const { apontamentosProcessados, totalMinutos } = processarApontamentos(apontamentos);
+    const { apontamentosProcessados, totalMinutos } =
+      processarApontamentos(apontamentos);
 
     const totalHorasGeral = formatarDuracao(totalMinutos);
-
-    console.log('[API] Processamento concluído:', {
-      total_apontamentos: apontamentosProcessados.length,
-      total_horas: totalHorasGeral
-    });
 
     return NextResponse.json({
       totalHorasGeral,
       apontamentos: apontamentosProcessados,
     });
-
   } catch (error) {
     console.error('[API] Erro geral:', error);
     console.error('[API] Stack:', error instanceof Error ? error.stack : 'N/A');
-    console.error('[API] Message:', error instanceof Error ? error.message : error);
-    
+    console.error(
+      '[API] Message:',
+      error instanceof Error ? error.message : error,
+    );
+
     return NextResponse.json(
-      { 
+      {
         error: 'Erro interno do servidor',
         message: error instanceof Error ? error.message : 'Erro desconhecido',
-        details: process.env.NODE_ENV === 'development' ? error : undefined
+        details: process.env.NODE_ENV === 'development' ? error : undefined,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -24,13 +24,6 @@ export function TooltipTabela({
         const element = textRef.current;
         const isOverflowing = element.scrollWidth > element.clientWidth;
 
-        console.log('🔍 Tooltip Check:', {
-          scrollWidth: element.scrollWidth,
-          clientWidth: element.clientWidth,
-          isTruncated: isOverflowing,
-          content: content.substring(0, 30) + '...',
-        });
-
         setIsTruncated(isOverflowing);
       }
     };

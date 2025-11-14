@@ -14,7 +14,7 @@ interface FilterProps {
 
 export function ContainerCardsMetricas({ filters }: FilterProps) {
   return (
-    <div className="mb-8 grid grid-cols-1 gap-6 md:grid-cols-3">
+    <div className="grid gap-6 grid-cols-3">
       <CardTotalChamadosOS filters={filters} />
       <CardHorasContratadasHorasExecutadas filters={filters} />
       <CardMediaHorasChamado filters={filters} />

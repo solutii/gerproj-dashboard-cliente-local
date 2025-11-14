@@ -1,5 +1,8 @@
 'use client';
 
+import { useAuth } from '@/context/AuthContext';
+import { useMutation } from '@tanstack/react-query';
+
 import { memo, useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { BsChatSquareTextFill } from 'react-icons/bs';
@@ -23,13 +26,13 @@ import { IoIosSave } from 'react-icons/io';
 import { IoClose } from 'react-icons/io5';
 import { TbAlertOctagonFilled } from 'react-icons/tb';
 import { formatarDataParaBR } from '../../formatters/formatar-data';
-import {
-  formatarHorasTotaisSufixo,
-  formatarHora,
-} from '../../formatters/formatar-hora';
+import { formatarHora } from '../../formatters/formatar-hora';
 import { formatarNumeros } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { removerAcentos } from '../../formatters/remover-acentuacao';
+import {
+  removerAcentos,
+  renderizarDoisPrimeirosNomes,
+} from '../../formatters/remover-acentuacao';
 import { LoadingButton } from '../utils/Loading_Button';
 import { TableRowProps } from './Colunas_Tabela';
 
@@ -42,7 +45,7 @@ interface ModalProps {
   isOpen: boolean;
   selectedRow: TableRowProps | null;
   onClose: () => void;
-  onSave: (updatedRow: TableRowProps) => void; // 🆕 Callback para atualizar a tabela
+  onSave: (updatedRow: TableRowProps) => void;
 }
 
 const STATUS_CONFIG = {
@@ -100,7 +103,7 @@ const StatusBadge = memo(({ status }: { status: string }) => {
 
   return (
     <div
-      className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-bold tracking-widest select-none italic ${bg} ${color} ${border}`}
+      className={`inline-flex items-center rounded-md border px-3 py-1.5 text-sm font-bold tracking-widest select-none  ${bg} ${color} ${border}`}
     >
       <Icon className="mr-2 h-4 w-4" />
       {status}
@@ -123,7 +126,7 @@ const InfoCard = memo(
     fullWidth?: boolean;
   }) => (
     <div
-      className={`group rounded-md border bg-gradient-to-br from-slate-50 to-white p-4 transition-all shadow-sm shadow-black ${fullWidth ? 'col-span-full' : ''}`}
+      className={`group rounded-md border bg-gradient-to-br from-slate-50 to-white p-4 transition-all shadow-xs shadow-black ${fullWidth ? 'col-span-full' : ''}`}
     >
       <div className="mb-2 flex items-center gap-2">
         <Icon className=" text-slate-800" size={16} />
@@ -131,7 +134,7 @@ const InfoCard = memo(
           {label}
         </span>
       </div>
-      <div className="text-base font-bold text-slate-800 tracking-widest select-none italic">
+      <div className="text-base font-bold text-slate-800 tracking-widest select-none ">
         {value}
       </div>
     </div>
@@ -140,18 +143,75 @@ const InfoCard = memo(
 
 InfoCard.displayName = 'InfoCard';
 
+// Função para salvar validação na API
+const saveValidationApi = async ({
+  cod_os,
+  concordaPagar,
+  observacao,
+}: {
+  cod_os: string | number;
+  concordaPagar: boolean;
+  observacao: string | null;
+}) => {
+  const response = await fetch('/api/salvar-validacao', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      cod_os,
+      concordaPagar,
+      observacao: observacao ? removerAcentos(observacao) : null,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || 'Falha ao salvar validação');
+  }
+
+  return response.json();
+};
+
 export function ModalChamado({
   isOpen,
   selectedRow,
   onClose,
-  onSave, // 🆕 Recebe o callback
+  onSave,
 }: ModalProps) {
+  const { isAdmin } = useAuth();
+
   const [modalData, setModalData] = useState<ModalDataProps>({
     concordaPagar: true,
     observacao: '',
   });
   const [validationError, setValidationError] = useState('');
-  const [isSending, setIsSending] = useState(false);
+
+  // Mutation para salvar validação
+  const saveValidationMutation = useMutation({
+    mutationFn: saveValidationApi,
+    onSuccess: (data, variables) => {
+      toast.success('Validação salva com sucesso!');
+
+      if (selectedRow) {
+        // Atualiza a linha com o novo valor de validação
+        const updatedRow: TableRowProps = {
+          ...selectedRow,
+          valcli_os: variables.concordaPagar ? 'SIM' : 'NAO',
+        };
+
+        // Chama o callback para atualizar a tabela
+        onSave(updatedRow);
+      }
+
+      // Aguarda um momento para o toast ser exibido antes de fechar
+      setTimeout(() => {
+        handleClose();
+      }, 500);
+    },
+    onError: (error: Error) => {
+      console.error('Erro ao processar validação:', error);
+      toast.error(`Erro ao salvar validação: ${error.message}`);
+    },
+  });
 
   const handleCheckboxChange = useCallback((checked: boolean) => {
     setModalData((prev) => ({
@@ -161,20 +221,18 @@ export function ModalChamado({
     if (checked) setValidationError('');
   }, []);
 
- const handleObservacaoChange = useCallback((value: string) => {
-  // Remove espaços extras no início
-  const trimmed = value.replace(/^\s+/, '');
+  const handleObservacaoChange = useCallback((value: string) => {
+    // Remove espaços extras no início
+    const trimmed = value.replace(/^\s+/, '');
 
-  // Transforma apenas a primeira letra da primeira palavra em maiúscula
-  const formatted =
-    trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    // Transforma apenas a primeira letra da primeira palavra em maiúscula
+    const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 
-  setModalData((prev) => ({
-    ...prev,
-    observacao: formatted,
-  }));
-}, []);
-
+    setModalData((prev) => ({
+      ...prev,
+      observacao: formatted,
+    }));
+  }, []);
 
   const validateForm = useCallback((): boolean => {
     if (!modalData.concordaPagar && modalData.observacao.trim() === '') {
@@ -185,32 +243,8 @@ export function ModalChamado({
     return true;
   }, [modalData.concordaPagar, modalData.observacao]);
 
-  const saveValidation = useCallback(
-    async (chamado: TableRowProps) => {
-      const response = await fetch('/api/salvar-validacao', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cod_os: chamado.cod_os,
-          concordaPagar: modalData.concordaPagar,
-          observacao: modalData.observacao.trim()
-            ? removerAcentos(modalData.observacao.trim())
-            : null,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Falha ao salvar validação');
-      }
-
-      return response.json();
-    },
-    [modalData.concordaPagar, modalData.observacao],
-  );
-
   const handleClose = useCallback(() => {
-    if (isSending) return;
+    if (saveValidationMutation.isPending) return;
 
     if (!modalData.concordaPagar && modalData.observacao.trim() === '') {
       setValidationError(
@@ -222,7 +256,12 @@ export function ModalChamado({
     setModalData({ concordaPagar: true, observacao: '' });
     setValidationError('');
     onClose();
-  }, [isSending, modalData.concordaPagar, modalData.observacao, onClose]);
+  }, [
+    saveValidationMutation.isPending,
+    modalData.concordaPagar,
+    modalData.observacao,
+    onClose,
+  ]);
 
   const isFormValid = useCallback(() => {
     return modalData.concordaPagar || modalData.observacao.trim() !== '';
@@ -231,39 +270,25 @@ export function ModalChamado({
   const saveModalData = useCallback(async () => {
     if (!selectedRow || !validateForm()) return;
 
-    setIsSending(true);
-
-    try {
-      await saveValidation(selectedRow);
-      toast.success('Validação salva com sucesso!');
-
-      // 🆕 Atualiza a linha com o novo valor de validação
-      const updatedRow: TableRowProps = {
-        ...selectedRow,
-        valcli_os: modalData.concordaPagar ? 'SIM' : 'NAO',
-      };
-
-      // 🆕 Chama o callback para atualizar a tabela
-      onSave(updatedRow);
-
-      // Aguarda um momento para o toast ser exibido antes de fechar
-      setTimeout(() => {
-        handleClose();
-      }, 500);
-    } catch (error) {
-      console.error('Erro ao processar validação:', error);
-      toast.error(
-        `Erro ao salvar validação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
-      );
-      setIsSending(false);
-    }
-  }, [selectedRow, validateForm, saveValidation, handleClose, modalData.concordaPagar, onSave]);
+    saveValidationMutation.mutate({
+      cod_os: selectedRow.cod_os,
+      concordaPagar: modalData.concordaPagar,
+      observacao: modalData.observacao.trim() || null,
+    });
+  }, [
+    selectedRow,
+    validateForm,
+    modalData.concordaPagar,
+    modalData.observacao,
+    saveValidationMutation,
+  ]);
 
   const handleBackdropClick = useCallback(
     (e: React.MouseEvent) => {
-      if (e.target === e.currentTarget && !isSending) handleClose();
+      if (e.target === e.currentTarget && !saveValidationMutation.isPending)
+        handleClose();
     },
-    [isSending, handleClose],
+    [saveValidationMutation.isPending, handleClose],
   );
 
   const handleSubmit = useCallback(
@@ -292,21 +317,21 @@ export function ModalChamado({
 
         <div className="animate-in slide-in-from-bottom-4 relative z-10 max-h-[100vh] w-full max-w-2xl overflow-hidden rounded-2xl border border-teal-900 bg-white transition-all duration-500 ease-out">
           {/* ===== HEADER ===== */}
-          <header className="relative flex items-center justify-between bg-teal-700 p-6 shadow-sm shadow-black">
+          <header className="relative flex items-center justify-between bg-teal-700 p-6 shadow-xs shadow-black">
             <div className="flex items-center justify-center gap-6">
               <FaFileWaveform className=" text-white" size={60} />
               <div className="flex flex-col">
                 <h1 className="text-2xl font-extrabold tracking-widest text-gray-200 select-none">
                   DETALHES DA OS
                 </h1>
-                <p className="text-lg font-extrabold tracking-widest text-gray-200 italic select-none">
+                <p className="text-lg font-extrabold tracking-widest text-gray-200  select-none">
                   Revise e valide a OS
                 </p>
               </div>
             </div>
             <button
               onClick={handleClose}
-              disabled={isSending}
+              disabled={saveValidationMutation.isPending}
               className="group active::scale-95 cursor-pointer rounded-full bg-white/20 p-3 transition-all hover:scale-125 hover:rotate-180 hover:bg-red-500"
             >
               <IoClose className="text-white group-hover:scale-125" size={20} />
@@ -321,62 +346,69 @@ export function ModalChamado({
               <InfoCard
                 icon={FaHashtag}
                 label="Número da OS"
-                value={formatarNumeros(selectedRow.cod_os || 'N/A')}
+                value={formatarNumeros(selectedRow.cod_os)}
               />
-              <InfoCard
-                icon={FaUser}
-                label="Cliente"
-                value={
-                  selectedRow.nome_cliente
-                    ? selectedRow.nome_cliente
-                        .trim()
-                        .split(/\s+/)
-                        .slice(0, 2)
-                        .join(' ')
-                    : 'N/A'
-                }
-              />
-
-              <div className="col-span-full">
-                <div className="group rounded-md bg-gradient-to-br from-slate-50 to-white px-4 py-2 transition-all shadow-sm border shadow-black">
-                  <div className="mb-2 flex items-center gap-2">
-                    <FaRegCircleCheck className=" text-slate-800" size={16} />
-                    <span className="text-xs font-bold tracking-widest select-none text-slate-800">
-                      Status
-                    </span>
-                  </div>
-                  <StatusBadge status={selectedRow.status_chamado || 'N/A'} />
-                </div>
-              </div>
+              {/* ===== */}
 
               <InfoCard
                 icon={FaCalendar}
                 label="Data"
-                value={formatarDataParaBR(selectedRow.dtini_os || 'N/A')}
+                value={formatarDataParaBR(selectedRow.dtini_os)}
               />
+              {/* ===== */}
+              {isAdmin && (
+                <InfoCard
+                  icon={FaUser}
+                  label="Cliente"
+                  value={renderizarDoisPrimeirosNomes(selectedRow.nome_cliente)}
+                />
+              )}
+              {/* ===== */}
+
               <InfoCard
-                icon={FaClock}
-                label="Tempo Total"
-                value={formatarHorasTotaisSufixo(
-                  selectedRow.total_horas || 'N/A',
+                icon={FaCalendar}
+                label="Status"
+                value={formatarDataParaBR(
+                  selectedRow.status_chamado || 'Tarefa',
                 )}
               />
+              {/* ===== */}
+
               <InfoCard
                 icon={FaClock}
                 label="Hora Início"
-                value={formatarHora(selectedRow.hrini_os || 'N/A')}
+                value={formatarHora(selectedRow.hrini_os)}
               />
+              {/* ===== */}
+
               <InfoCard
                 icon={FaClock}
                 label="Hora Fim"
-                value={formatarHora(selectedRow.hrfim_os || 'N/A')}
+                value={formatarHora(selectedRow.hrfim_os)}
               />
+              {/* ===== */}
+
+              <InfoCard
+                icon={FaClock}
+                label="Tempo Total"
+                value={selectedRow.total_horas}
+              />
+              {/* ===== */}
+
+              <InfoCard
+                icon={FaUser}
+                label="Consultor"
+                value={renderizarDoisPrimeirosNomes(
+                  corrigirTextoCorrompido(selectedRow.nome_recurso),
+                )}
+              />
+              {/* ===== */}
 
               <InfoCard
                 icon={BsChatSquareTextFill}
                 label="Observação da OS"
                 value={corrigirTextoCorrompido(
-                  selectedRow.obs || 'Nenhuma observação registrada',
+                  selectedRow.obs || 'Sem observação',
                 )}
                 fullWidth
               />
@@ -390,7 +422,7 @@ export function ModalChamado({
                   <div className="w-full border-t border-slate-400"></div>
                 </div>
                 <div className="relative flex justify-center">
-                  <span className="bg-white px-4 font-extrabold text-slate-800 tracking-widest select-none italic text-base">
+                  <span className="bg-white px-4 font-extrabold text-slate-800 tracking-widest select-none  text-base">
                     Validação
                   </span>
                 </div>
@@ -398,15 +430,15 @@ export function ModalChamado({
 
               {/* Checkbox estilizado */}
               <div
-                className={`group relative flex cursor-pointer items-center gap-6 border rounded-md shadow-sm shadow-black ${modalData.concordaPagar ? 'bg-blue-100 border-blue-500' : 'bg-red-100 border-red-500'} px-4 py-2 transition-all hover:shadow-lg hover:shadow-black`}
+                className={`group relative flex cursor-pointer items-center gap-6 border rounded-md shadow-xs shadow-black ${modalData.concordaPagar ? 'bg-blue-100 border-blue-500' : 'bg-red-100 border-red-500'} px-4 py-2 transition-all hover:shadow-lg hover:shadow-black`}
               >
                 <div className="relative flex items-center">
                   <input
                     type="checkbox"
                     checked={modalData.concordaPagar}
                     onChange={(e) => handleCheckboxChange(e.target.checked)}
-                    disabled={isSending}
-                    className="h-5 w-5 rounded-md border bg-white transition-all disabled:cursor-not-allowed disabled:opacity-50 shadow-sm shadow-black active:scale-85 hover:shadow-lg hover:shadow-black"
+                    disabled={saveValidationMutation.isPending}
+                    className="h-5 w-5 rounded-md border bg-white transition-all disabled:cursor-not-allowed disabled:opacity-50 shadow-xs shadow-black active:scale-85 hover:shadow-lg hover:shadow-black"
                   />
                 </div>
                 <div className="flex-1">
@@ -423,7 +455,7 @@ export function ModalChamado({
                   </span>
 
                   {modalData.concordaPagar && (
-                    <span className="text-xs text-slate-700 font-semibold tracking-widest select-none italic">
+                    <span className="text-xs text-slate-700 font-semibold tracking-widest select-none ">
                       Caso não concorde, desmarque e informe o motivo na
                       observação abaixo
                     </span>
@@ -443,7 +475,7 @@ export function ModalChamado({
                       <p className="font-bold text-amber-800 tracking-widest select-none text-base">
                         Atenção!
                       </p>
-                      <p className="mt-1 text-sm text-amber-800 font-semibold tracking-widest select-none italic">
+                      <p className="mt-1 text-sm text-amber-800 font-semibold tracking-widest select-none ">
                         Você deve informar o motivo da discordância no campo de
                         observação
                       </p>
@@ -476,7 +508,7 @@ export function ModalChamado({
                     value={modalData.observacao}
                     onChange={(e) => handleObservacaoChange(e.target.value)}
                     rows={4}
-                    className={`w-full rounded-xl border bg-white px-4 py-2 text-slate-800 tracking-widest placeholder:text-sm placeholder:font-semibold select-none font-semibold transition-all focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-50 shadow-sm shadow-black hover:shadow-lg hover:shadow-black placeholder:tracking-widest placeholder:italic placeholder:text-slate-400 ${
+                    className={`w-full rounded-xl border bg-white px-4 py-2 text-slate-800 tracking-widest placeholder:text-sm placeholder:font-semibold select-none font-semibold transition-all focus:outline-none focus:ring-4 disabled:cursor-not-allowed disabled:opacity-50 shadow-xs shadow-black hover:shadow-lg hover:shadow-black placeholder:tracking-widest placeholder: placeholder:text-slate-400 ${
                       !modalData.concordaPagar
                         ? 'focus:ring-red-600 focus:shadow-none focus:ring-2 focus:border-none border-red-500'
                         : 'focus:ring-2 focus:ring-blue-600 focus:shadow-none'
@@ -486,7 +518,7 @@ export function ModalChamado({
                         ? 'Por favor, informe o motivo da Não Aprovação...'
                         : 'Digite uma observação, se necessário...'
                     }
-                    disabled={isSending}
+                    disabled={saveValidationMutation.isPending}
                   />
                 </div>
               </div>
@@ -500,7 +532,7 @@ export function ModalChamado({
                       className="text-red-600 animate-pulse"
                       size={28}
                     />
-                    <p className="flex-1 text-sm tracking-widest select-none font-semibold text-red-800 italic">
+                    <p className="flex-1 text-sm tracking-widest select-none font-semibold text-red-800 ">
                       {validationError}
                     </p>
                   </div>
@@ -512,8 +544,8 @@ export function ModalChamado({
                 <button
                   type="button"
                   onClick={handleClose}
-                  disabled={isSending}
-                  className="w-[200px] cursor-pointer rounded-md border-none bg-gradient-to-r from-red-600 to-red-700 px-6 py-2 text-lg font-extrabold tracking-widest text-white shadow-sm shadow-black transition-all hover:shadow-lg hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={saveValidationMutation.isPending}
+                  className="w-[200px] cursor-pointer rounded-md border-none bg-gradient-to-r from-red-600 to-red-700 px-6 py-2 text-lg font-extrabold tracking-widest text-white shadow-xs shadow-black transition-all hover:shadow-lg hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   Cancelar
                 </button>
@@ -522,10 +554,10 @@ export function ModalChamado({
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="group relative overflow-hidden w-[200px] cursor-pointer rounded-md border-none bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-2 text-lg font-extrabold tracking-widest text-white shadow-sm shadow-black transition-all hover:shadow-lg hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={isSending || !isFormValid()}
+                  className="group relative overflow-hidden w-[200px] cursor-pointer rounded-md border-none bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-2 text-lg font-extrabold tracking-widest text-white shadow-xs shadow-black transition-all hover:shadow-lg hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={saveValidationMutation.isPending || !isFormValid()}
                 >
-                  {isSending ? (
+                  {saveValidationMutation.isPending ? (
                     <span className="flex items-center justify-center gap-3">
                       <LoadingButton size={24} />
                       Salvando...

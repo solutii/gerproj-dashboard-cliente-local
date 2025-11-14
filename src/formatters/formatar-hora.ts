@@ -139,13 +139,13 @@ const formatTimeOutput = (hours: number, minutes: number): string => {
 
   // Apenas horas (sem minutos)
   if (minutes === 0) {
-    return hours === 1 ? '1h' : `${hoursFormatted}hs`;
+    return hours === 1 ? '1h':`${hoursFormatted}hs`;
   }
 
   // Horas e minutos
   const minutesStr = minutes.toString().padStart(2, '0');
   return hours === 1 
-    ? `1h : ${minutesStr}min` 
-    : `${hoursFormatted}hs : ${minutesStr}min`;
+    ? `1h:${minutesStr}min` 
+    : `${hoursFormatted}hs:${minutesStr}min`;
 };
 // ====================================================================================================

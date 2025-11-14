@@ -14,3 +14,10 @@ export const renderizarDoisPrimeirosNomes = (nomeCompleto?: string | null): stri
    const partes = semAcentos.trim().split(/\s+/).filter(Boolean);
    return partes.slice(0, 2).join(' ');
 };
+
+export const renderizarPrimeiroNome = (nomeCompleto?: string | null): string => {
+   if (!nomeCompleto) return '';
+   const semAcentos = removerAcentos(nomeCompleto);
+   const partes = semAcentos.trim().split(/\s+/).filter(Boolean);
+   return partes.slice(0, 1).join(' ');
+};

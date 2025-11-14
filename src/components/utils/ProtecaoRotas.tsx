@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IsLoggedIn } from '../utils/IsLoggedIn';
 
-export default function ProtecaoRotas({
+export function ProtecaoRotas({
   children,
 }: {
   children: React.ReactNode;

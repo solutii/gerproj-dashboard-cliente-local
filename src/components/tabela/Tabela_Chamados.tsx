@@ -8,7 +8,7 @@ import {
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { FaEraser } from 'react-icons/fa';
 import { IoCall } from 'react-icons/io5';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
@@ -16,13 +16,14 @@ import { IsError } from '../utils/IsError';
 import { IsLoading } from '../utils/IsLoading';
 import { ExportaExcelButton } from './Button_Excel';
 import { ExportaPDFButton } from './Button_PDF';
-import { TableRowProps, columns } from './Colunas_Tabela';
+import { TableRowProps, getColumns } from './Colunas_Tabela';
 import {
   FiltroHeaderChamados,
   useFiltrosChamados,
 } from './Filtro_Header_Tabela';
 import { ModalChamado } from './Modal_Chamado';
 import { StatusBadge } from './Status_Badge';
+import { FiRefreshCw } from 'react-icons/fi';
 
 // ==================== TIPOS ====================
 interface FiltersProps {
@@ -185,6 +186,7 @@ export default function TabelaChamados({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
 
   const { columnFilterFn } = useFiltrosChamados();
+  const columns = useMemo(() => getColumns(isAdmin), [isAdmin]);
 
   // ==================== REACT QUERY ====================
   const {
@@ -305,7 +307,7 @@ export default function TabelaChamados({
   // 4. Configurar a tabela
   const table = useReactTable<TableRowProps>({
     data: dadosFiltrados,
-    columns,
+    columns, // Agora usa as colunas dinâmicas
     getCoreRowModel: getCoreRowModel(),
     state: {
       columnFilters,
@@ -383,37 +385,6 @@ export default function TabelaChamados({
     return resultado || '0h:00min';
   }, [hasActiveFilters, totalHorasFiltrado, totalHorasSemFiltro]);
 
-  // 8. LOG PARA DEBUG
-  useEffect(() => {
-    console.log('🔍 DEBUG COMPLETO:', {
-      hasActiveFilters,
-      columnFilters: columnFilters.map((f) => ({
-        id: f.id,
-        value: f.value,
-        tipo: typeof f.value,
-      })),
-      dataOriginalLength: data.length,
-      dadosFiltradosLength: dadosFiltrados.length,
-      tableRowsLength: table.getRowModel().rows.length,
-      totalizadores: {
-        chamados: chamadosExibidos,
-        os: osExibidas,
-        recursos: recursosExibidos,
-        horas: horasExibidas,
-      },
-    });
-  }, [
-    hasActiveFilters,
-    columnFilters,
-    data.length,
-    dadosFiltrados.length,
-    table,
-    chamadosExibidos,
-    osExibidas,
-    recursosExibidos,
-    horasExibidas,
-  ]);
-
   // ==================== RENDERIZAÇÃO CONDICIONAL ====================
 
   if (!isLoggedIn) {
@@ -451,7 +422,7 @@ export default function TabelaChamados({
 
   return (
     <>
-      <div className="relative flex h-full flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black">
+      <div className="relative flex h-full flex-col overflow-hidden border bg-white shadow-md shadow-black w-full border-b-slate-500">
         {/* Cabeçalho */}
         <HeaderSection
           isAdmin={isAdmin}
@@ -473,7 +444,7 @@ export default function TabelaChamados({
         <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
           <div
             className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-white/5 scrollbar-thumb-purple-500/30 hover:scrollbar-thumb-purple-500/50"
-            style={{ maxHeight: 'calc(100vh - 280px)' }}
+            style={{ maxHeight: 'calc(100vh - 370px)' }}
           >
             <table className="w-full border-separate border-spacing-0">
               {/* Header */}
@@ -538,13 +509,28 @@ function HeaderSection({
   return (
     <header className="flex flex-col gap-10 bg-purple-900 p-6">
       {/* Título */}
-      <div className="flex items-center gap-6">
-        <div className="flex h-16 w-16 items-center justify-center rounded-md bg-white/30 shadow-md shadow-black">
-          <IoCall className="text-white animate-pulse" size={48} />
+      <div className="flex w-full items-center justify-between">
+        <div className="flex items-center gap-6">
+          <div className="flex h-16 w-16 items-center justify-center rounded-md bg-white/30 shadow-md shadow-black">
+            <IoCall className="text-white animate-pulse" size={48} />
+          </div>
+          <h2 className="text-4xl tracking-widest select-none font-bold text-white">
+            TABELA DE DADOS - {mes}/{ano}
+          </h2>
         </div>
-        <h2 className="text-4xl tracking-widest select-none font-bold text-white">
-          TABELA DE DADOS - {mes}/{ano}
-        </h2>
+
+        <FiRefreshCw
+          onClick={() => {
+            clearAllFilters();
+            // small delay garante que o estado seja atualizado antes do reload
+            setTimeout(() => {
+              if (typeof window !== 'undefined') window.location.reload();
+            }, 100);
+          }}
+          title="Atualizar Dados"
+          className="cursor-pointer text-white transition-all hover:scale-125 hover:rotate-180 active:scale-95 mr-7" size={52}
+        >
+        </FiRefreshCw>
       </div>
 
       {/* Badges e Ações */}
@@ -666,11 +652,16 @@ function TableHeader({ table }: { table: any }) {
       <tr className="shadow-sm shadow-black bg-teal-700">
         {table.getAllColumns().map((column: any) => (
           <th key={column.id} className="py-4 px-2">
-            <FiltroHeaderChamados
-              value={(column.getFilterValue() as string) ?? ''}
-              onChange={(value) => column.setFilterValue(value)}
-              columnId={column.id}
-            />
+            {/* Não renderiza filtro para a coluna total_horas */}
+            {column.id === 'total_horas' ? (
+              <div className="h-[42px]" /> // Mantém o espaçamento
+            ) : (
+              <FiltroHeaderChamados
+                value={(column.getFilterValue() as string) ?? ''}
+                onChange={(value) => column.setFilterValue(value)}
+                columnId={column.id}
+              />
+            )}
           </th>
         ))}
       </tr>

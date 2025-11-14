@@ -296,7 +296,7 @@ function gerarTopChamados(chamados: OSComHoras[], limite: number = 10) {
     const atual = horasPorChamado.get(os.CHAMADO_OS) || { 
       horas: 0, 
       cliente: os.NOME_CLIENTE || 'Sem cliente',
-      status: os.STATUS_CHAMADO || 'Sem status'
+      status: os.STATUS_CHAMADO || 'Tarefa'
     };
     
     horasPorChamado.set(os.CHAMADO_OS, {
@@ -320,7 +320,7 @@ function gerarHorasPorStatus(chamados: OSComHoras[]) {
   const horasPorStatus = new Map<string, number>();
   
   chamados.forEach(os => {
-    const status = os.STATUS_CHAMADO || 'Sem status';
+    const status = os.STATUS_CHAMADO || 'Tarefa';
     const horasAtuais = horasPorStatus.get(status) || 0;
     horasPorStatus.set(status, horasAtuais + (os.TOTAL_HRS_OS || 0));
   });
