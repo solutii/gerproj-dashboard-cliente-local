@@ -1,6 +1,18 @@
 export default function Background() {
   return (
     <>
+      {/* Background Image */}
+      <div 
+        className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        style={{
+          backgroundImage: 'url(/imagem-fundo-login.avif)',
+          opacity: 0.3, // Ajuste a opacidade conforme necessário
+        }}
+      ></div>
+
+      {/* Overlay escuro para melhor contraste */}
+      <div className="absolute inset-0 bg-black/40"></div>
+
       {/* Floating Orbs */}
       <div className="absolute top-1/4 left-1/4 w-16 h-16 sm:w-24 sm:h-24 lg:w-32 lg:h-32 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-xl animate-pulse"></div>
       <div className="absolute top-3/4 right-1/4 w-20 h-20 sm:w-32 sm:h-32 lg:w-40 lg:h-40 bg-gradient-to-r from-blue-400/15 to-purple-400/15 rounded-full blur-2xl animate-pulse delay-1000"></div>
