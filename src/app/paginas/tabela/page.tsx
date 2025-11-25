@@ -27,7 +27,7 @@ export default function TicketChamadoPage() {
       <div className="flex flex-col gap-10 h-full overflow-hidden">
         {/* Área fixa - sem scroll */}
         <div className="flex-shrink-0">
-          <Filtros onFiltersChange={handleFiltersChange} />
+          <Filtros onFiltersChange={handleFiltersChange} showRefreshButton={false} />
         </div>
         <div className="flex-1 min-h-0">
           <TabelaChamados

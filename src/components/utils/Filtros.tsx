@@ -1,7 +1,8 @@
 import { useAuth } from '@/context/AuthContext';
 import { useFilters } from '@/context/FiltersContext';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
+import { FiRefreshCw } from 'react-icons/fi';
 import { IoClose } from 'react-icons/io5';
 import { MdCalendarMonth, MdFilterAlt } from 'react-icons/md';
 import { useDebounce } from 'use-debounce';
@@ -16,6 +17,7 @@ interface FiltersProps {
     recurso: string;
     status: string;
   }) => void;
+  showRefreshButton?: boolean;
 }
 // =====
 
@@ -144,10 +146,14 @@ const fetchStatus = async ({
 // ===================
 
 // ==================== COMPONENTE PRINCIPAL ====================
-export function Filtros({ onFiltersChange }: FiltersProps) {
+export function Filtros({
+  onFiltersChange,
+  showRefreshButton = false,
+}: FiltersProps) {
   const hoje = new Date();
   const { filters, setFilters } = useFilters();
   const { isAdmin, codCliente } = useAuth();
+  const queryClient = useQueryClient();
 
   // ==================== ESTADO DO RELÓGIO ====================
   const [horaAtual, setHoraAtual] = useState(
@@ -304,6 +310,26 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
   }, [statusData, statusSelecionado]);
   // ===================
 
+  // Função para limpar todos os filtros
+  const clearAllFilters = () => {
+    setAno(hoje.getFullYear());
+    setMes(hoje.getMonth() + 1);
+    setClienteSelecionado('');
+    setRecursoSelecionado('');
+    setStatusSelecionado('');
+  };
+  // ===================
+
+  // Função para atualizar os dados e limpar os filtros
+  const handleRefresh = () => {
+    clearAllFilters();
+    // Invalida todas as queries para forçar um refetch
+    queryClient.invalidateQueries({ queryKey: ['clientes'] });
+    queryClient.invalidateQueries({ queryKey: ['recursos'] });
+    queryClient.invalidateQueries({ queryKey: ['status'] });
+  };
+  // ===================
+
   // ==================== CONSTANTES ====================
   const years = [2024, 2025];
   // =====
@@ -411,6 +437,16 @@ export function Filtros({ onFiltersChange }: FiltersProps) {
         </div>
 
         <div className="flex items-center gap-8 mr-4">
+          {showRefreshButton && (
+            <div>
+              <FiRefreshCw
+                onClick={handleRefresh}
+                title="Atualizar Dados"
+                className="cursor-pointer text-blue-500 transition-all hover:scale-125 hover:rotate-180 active:scale-95 mr-7"
+                size={32}
+              />
+            </div>
+          )}
           <div className="flex items-center justify-center gap-2 text-xl font-extrabold tracking-widest select-none text-black">
             <MdCalendarMonth className="text-black" size={32} />
             {new Date().toLocaleString('pt-BR', {

@@ -369,7 +369,7 @@ export function ModalChamado({
                 icon={FaCalendar}
                 label="Status"
                 value={formatarDataParaBR(
-                  selectedRow.status_chamado || 'Tarefa',
+                  selectedRow.status_chamado || 'Sem status',
                 )}
               />
               {/* ===== */}

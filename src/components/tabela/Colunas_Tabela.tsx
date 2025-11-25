@@ -198,9 +198,9 @@ export const getColumns = (isAdmin: boolean): ColumnDef<TableRowProps>[] => {
       ),
       cell: ({ getValue }) => {
         const value = getValue() as string | null | undefined;
-        const displayValue = value ? value : 'Tarefa';
-        const isTarefa = displayValue === 'Tarefa';
-        const colorClass = isTarefa ? 'text-red-500 italic' : 'text-slate-800';
+        const displayValue = value ? value : 'Sem status';
+        const isSemStatus = displayValue === 'Sem status';
+        const colorClass = isSemStatus ? 'text-red-500 italic' : 'text-slate-800';
 
         return (
           <div

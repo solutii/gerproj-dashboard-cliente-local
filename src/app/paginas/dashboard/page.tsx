@@ -43,7 +43,7 @@ export default function DashboardPage() {
       <div className="flex flex-col gap-10 h-full overflow-hidden">
         {/* Área fixa - sem scroll */}
         <div className="flex-shrink-0">
-          <Filtros onFiltersChange={handleFiltersChange} />
+          <Filtros onFiltersChange={handleFiltersChange} showRefreshButton={true} />
         </div>
         
         <div className="flex-shrink-0">
