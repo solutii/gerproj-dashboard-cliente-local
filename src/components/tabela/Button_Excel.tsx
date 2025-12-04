@@ -394,17 +394,18 @@ export function ExportaExcelButton({
       // CABEÇALHOS DAS COLUNAS
       // ================================================================================
       const headers = [
-        'CHAMADO',
-        'OS',
-        'DATA',
-        'CLIENTE',
-        'STATUS',
-        'CONSULTOR',
-        'HORA INÍCIO',
-        'HORA FIM',
-        "HR's GASTAS",
-        'VALIDAÇÃO',
-        'OBSERVAÇÃO',
+        'CHAMADO', // 0
+        'OS', // 1
+        'DATA', // 2
+        'CLIENTE', // 3
+        'SOLICITAÇÃO', // 4
+        'STATUS', // 5
+        'CONSULTOR', // 6
+        'HORA INÍCIO', // 7
+        'HORA FIM', // 8
+        "HR's GASTAS", // 9
+        'VALIDAÇÃO', // 10
+        'OBSERVAÇÃO', // 11
       ];
 
       headers.forEach((header, index) => {
@@ -438,6 +439,7 @@ export function ExportaExcelButton({
           formatarNumeros(detalhe.cod_os) || null,
           formatarDataParaBR(detalhe.dtini_os) || null,
           renderizarDoisPrimeirosNomes(detalhe.nome_cliente) || null,
+          corrigirTextoCorrompido(detalhe.solicitacao_chamado) || 'n/a',
           detalhe.status_chamado || 'Tarefa',
           renderizarDoisPrimeirosNomes(
             corrigirTextoCorrompido(detalhe.nome_recurso),
@@ -453,8 +455,8 @@ export function ExportaExcelButton({
           const cell = worksheet.getCell(currentRow, colIndex + 1);
           cell.value = value;
 
-          const colunasCentralizadas = [0, 1, 2, 6, 7, 8, 9];
-          const colunasComIndentacao = [3, 4, 5, 10];
+          const colunasCentralizadas = [0, 1, 2, 7, 8, 9, 10];
+          const colunasComIndentacao = [3, 4, 5, 6, 11];
 
           cell.alignment = {
             horizontal: colunasCentralizadas.includes(colIndex)
@@ -498,17 +500,18 @@ export function ExportaExcelButton({
       // CONFIGURAÇÕES FINAIS
       // ================================================================================
       const columnWidths = [
-        { width: 15 },
-        { width: 15 },
-        { width: 15 },
-        { width: 35 },
-        { width: 30 },
-        { width: 35 },
-        { width: 15 },
-        { width: 15 },
-        { width: 15 },
-        { width: 15 },
-        { width: 60 },
+        { width: 15 }, // CHAMADO
+        { width: 15 }, // OS
+        { width: 15 }, // DATA OS
+        { width: 35 }, // CLIENTE
+        { width: 30 }, // SOLICITAÇÃO
+        { width: 35 }, // STATUS
+        { width: 15 }, // CONSULTOR
+        { width: 15 }, // HORA INICIO
+        { width: 15 }, // HORA FIM
+        { width: 15 }, // HR's GASTAS
+        { width: 12 }, // VALIDAÇÃO
+        { width: 60 }, // OBSERVAÇÃO
       ];
 
       worksheet.columns = columnWidths;

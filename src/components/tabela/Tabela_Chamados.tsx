@@ -46,6 +46,7 @@ const PDF_COLUMNS: { key: keyof TableRowProps; label: string }[] = [
   { key: 'dtini_os', label: 'DATA' },
   { key: 'nome_cliente', label: 'CLIENTE' },
   { key: 'status_chamado', label: 'STATUS' },
+  { key: 'solicitacao_chamado', label: 'SOLICITAÇÃO' },
   { key: 'nome_recurso', label: 'CONSULTOR' },
   { key: 'hrini_os', label: 'HR INÍCIO' },
   { key: 'hrfim_os', label: 'HR FIM' },

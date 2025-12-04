@@ -250,6 +250,9 @@ export function ExportaPDFButton({
           if (col.key === 'nome_cliente') {
             return renderizarDoisPrimeirosNomes(String(value || null));
           }
+          if (col.key === 'solicitacao_chamado') {
+            return corrigirTextoCorrompido(String(value || 'n/a'));
+          }
           if (col.key === 'status_chamado') {
             return String(value || 'Tarefa');
           }
@@ -276,17 +279,18 @@ export function ExportaPDFButton({
       });
 
       const columnStyles: any = {
-        0: { cellWidth: 18, halign: 'center' },
-        1: { cellWidth: 12, halign: 'center' },
-        2: { cellWidth: 17, halign: 'center' },
-        3: { cellWidth: 35, halign: 'left' },
-        4: { cellWidth: 27, halign: 'left' },
-        5: { cellWidth: 35, halign: 'left' },
-        6: { cellWidth: 17, halign: 'center' },
-        7: { cellWidth: 15, halign: 'center' },
-        8: { cellWidth: 17, halign: 'center' },
-        9: { cellWidth: 20, halign: 'center' },
-        10: { cellWidth: 64, halign: 'left' },
+        0: { cellWidth: 18, halign: 'center' }, // chamado_os
+        1: { cellWidth: 12, halign: 'center' }, // cod_os
+        2: { cellWidth: 17, halign: 'center' }, // dtini_os
+        3: { cellWidth: 35, halign: 'left' }, // nome_cliente
+        4: { cellWidth: 27, halign: 'left' }, // solicitacao_chamado
+        5: { cellWidth: 35, halign: 'left' }, // status_chamado
+        6: { cellWidth: 17, halign: 'left' }, // nome_recurso
+        7: { cellWidth: 15, halign: 'center' }, // hrini_os
+        8: { cellWidth: 17, halign: 'center' }, // hrfim_os
+        9: { cellWidth: 20, halign: 'center' }, // total_horas
+        10: { cellWidth: 20, halign: 'center' }, // validacao
+        11: { cellWidth: 64, halign: 'left' }, // obs
       };
 
       autoTable(doc, {

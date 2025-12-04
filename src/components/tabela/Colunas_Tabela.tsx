@@ -15,6 +15,7 @@ export type TableRowProps = {
   dtini_os: string;
   nome_cliente: string;
   status_chamado: string;
+  solicitacao_chamado?: string | null;
   nome_recurso: string;
   hrini_os: string;
   hrfim_os: string;

@@ -11,7 +11,6 @@ interface QueryParams {
   codRecursoFilter?: string;
   status?: string;
 }
-
 interface ApontamentoFirebird {
   CHAMADO_OS?: string;
   COD_OS: string;
@@ -20,6 +19,7 @@ interface ApontamentoFirebird {
   COD_CLIENTE?: number;
   NOME_CLIENTE?: string;
   STATUS_CHAMADO?: string;
+  SOLICITACAO_CHAMADO?: string; // ⭐ NOVO CAMPO
   COD_RECURSO?: number;
   NOME_RECURSO?: string;
   HRINI_OS?: string;
@@ -27,7 +27,6 @@ interface ApontamentoFirebird {
   OBS_OS?: string;
   VALCLI_OS?: string;
 }
-
 interface ApontamentoProcessado {
   chamado_os: string | null;
   cod_os: string;
@@ -35,6 +34,7 @@ interface ApontamentoProcessado {
   dtini_os: string;
   nome_cliente: string | null;
   status_chamado: string | null;
+  solicitacao_chamado: string | null; // ⭐ NOVO CAMPO
   nome_recurso: string | null;
   hrini_os: string | null;
   hrfim_os: string | null;
@@ -42,7 +42,6 @@ interface ApontamentoProcessado {
   obs: string | null;
   valcli_os: string | null;
 }
-
 // ==================== VALIDAÇÕES ====================
 function validarParametros(
   searchParams: URLSearchParams,
@@ -115,7 +114,8 @@ const SQL_BASE = `
     CLIENTE.NOME_CLIENTE,
     RECURSO.COD_RECURSO,
     RECURSO.NOME_RECURSO,
-    CHAMADO.STATUS_CHAMADO
+    CHAMADO.STATUS_CHAMADO,
+    CHAMADO.SOLICITACAO_CHAMADO
   FROM OS
   LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
   LEFT JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
@@ -251,6 +251,7 @@ function processarApontamentos(apontamentos: ApontamentoFirebird[]): {
       dtini_os: apontamento.DTINI_OS,
       nome_cliente: apontamento.NOME_CLIENTE || null,
       status_chamado: apontamento.STATUS_CHAMADO || null,
+      solicitacao_chamado: (apontamento.SOLICITACAO_CHAMADO && String(apontamento.SOLICITACAO_CHAMADO).trim()) || null,
       nome_recurso: apontamento.NOME_RECURSO || null,
       hrini_os: apontamento.HRINI_OS || null,
       hrfim_os: apontamento.HRFIM_OS || null,
