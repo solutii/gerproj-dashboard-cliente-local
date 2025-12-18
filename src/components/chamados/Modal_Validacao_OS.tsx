@@ -47,7 +47,9 @@ interface ModalValidacaoOSProps {
   onClose: () => void;
   onSave: (updatedRow: OSRowProps) => void;
 }
+// ====================
 
+//  Objeto de configuração para status e seus ícones/cores
 const STATUS_CONFIG = {
   finalizado: {
     icon: FaRegCircleCheck,
@@ -80,14 +82,18 @@ const STATUS_CONFIG = {
     border: 'border-blue-500',
   },
 } as const;
+// ====================
 
+// Objeto padrão para status desconhecidos
 const DEFAULT_STATUS = {
   icon: FaRegCircleXmark,
   color: 'text-slate-700',
   bg: 'bg-slate-100',
   border: 'border-slate-500',
 };
+// ====================
 
+// Função para obter o ícone e cores com base no status
 const getStatusIcon = (status: string) => {
   const statusLower = status?.toLowerCase() || '';
   const matchedStatus = Object.keys(STATUS_CONFIG).find(
@@ -97,7 +103,9 @@ const getStatusIcon = (status: string) => {
     ? STATUS_CONFIG[matchedStatus as keyof typeof STATUS_CONFIG]
     : DEFAULT_STATUS;
 };
+// ===================
 
+// Componente memoizado para o StatusBadge
 const StatusBadge = memo(({ status }: { status: string }) => {
   const { icon: Icon, color, bg, border } = getStatusIcon(status);
 
@@ -112,14 +120,17 @@ const StatusBadge = memo(({ status }: { status: string }) => {
 });
 
 StatusBadge.displayName = 'StatusBadge';
+// ===================
 
-// Função auxiliar para pegar apenas os dois primeiros nomes
+// Função para obter os primeiros dois nomes de um nome completo
 const getPrimeirosDoisNomes = (nomeCompleto: string): string => {
   if (!nomeCompleto) return '---------------';
   const nomes = nomeCompleto.trim().split(' ');
   return nomes.slice(0, 2).join(' ');
 };
+// ===================
 
+// Componente memoizado para o InfoCard
 const InfoCard = memo(
   ({
     icon: Icon,
@@ -168,8 +179,9 @@ const InfoCard = memo(
 );
 
 InfoCard.displayName = 'InfoCard';
+// ===================
 
-// Função para salvar validação na API
+// Função para salvar a validação via API
 const saveValidationApi = async ({
   cod_os,
   concordaPagar,
@@ -196,7 +208,9 @@ const saveValidationApi = async ({
 
   return response.json();
 };
+// ===================
 
+// ==================== COMPONENTE PRINCIPAL ====================
 export function ModalValidacaoOS({
   isOpen,
   selectedRow,
@@ -206,13 +220,15 @@ export function ModalValidacaoOS({
   const { isAdmin } = useAuth();
   const queryClient = useQueryClient();
 
+  // Estados locais
   const [modalData, setModalData] = useState<ModalDataProps>({
     concordaPagar: true,
     observacao: '',
   });
   const [validationError, setValidationError] = useState('');
+  // ====================
 
-  // Mutation para salvar validação
+  // Mutação para salvar a validação
   const saveValidationMutation = useMutation({
     mutationFn: saveValidationApi,
     onSuccess: async (data, variables) => {
@@ -223,8 +239,9 @@ export function ModalValidacaoOS({
         };
 
         await queryClient.invalidateQueries({
-          queryKey: ['os'],
+          queryKey: ['modal-os-lista'],
           exact: false,
+          refetchType: 'active',
         });
 
         onSave(updatedRow);
@@ -243,7 +260,9 @@ export function ModalValidacaoOS({
       toast.error(`Erro ao salvar validação: ${error.message}`);
     },
   });
+  // ====================
 
+  // Handler para mudança do checkbox
   const handleCheckboxChange = useCallback((checked: boolean) => {
     setModalData((prev) => ({
       ...prev,
@@ -251,7 +270,9 @@ export function ModalValidacaoOS({
     }));
     if (checked) setValidationError('');
   }, []);
+  // ===================
 
+  // Handler para mudança na observação
   const handleObservacaoChange = useCallback((value: string) => {
     const trimmed = value.replace(/^\s+/, '');
     const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
@@ -261,7 +282,9 @@ export function ModalValidacaoOS({
       observacao: formatted,
     }));
   }, []);
+  // ===================
 
+  // Validação do formulário antes de salvar
   const validateForm = useCallback((): boolean => {
     if (!modalData.concordaPagar && modalData.observacao.trim() === '') {
       setValidationError('.');
@@ -270,7 +293,9 @@ export function ModalValidacaoOS({
     setValidationError('');
     return true;
   }, [modalData.concordaPagar, modalData.observacao]);
+  // ===================
 
+  // Handler para fechar o modal
   const handleClose = useCallback(() => {
     if (saveValidationMutation.isPending) return;
 
@@ -290,7 +315,9 @@ export function ModalValidacaoOS({
     modalData.observacao,
     onClose,
   ]);
+  // ===================
 
+  // Verifica se o formulário é válido para habilitar o botão de salvar
   const isFormValid = useCallback(() => {
     return modalData.concordaPagar || modalData.observacao.trim() !== '';
   }, [modalData.concordaPagar, modalData.observacao]);
@@ -310,15 +337,9 @@ export function ModalValidacaoOS({
     modalData.observacao,
     saveValidationMutation,
   ]);
+  // ==================
 
-  const handleBackdropClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.target === e.currentTarget && !saveValidationMutation.isPending)
-        handleClose();
-    },
-    [saveValidationMutation.isPending, handleClose],
-  );
-
+  // Handler para submissão do formulário
   const handleSubmit = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
@@ -326,16 +347,27 @@ export function ModalValidacaoOS({
     },
     [saveModalData],
   );
+  // ==================
 
+  // Efeito para resetar o estado ao abrir o modal
   useEffect(() => {
     if (isOpen && selectedRow) {
-      setModalData({ concordaPagar: true, observacao: '' });
+      const concordaInicial = selectedRow.VALCLI_OS === 'SIM';
+
+      setModalData({
+        concordaPagar: concordaInicial,
+        observacao: selectedRow.OBSCLI_OS || '',
+      });
       setValidationError('');
     }
   }, [isOpen, selectedRow]);
+  // ==================
 
+  // Renderização condicional
   if (!isOpen || !selectedRow) return null;
+  // ==================
 
+  // =================== RENDERIZAÇÃO PRINCIPAL ===================
   return (
     <>
       <div className="animate-in fade-in fixed inset-0 z-[70] flex items-center justify-center p-4">

@@ -12,6 +12,7 @@ export interface OrdemServico {
   OBS: string | null;
   NUM_OS: string | null;
   VALCLI_OS: string | null;
+  OBSCLI_OS?: string | null;
   NOME_RECURSO?: string | null;
   NOME_TAREFA?: string | null;
   NOME_CLIENTE?: string | null;
@@ -41,6 +42,7 @@ const CAMPOS_OS = {
   OBS: 'OS.OBS',
   NUM_OS: 'OS.NUM_OS',
   VALCLI_OS: 'OS.VALCLI_OS',
+  OBSCLI_OS: 'OS.OBSCLI_OS',
   NOME_RECURSO: 'RECURSO.NOME_RECURSO',
   NOME_TAREFA: 'TAREFA.NOME_TAREFA',
   NOME_CLIENTE: 'CLIENTE.NOME_CLIENTE',
@@ -199,6 +201,7 @@ function processarOrdemServico(os: any[]): OrdemServico[] {
     OBS: item.OBS || null,
     NUM_OS: item.NUM_OS || null,
     VALCLI_OS: item.VALCLI_OS || null,
+    OBSCLI_OS: item.OBSCLI_OS || null,
     NOME_RECURSO: item.NOME_RECURSO || null,
     NOME_TAREFA: item.NOME_TAREFA || null,
     NOME_CLIENTE: item.NOME_CLIENTE || null,

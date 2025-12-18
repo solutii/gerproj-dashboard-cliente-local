@@ -2,6 +2,7 @@
 
 import { useFilters } from '@/context/FiltersContext';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { useQuery } from '@tanstack/react-query';
 import { debounce } from 'lodash';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -223,16 +224,19 @@ const DropdownWithFilter = memo(
     // ✅ NOVA FUNÇÃO: Formata nome para exibir apenas dois primeiros nomes
     const formatDisplayName = useCallback(
       (fullName: string) => {
-        // Se for status ou classificação, retorna o nome completo
+        // Primeiro corrige o texto corrompido
+        const textoCorrigido = corrigirTextoCorrompido(fullName);
+
+        // Se for status ou classificação, retorna o nome completo corrigido
         if (
           columnId === 'NOME_CLASSIFICACAO' ||
           columnId === 'STATUS_CHAMADO'
         ) {
-          return fullName;
+          return textoCorrigido;
         }
 
         // Para cliente e recurso, pega apenas os dois primeiros nomes
-        const parts = fullName.trim().split(/\s+/).filter(Boolean);
+        const parts = textoCorrigido.trim().split(/\s+/).filter(Boolean);
         return parts.length <= 2
           ? parts.join(' ')
           : parts.slice(0, 2).join(' ');
@@ -409,8 +413,9 @@ const DropdownWithFilter = memo(
                 </div>
               ) : (
                 filteredOptions.map((option) => {
-                  // ✅ MODIFICAÇÃO: Formata o nome exibido nas opções também
+                  // ✅ MODIFICAÇÃO: Formata o nome exibido e corrige texto
                   const optionDisplayName = formatDisplayName(option.nome);
+                  const tituloCorrigido = corrigirTextoCorrompido(option.nome);
 
                   return (
                     <button
@@ -421,7 +426,7 @@ const DropdownWithFilter = memo(
                           ? 'bg-blue-600 text-white'
                           : 'text-black hover:bg-black hover:text-white'
                       }`}
-                      title={option.nome} // ✅ Tooltip mostra o nome completo
+                      title={tituloCorrigido} // ✅ Tooltip mostra o nome completo corrigido
                     >
                       <div className="truncate">{optionDisplayName}</div>
                     </button>

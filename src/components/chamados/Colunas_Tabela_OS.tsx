@@ -21,6 +21,7 @@ export interface OSRowProps {
   NOME_RECURSO: string | null;
   NOME_TAREFA: string | null;
   VALCLI_OS: string | null;
+  OBSCLI_OS?: string | null;
   // ==================
   NOME_CLIENTE?: string | null;
 }

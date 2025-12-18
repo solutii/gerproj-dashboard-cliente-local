@@ -75,7 +75,8 @@ function corrigirManual(texto: string): string {
     'ýý': 'ÇÃ',  // ✅ EVOLUÇÃO
     'Dý': 'DÃ', 
     'ý': 'Ç',
-    '�ÃO': 'ÇÃO'
+    '�ÃO': 'ÇÃO',
+    '�ncia': 'ência'
   };
 
   let corrigido = texto;
