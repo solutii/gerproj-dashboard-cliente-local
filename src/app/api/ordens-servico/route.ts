@@ -140,6 +140,7 @@ function construirDatas(
 }
 
 // ==================== CONSTRUÇÃO DE SQL ====================
+// ✅ MUDANÇA PRINCIPAL: Adicionar filtros de CHAMADO_OS (igual à API de chamados)
 function construirSQLBase(): string {
   const campos = Object.values(CAMPOS_OS).join(',\n    ');
 
@@ -152,8 +153,11 @@ function construirSQLBase(): string {
   LEFT JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
   LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
   LEFT JOIN CHAMADO ON CASE WHEN TRIM(OS.CHAMADO_OS) = '' THEN NULL ELSE CAST(OS.CHAMADO_OS AS INTEGER) END = CHAMADO.COD_CHAMADO
-  WHERE OS.DTINI_OS >= ? AND OS.DTINI_OS < ?
+  WHERE OS.DTINI_OS >= ? 
+    AND OS.DTINI_OS < ?
     AND TAREFA.EXIBECHAM_TAREFA = 1
+    AND OS.CHAMADO_OS IS NOT NULL
+    AND OS.CHAMADO_OS <> ''
 `;
 }
 
@@ -169,8 +173,11 @@ function construirSQLTotalizadores(): string {
   LEFT JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
   LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
   LEFT JOIN CHAMADO ON CASE WHEN TRIM(OS.CHAMADO_OS) = '' THEN NULL ELSE CAST(OS.CHAMADO_OS AS INTEGER) END = CHAMADO.COD_CHAMADO
-  WHERE OS.DTINI_OS >= ? AND OS.DTINI_OS < ?
+  WHERE OS.DTINI_OS >= ? 
+    AND OS.DTINI_OS < ?
     AND TAREFA.EXIBECHAM_TAREFA = 1
+    AND OS.CHAMADO_OS IS NOT NULL
+    AND OS.CHAMADO_OS <> ''
 `;
 }
 
@@ -455,6 +462,7 @@ async function gerarHorasPorMes(ano: number, params: QueryParams) {
   for (let mes = 1; mes <= 12; mes++) {
     const { dataInicio, dataFim } = construirDatas(mes, ano);
 
+    // ✅ APLICAR MESMOS FILTROS: CHAMADO_OS obrigatório
     const sqlMensal = `
       SELECT 
         OS.HRINI_OS,
@@ -465,8 +473,11 @@ async function gerarHorasPorMes(ano: number, params: QueryParams) {
       LEFT JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
       LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
       LEFT JOIN CHAMADO ON CASE WHEN TRIM(OS.CHAMADO_OS) = '' THEN NULL ELSE CAST(OS.CHAMADO_OS AS INTEGER) END = CHAMADO.COD_CHAMADO
-      WHERE OS.DTINI_OS >= ? AND OS.DTINI_OS < ?
+      WHERE OS.DTINI_OS >= ? 
+        AND OS.DTINI_OS < ?
         AND TAREFA.EXIBECHAM_TAREFA = 1
+        AND OS.CHAMADO_OS IS NOT NULL
+        AND OS.CHAMADO_OS <> ''
     `;
 
     const paramsMensal = [dataInicio, dataFim];
@@ -503,7 +514,7 @@ async function gerarHorasPorMes(ano: number, params: QueryParams) {
         horas: parseFloat(totalHoras.toFixed(2)),
       });
     } catch (error) {
-      console.error(`Erro ao buscar dados do mês ${mes}:`, error);
+      console.error(`[API OS] Erro ao buscar dados do mês ${mes}:`, error);
       horasPorMes.push({
         mes: mesesNomes[mes - 1],
         mesNum: mes,

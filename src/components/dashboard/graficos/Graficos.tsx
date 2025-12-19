@@ -696,48 +696,6 @@ export function Graficos({ filters }: FilterProps) {
           )}
         </div>
 
-        {/* Resumo Estatístico */}
-        {totalizadores && (
-          <div className="bg-white rounded-xl shadow-md shadow-black p-6 border flex flex-col gap-6">
-            <h3 className="text-lg font-extrabold text-black tracking-widest select-none">
-              RESUMO DAS MÉTRICAS
-            </h3>
-            <div className="grid grid-cols-4 gap-6">
-              <div className="text-center p-4 bg-orange-100 rounded-md shadow-xs shadow-black border">
-                <p className="text-sm text-orange-600 font-semibold tracking-widest select-none mb-2">
-                  CHAMADOS
-                </p>
-                <p className="text-2xl font-bold text-orange-700 tracking-widest select-none">
-                  {totalizadores.TOTAL_CHAMADOS}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-pink-100 rounded-md shadow-xs shadow-black border">
-                <p className="text-sm text-pink-600 font-semibold tracking-widest select-none mb-2">
-                  ORDENS DE SERVIÇO
-                </p>
-                <p className="text-2xl font-bold text-pink-700 tracking-widest select-none">
-                  {totalizadores.TOTAL_OS}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-blue-100 rounded-md shadow-xs shadow-black border">
-                <p className="text-sm text-blue-600 font-semibold tracking-widest select-none mb-2">
-                  TOTAL DE HORAS
-                </p>
-                <p className="text-2xl font-bold text-blue-700 tracking-widest select-none">
-                  {formatarHorasTotaisSufixo(totalizadores.TOTAL_HRS)}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-green-100 rounded-md shadow-xs shadow-black border">
-                <p className="text-sm text-green-600 font-semibold tracking-widest select-none mb-2">
-                  CONSULTORES
-                </p>
-                <p className="text-2xl font-bold text-green-700 tracking-widest select-none">
-                  {totalizadores.TOTAL_RECURSOS}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

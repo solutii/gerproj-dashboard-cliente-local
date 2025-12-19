@@ -88,6 +88,7 @@ function construirDatas(mes: number, ano: number): { dataInicio: string; dataFim
 }
 
 // ==================== CONSTRUÇÃO DE SQL ====================
+// ✅ MUDANÇA PRINCIPAL: Adicionar filtros de CHAMADO_OS (igual à API de chamados)
 const SQL_BASE = `
   SELECT 
     CLIENTE.COD_CLIENTE,
@@ -102,8 +103,11 @@ const SQL_BASE = `
   LEFT JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
   LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
   LEFT JOIN CHAMADO ON CASE WHEN TRIM(OS.CHAMADO_OS) = '' THEN NULL ELSE CAST(OS.CHAMADO_OS AS INTEGER) END = CHAMADO.COD_CHAMADO
-  WHERE OS.DTINI_OS >= ? AND OS.DTINI_OS < ?
+  WHERE OS.DTINI_OS >= ? 
+    AND OS.DTINI_OS < ?
     AND TAREFA.EXIBECHAM_TAREFA = 1
+    AND OS.CHAMADO_OS IS NOT NULL
+    AND OS.CHAMADO_OS <> ''
 `;
 
 function aplicarFiltros(
@@ -303,9 +307,9 @@ export async function GET(request: Request) {
     });
 
   } catch (error) {
-    console.error('Erro ao calcular horas contratadas vs executadas:', error);
-    console.error('Stack trace:', error instanceof Error ? error.stack : 'N/A');
-    console.error('Message:', error instanceof Error ? error.message : error);
+    console.error('[API HORAS] Erro ao calcular horas contratadas vs executadas:', error);
+    console.error('[API HORAS] Stack trace:', error instanceof Error ? error.stack : 'N/A');
+    console.error('[API HORAS] Message:', error instanceof Error ? error.message : error);
     
     return NextResponse.json(
       { 

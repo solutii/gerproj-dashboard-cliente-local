@@ -15,19 +15,67 @@ interface FilterProps {
   };
 }
 
+interface Chamado {
+  COD_CHAMADO: number;
+  DATA_CHAMADO: Date;
+  HORA_CHAMADO: string;
+  CONCLUSAO_CHAMADO: Date | null;
+  STATUS_CHAMADO: string;
+  DTENVIO_CHAMADO: string | null;
+  ASSUNTO_CHAMADO: string | null;
+  EMAIL_CHAMADO: string | null;
+  PRIOR_CHAMADO: number;
+  COD_CLASSIFICACAO: number;
+  NOME_CLIENTE?: string | null;
+  NOME_RECURSO?: string | null;
+  NOME_CLASSIFICACAO?: string | null;
+  TEM_OS?: boolean;
+  TOTAL_HORAS_OS?: number;
+}
+
 interface ApiResponse {
-  ordensServico: any[];
-  totalizadores: {
-    TOTAL_OS: number;
-    TOTAL_CHAMADOS: number;
-    TOTAL_RECURSOS: number;
-    TOTAL_HRS: number;
-    TOTAL_HRS_CHAMADOS: number;
-    TOTAL_HRS_TAREFAS: number;
-    MEDIA_HRS_POR_CHAMADO: number;
-    MEDIA_HRS_POR_TAREFA: number;
-    TOTAL_CHAMADOS_COM_HORAS: number;
-    TOTAL_TAREFAS_COM_HORAS: number;
+  success: boolean;
+  cliente: string | null;
+  recurso: string | null;
+  status: string | null;
+  totalChamados: number;
+  totalOS: number;
+  totalHorasOS: number;
+  mes: number;
+  ano: number;
+  data: Chamado[];
+}
+
+interface Totalizadores {
+  totalChamadosComHoras: number;
+  totalTarefasDistintas: number;
+  mediaHorasPorChamado: number;
+  mediaHorasPorTarefa: number;
+}
+
+// Função para calcular os totalizadores a partir dos dados da API
+function calcularTotalizadores(chamados: Chamado[], totalOS: number, totalHorasOS: number): Totalizadores {
+  // Total de chamados que possuem horas (TEM_OS = true)
+  const totalChamadosComHoras = chamados.filter(c => c.TEM_OS).length;
+
+  // Total de tarefas distintas = totalOS (cada OS é uma tarefa)
+  const totalTarefasDistintas = totalOS;
+
+  // Média de horas por chamado
+  const mediaHorasPorChamado = totalChamadosComHoras > 0 
+    ? totalHorasOS / totalChamadosComHoras 
+    : 0;
+
+  // Média de horas por tarefa (OS)
+  const mediaHorasPorTarefa = totalTarefasDistintas > 0 
+    ? totalHorasOS / totalTarefasDistintas 
+    : 0;
+
+  return {
+    totalChamadosComHoras,
+    totalTarefasDistintas,
+    mediaHorasPorChamado,
+    mediaHorasPorTarefa,
   };
 }
 
@@ -46,10 +94,10 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
 
     if (filters.cliente) params.append('codClienteFilter', filters.cliente);
     if (filters.recurso) params.append('codRecursoFilter', filters.recurso);
-    if (filters.status) params.append('status', filters.status);
+    if (filters.status) params.append('statusFilter', filters.status);
 
     const response = await fetch(
-      `/api/ordens-servico?${params.toString()}`,
+      `/api/chamados?${params.toString()}`,
       {
         method: 'GET',
         headers: {
@@ -84,11 +132,11 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
     );
   }
 
-  if (isError || !data) {
+  if (isError || !data || !data.success) {
     return (
       <div className="flex h-54 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
         <div className="flex h-full flex-col items-center justify-center">
-          <FaExclamationTriangle className=" text-red-500" size={20} />
+          <FaExclamationTriangle className="text-red-500" size={20} />
           <span className="mt-3 tracking-widest font-semibold italic text-slate-600 select-none">
             Erro ao carregar os dados
           </span>
@@ -97,8 +145,11 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
     );
   }
 
-  const mediaHorasChamado = data.totalizadores.MEDIA_HRS_POR_CHAMADO;
-  const mediaHorasTarefa = data.totalizadores.MEDIA_HRS_POR_TAREFA;
+  // Calcular totalizadores a partir dos dados retornados
+  const totalizadores = calcularTotalizadores(data.data, data.totalOS, data.totalHorasOS);
+
+  const mediaHorasChamado = totalizadores.mediaHorasPorChamado;
+  const mediaHorasTarefa = totalizadores.mediaHorasPorTarefa;
 
   return (
     <div className="relative flex h-54 flex-col rounded-xl border bg-gradient-to-br from-white via-cyan-100/30 to-indigo-100/30 shadow-md shadow-black overflow-hidden">

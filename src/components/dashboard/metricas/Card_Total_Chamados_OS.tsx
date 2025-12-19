@@ -16,25 +16,23 @@ interface FilterProps {
 // ==========
 
 interface ApiResponse {
-  ordensServico: any[];
-  totalizadores: {
-    TOTAL_OS: number;
-    TOTAL_CHAMADOS: number;
-    TOTAL_RECURSOS: number;
-    TOTAL_HRS: number;
-    TOTAL_HRS_CHAMADOS: number;
-    TOTAL_HRS_TAREFAS: number;
-    MEDIA_HRS_POR_CHAMADO: number;
-    MEDIA_HRS_POR_TAREFA: number;
-    TOTAL_CHAMADOS_COM_HORAS: number;
-    TOTAL_TAREFAS_COM_HORAS: number;
-  };
+  success: boolean;
+  totalChamados: number;
+  totalOS: number;
+  totalHorasOS: number;
+  cliente: string | null;
+  recurso: string | null;
+  status: string | null;
+  mes: number;
+  ano: number;
+  data: any[];
 }
 // ==========
 
 export function CardTotalChamadosOS({ filters }: FilterProps) {
   const { isAdmin, codCliente } = useAuth();
 
+  // ========== REQUISIÇÃO DOS DADOS ==========
   const fetchData = async (): Promise<ApiResponse> => {
     const params = new URLSearchParams();
     params.append('mes', filters.mes.toString());
@@ -47,9 +45,19 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
 
     if (filters.cliente) params.append('codClienteFilter', filters.cliente);
     if (filters.recurso) params.append('codRecursoFilter', filters.recurso);
-    if (filters.status) params.append('status', filters.status);
+    if (filters.status) params.append('statusFilter', filters.status);
 
-    const response = await fetch(`/api/ordens-servico?${params.toString()}`, {
+    console.log('🔍 [CARD] Buscando dados com params:', {
+      mes: filters.mes,
+      ano: filters.ano,
+      isAdmin,
+      codCliente,
+      cliente: filters.cliente,
+      recurso: filters.recurso,
+      status: filters.status,
+    });
+
+    const response = await fetch(`/api/chamados?${params.toString()}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -57,16 +65,30 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ [CARD] Erro na resposta da API:', response.status, errorText);
       throw new Error(`Erro na requisição: ${response.status}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('✅ [CARD] Dados recebidos:', data);
+    
+    return data;
   };
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, error } = useQuery({
     queryKey: ['totalChamados', filters, isAdmin, codCliente],
     queryFn: fetchData,
     enabled: !!filters && (isAdmin || codCliente !== null),
+  });
+
+  console.log('📊 [CARD] Estado atual:', { 
+    data, 
+    isLoading, 
+    isError, 
+    error,
+    totalChamados: data?.totalChamados,
+    totalOS: data?.totalOS 
   });
   // ==========
 
@@ -87,11 +109,16 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
   if (isError || !data) {
     return (
       <div className="flex h-54 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
-        <div className="flex h-full flex-col items-center justify-center">
-          <FaExclamationTriangle className=" text-red-500" size={20} />
+        <div className="flex h-full flex-col items-center justify-center gap-2">
+          <FaExclamationTriangle className="text-red-500" size={20} />
           <span className="mt-3 tracking-widest font-semibold italic text-slate-600 select-none">
             Erro ao carregar os dados
           </span>
+          {error && (
+            <span className="text-xs text-red-500 select-none">
+              {error instanceof Error ? error.message : 'Erro desconhecido'}
+            </span>
+          )}
         </div>
       </div>
     );
@@ -112,7 +139,7 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
           </span>
           <div className="flex items-baseline gap-1">
             <span className="text-4xl font-extrabold tracking-widest bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent select-none">
-              {data.totalizadores.TOTAL_CHAMADOS}
+              {data.totalChamados ?? 0}
             </span>
           </div>
         </div>
@@ -129,7 +156,7 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
           </span>
           <div className="flex items-baseline gap-1">
             <span className="text-4xl font-extrabold tracking-widest bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent select-none">
-              {data.totalizadores.TOTAL_OS}
+              {data.totalOS ?? 0}
             </span>
           </div>
         </div>
