@@ -5,9 +5,9 @@ import {
 } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { ColumnDef } from '@tanstack/react-table';
+import React from 'react';
 import { FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { TooltipTabela } from '../utils/Tooltip';
 
 // ==================== INTERFACES ====================
 export interface OSRowProps {
@@ -22,49 +22,8 @@ export interface OSRowProps {
   NOME_TAREFA: string | null;
   VALCLI_OS: string | null;
   OBSCLI_OS?: string | null;
-  // ==================
   NOME_CLIENTE?: string | null;
 }
-// ===============
-
-// ==================== LARGURAS DAS COLUNAS ====================
-
-const COLUMN_WIDTH_ADMIN: Record<string, string> = {
-  // COD_OS: '8%',
-  NUM_OS: '8%',
-  DTINI_OS: '8%',
-  HRINI_OS: '8%',
-  HRFIM_OS: '8%',
-  TOTAL_HORAS_OS: '10%',
-  OBS: '18%',
-  NOME_RECURSO: '14%',
-  NOME_TAREFA: '16%',
-  VALCLI_OS: '10%',
-};
-
-const COLUMN_WIDTH_CLIENT: Record<string, string> = {
-  // COD_OS: '8%',
-  NUM_OS: '8%',
-  DTINI_OS: '8%',
-  HRINI_OS: '8%',
-  HRFIM_OS: '8%',
-  TOTAL_HORAS_OS: '10%',
-  OBS: '18%',
-  NOME_RECURSO: '14%',
-  NOME_TAREFA: '16%',
-  VALCLI_OS: '10%',
-};
-// ===============
-
-// Função atualizada que considera o contexto admin/cliente
-export function getColumnWidthOS(
-  columnId: string,
-  isAdmin: boolean = true,
-): string {
-  const widthMap = isAdmin ? COLUMN_WIDTH_ADMIN : COLUMN_WIDTH_CLIENT;
-  return widthMap[columnId] || 'auto';
-}
-// ===============
 
 // ==================== COMPONENTE DE VALIDAÇÃO ====================
 const ValidacaoBadge = ({ status }: { status?: string | null }) => {
@@ -94,12 +53,58 @@ const ValidacaoBadge = ({ status }: { status?: string | null }) => {
     </div>
   );
 };
-// ===============
+
+// ✅ NOVO: Componente auxiliar para células com tooltip condicional
+const CellWithConditionalTooltip = ({
+  content,
+  className,
+  isCentered = false,
+}: {
+  content: string;
+  className: string;
+  isCentered?: boolean;
+}) => {
+  const cellRef = React.useRef<HTMLDivElement>(null);
+  const [isTruncated, setIsTruncated] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkTruncation = () => {
+      if (cellRef.current) {
+        setIsTruncated(
+          cellRef.current.scrollWidth > cellRef.current.clientWidth,
+        );
+      }
+    };
+
+    checkTruncation();
+
+    const resizeObserver = new ResizeObserver(checkTruncation);
+    if (cellRef.current) {
+      resizeObserver.observe(cellRef.current);
+    }
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [content]);
+
+  const cellContent = (
+    <div 
+      ref={cellRef} 
+      className={className}
+      title={isTruncated ? content : undefined}
+    >
+      {content}
+    </div>
+  );
+
+  return cellContent;
+};
 
 // ==================== COLUNAS ====================
 export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
   return [
-    //  Número da OS
+    // Número da OS
     {
       accessorKey: 'NUM_OS',
       id: 'NUM_OS',
@@ -117,7 +122,6 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
         );
       },
     },
-    // ===============
 
     // Data de Início da OS
     {
@@ -137,7 +141,6 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
         );
       },
     },
-    // ===============
 
     // Hora de Início da OS
     {
@@ -157,7 +160,6 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
         );
       },
     },
-    // ===============
 
     // Hora Fim da OS
     {
@@ -177,7 +179,6 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
         );
       },
     },
-    // ===============
 
     // Total de Horas da OS
     {
@@ -197,9 +198,8 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
         );
       },
     },
-    // ===============
 
-    // Observação da OS
+    // ✅ MODIFICADO: Observação da OS - Agora expansível
     {
       accessorKey: 'OBS',
       id: 'OBS',
@@ -211,20 +211,25 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
       cell: ({ getValue }) => {
         const value = (getValue() as string) ?? '---------------';
         const isSemObs = value === '---------------';
-        return (
-          <TooltipTabela content={value} maxWidth="400px">
-            <div
-              className={`font-semibold tracking-widest text-sm text-gray-800 select-none truncate overflow-hidden whitespace-nowrap ${isSemObs ? 'text-center' : 'text-left'}`}
-            >
-              {corrigirTextoCorrompido(value)}
+        
+        if (isSemObs) {
+          return (
+            <div className="text-center font-semibold tracking-widest text-sm text-gray-800 select-none">
+              {value}
             </div>
-          </TooltipTabela>
+          );
+        }
+
+        return (
+          <CellWithConditionalTooltip
+            content={corrigirTextoCorrompido(value)}
+            className="font-semibold tracking-widest text-sm text-gray-800 select-none overflow-hidden whitespace-nowrap text-ellipsis text-left"
+          />
         );
       },
     },
-    // ===============
 
-    // Consultor da OS
+    // ✅ MODIFICADO: Consultor da OS - Agora expansível
     {
       accessorKey: 'NOME_RECURSO',
       id: 'NOME_RECURSO',
@@ -235,20 +240,32 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
       ),
       cell: ({ getValue }) => {
         const value = (getValue() as string) ?? '---------------';
+        const isSemRecurso = value === '---------------';
+        
+        if (isSemRecurso) {
+          return (
+            <div className="text-center font-semibold select-none tracking-widest text-sm text-gray-800">
+              {value}
+            </div>
+          );
+        }
+
         const corrected = corrigirTextoCorrompido(value);
         const parts = corrected.trim().split(/\s+/).filter(Boolean);
         const display =
           parts.length <= 2 ? parts.join(' ') : parts.slice(0, 2).join(' ');
+        
         return (
-          <div className="text-center font-semibold select-none tracking-widest text-sm text-gray-800">
-            {display}
-          </div>
+          <CellWithConditionalTooltip
+            content={display}
+            className="text-center font-semibold select-none tracking-widest text-sm text-gray-800 overflow-hidden whitespace-nowrap text-ellipsis"
+            isCentered={true}
+          />
         );
       },
     },
-    // ===============
 
-    // Nome da Tarefa
+    // ✅ MODIFICADO: Nome da Tarefa - Agora expansível
     {
       accessorKey: 'NOME_TAREFA',
       id: 'NOME_TAREFA',
@@ -260,18 +277,23 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
       cell: ({ getValue }) => {
         const value = (getValue() as string) ?? '---------------';
         const isSemNomeTarefa = value === '---------------';
-        return (
-          <TooltipTabela content={value} maxWidth="400px">
-            <div
-              className={`font-semibold tracking-widest text-sm text-gray-800 select-none truncate overflow-hidden whitespace-nowrap ${isSemNomeTarefa ? 'text-center' : 'text-left'}`}
-            >
-              {corrigirTextoCorrompido(value)}
+        
+        if (isSemNomeTarefa) {
+          return (
+            <div className="text-center font-semibold tracking-widest text-sm text-gray-800 select-none">
+              {value}
             </div>
-          </TooltipTabela>
+          );
+        }
+
+        return (
+          <CellWithConditionalTooltip
+            content={corrigirTextoCorrompido(value)}
+            className="font-semibold tracking-widest text-sm text-gray-800 select-none overflow-hidden whitespace-nowrap text-ellipsis text-left"
+          />
         );
       },
     },
-    // ===============
 
     // Validação da OS
     {
@@ -291,8 +313,5 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
         );
       },
     },
-    // ===============
   ];
 };
-
-// export const colunasOS = getColunasOS();

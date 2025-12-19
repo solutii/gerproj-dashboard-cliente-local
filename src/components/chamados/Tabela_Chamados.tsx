@@ -19,6 +19,7 @@ import { IoCall } from 'react-icons/io5';
 import { IsError } from '../utils/IsError';
 import { IsLoading } from '../utils/IsLoading';
 import { ExportaExcelChamadosButton } from './Button_Excel';
+import { ExportaPDFChamadosButton } from './Button_PDF';
 import { ChamadoRowProps, getColunasChamados } from './Colunas_Tabela_Chamados';
 import { OSRowProps } from './Colunas_Tabela_OS';
 import {
@@ -495,7 +496,7 @@ function Header({
           />
         </div>
 
-        <div className="flex items-center justify-end gap-20">
+        <div className="flex items-center justify-end gap-10">
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
@@ -509,25 +510,45 @@ function Header({
             </button>
           )}
 
-          <ExportaExcelChamadosButton
-            data={filteredData}
-            isAdmin={isAdmin}
-            codCliente={codCliente}
-            filtros={{
-              ano,
-              mes,
-              cliente,
-              recurso,
-              status,
-              totalChamados: totalChamadosFiltrados,
-              totalOS: totalOSFiltrados,
-              totalHorasOS: totalHorasFiltradas,
-            }}
-            disabled={filteredData.length === 0}
-          />
+          <div className="flex items-center gap-4">
+            <ExportaExcelChamadosButton
+              data={filteredData}
+              isAdmin={isAdmin}
+              codCliente={codCliente}
+              filtros={{
+                ano,
+                mes,
+                cliente,
+                recurso,
+                status,
+                totalChamados: totalChamadosFiltrados,
+                totalOS: totalOSFiltrados,
+                totalHorasOS: totalHorasFiltradas,
+              }}
+              disabled={filteredData.length === 0}
+            />
+
+            {/* ← ADICIONAR O BOTÃO PDF AQUI */}
+            <ExportaPDFChamadosButton
+              data={filteredData}
+              isAdmin={isAdmin}
+              codCliente={codCliente}
+              filtros={{
+                ano,
+                mes,
+                cliente,
+                recurso,
+                status,
+                totalChamados: totalChamadosFiltrados,
+                totalOS: totalOSFiltrados,
+                totalHorasOS: totalHorasFiltradas,
+              }}
+              disabled={filteredData.length === 0}
+            />
+          </div>
 
           {isAdmin && (
-            <div className="flex items-center gap-4 rounded-full bg-purple-900 px-6 py-2 ring-2 ring-emerald-600">
+            <div className="flex items-center gap-4 rounded-full bg-purple-900 px-6 py-2 ring-2 ring-emerald-600 shadow-md shadow-black">
               <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-600"></div>
               <span className="text-base font-bold text-emerald-300 tracking-widest select-none italic">
                 Administrador
@@ -595,7 +616,7 @@ function TableHeader({
           {headerGroup.headers.map((header: any, idx: number) => (
             <th
               key={header.id}
-              className="bg-teal-700 py-6 pl-3.5 pr-4 relative border-r border-teal-900 border-b"
+              className="bg-teal-700 py-6 pl-3.5 pr-4 relative border-r border-teal-900 shadow-md shadow-black"
               style={{ width: `${columnWidths[header.id]}px` }}
             >
               {header.isPlaceholder
@@ -618,7 +639,7 @@ function TableHeader({
         </tr>
       ))}
 
-      <tr className="bg-teal-700">
+      <tr className="bg-teal-700 shadow-md shadow-black">
         {table.getAllColumns().map((column: any, idx: number) => (
           <th
             key={column.id}

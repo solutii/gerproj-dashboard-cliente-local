@@ -36,7 +36,7 @@ const createAuthHeaders = () => ({
 });
 
 // Função para buscar classificações
-async function fetchClassificacao(params: {
+async function fetchClassificacoes(params: {
   ano: number;
   mes: number;
   isAdmin: boolean;
@@ -192,7 +192,7 @@ const DropdownWithFilter = memo(
         }
 
         if (columnId === 'NOME_CLASSIFICACAO') {
-          return fetchClassificacao({
+          return fetchClassificacoes({
             ano,
             mes,
             isAdmin,
@@ -220,8 +220,9 @@ const DropdownWithFilter = memo(
       staleTime: 1000 * 60 * 5,
       refetchOnMount: true,
     });
+    // =====
 
-    // ✅ NOVA FUNÇÃO: Formata nome para exibir apenas dois primeiros nomes
+    // Função para formatar o nome exibido
     const formatDisplayName = useCallback(
       (fullName: string) => {
         // Primeiro corrige o texto corrompido
@@ -243,6 +244,7 @@ const DropdownWithFilter = memo(
       },
       [columnId],
     );
+    // =====
 
     // Filtrar opções baseado no termo de busca
     const filteredOptions = useMemo(() => {
@@ -255,17 +257,20 @@ const DropdownWithFilter = memo(
         normalizeText(option.nome).includes(normalizedSearch),
       );
     }, [options, searchTerm]);
+    // =====
 
-    // Opção selecionada
+    // Opção selecionada atualmente
     const selectedOption = useMemo(() => {
       return options.find((opt) => opt.nome === value);
     }, [options, value]);
+    // =====
 
-    // ✅ MODIFICAÇÃO: Nome exibido formatado
+    // Nome exibido formatado
     const displayedName = useMemo(() => {
       if (!selectedOption) return null;
       return formatDisplayName(selectedOption.nome);
     }, [selectedOption, formatDisplayName]);
+    // =====
 
     // Fechar dropdown ao clicar fora
     useEffect(() => {
@@ -283,6 +288,7 @@ const DropdownWithFilter = memo(
       return () =>
         document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+    // =====
 
     // Focar no input de busca quando abrir
     useEffect(() => {
@@ -292,7 +298,9 @@ const DropdownWithFilter = memo(
         }, 100);
       }
     }, [isOpen]);
+    // =====
 
+    // Manipuladores de eventos
     const handleSelect = useCallback(
       (nome: string) => {
         onChange(nome);
@@ -301,7 +309,9 @@ const DropdownWithFilter = memo(
       },
       [onChange],
     );
+    // =====
 
+    // Limpar seleção
     const handleClear = useCallback(
       (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -311,28 +321,36 @@ const DropdownWithFilter = memo(
       },
       [onChange],
     );
+    // =====
 
+    // Alternar abertura do dropdown
     const handleToggle = useCallback(() => {
       setIsOpen(!isOpen);
       if (!isOpen) {
         setSearchTerm('');
       }
     }, [isOpen]);
+    // =====
 
+    // Placeholders e mensagens
     const placeholder =
       columnId === 'NOME_CLASSIFICACAO'
         ? 'Todas'
         : columnId === 'NOME_RECURSO'
           ? 'Todos'
           : 'Todos';
+    // =====
 
+    // Mensagem para lista vazia
     const emptyMessage =
       columnId === 'NOME_CLASSIFICACAO'
         ? 'Nenhuma classificação encontrada'
         : columnId === 'NOME_RECURSO'
           ? 'Nenhum recurso encontrado'
           : 'Nenhum status encontrado';
+    // =====
 
+    // Renderização do componente
     return (
       <div ref={dropdownRef} className="relative w-full">
         <button

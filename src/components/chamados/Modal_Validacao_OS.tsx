@@ -374,7 +374,7 @@ export function ModalValidacaoOS({
         <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
 
         <div className="animate-in slide-in-from-bottom-4 relative z-10 max-h-[95vh] w-full max-w-2xl overflow-hidden rounded-xl bg-white transition-all ease-out">
-          <header className="relative flex items-center justify-between bg-teal-700 p-6 shadow-xs shadow-black">
+          <header className="relative flex items-center justify-between bg-teal-700 p-6 shadow-md shadow-black">
             <div className="flex items-center justify-center gap-6">
               <FaFileWaveform className="text-white" size={60} />
               <div className="flex flex-col">

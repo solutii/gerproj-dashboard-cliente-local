@@ -50,11 +50,11 @@ async function fetchOSByChamado(
 ): Promise<OSRowProps[]> {
   try {
     const params = new URLSearchParams({ isAdmin: String(isAdmin) });
-    
+
     if (!isAdmin && codCliente) {
       params.append('codCliente', codCliente);
     }
-    
+
     // CORREÇÃO: Adicionar mes e ano aos parâmetros
     if (mes) params.append('mes', mes);
     if (ano) params.append('ano', ano);
@@ -62,7 +62,7 @@ async function fetchOSByChamado(
     const response = await fetch(
       `/api/chamados/${codChamado}/os?${params.toString()}`,
     );
-    
+
     if (!response.ok) return [];
 
     const data = await response.json();
@@ -191,7 +191,7 @@ export function ExportaExcelChamadosButton({
         filtros?.ano,
         (current, total) => setProgress({ current, total }),
       );
-      
+
       const workbook = new ExcelJS.Workbook();
 
       // ====== ABA 1: CHAMADOS ======
@@ -533,8 +533,6 @@ export function ExportaExcelChamadosButton({
       const timestamp = new Date().getTime();
       const nomeArquivo = `Relatorio_Chamados_${filtros?.mes || 'todos'}_${filtros?.ano || new Date().getFullYear()}_${timestamp}.xlsx`;
       saveAs(blob, nomeArquivo);
-
-      console.log('[EXCEL] ✅ Excel gerado com sucesso!');
     } catch (error) {
       console.error('[EXCEL] ❌ Erro ao exportar Excel:', error);
       alert('Erro ao gerar o Excel. Tente novamente.');

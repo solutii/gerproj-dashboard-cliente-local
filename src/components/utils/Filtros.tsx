@@ -1,8 +1,8 @@
 import { useAuth } from '@/context/AuthContext';
 import { useFilters } from '@/context/FiltersContext';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
-import { FiRefreshCw } from 'react-icons/fi';
 import { IoClose } from 'react-icons/io5';
 import { MdCalendarMonth, MdFilterAlt } from 'react-icons/md';
 import { useDebounce } from 'use-debounce';
@@ -22,8 +22,25 @@ interface Recurso {
   cod: string;
   nome: string;
 }
+// ==================== FUNÇÕES AUXILIARES ====================
+// Limita o nome a um número máximo de palavras
+function limitarNome(nome: string, maxPalavras: number = 2): string {
+  if (!nome) return nome;
+
+  const palavras = nome.trim().split(/\s+/);
+  return palavras.slice(0, maxPalavras).join(' ');
+}
+// ===============
+
+// Processa o nome corrigindo texto corrompido e limitando palavras
+function processarNome(nome: string, maxPalavras: number = 2): string {
+  const nomeCorrigido = corrigirTextoCorrompido(nome);
+  return limitarNome(nomeCorrigido, maxPalavras);
+}
+// ===============
 
 // ==================== FUNÇÕES DE FETCH ====================
+// Fetch para buscar clientes
 const fetchClientes = async ({
   mes,
   ano,
@@ -52,7 +69,9 @@ const fetchClientes = async ({
 
   return response.json();
 };
+// ===============
 
+// Fetch para buscar recursos
 const fetchRecursos = async ({
   mes,
   ano,
@@ -87,7 +106,9 @@ const fetchRecursos = async ({
 
   return response.json();
 };
+// ===============
 
+// Fetch para buscar status
 const fetchStatus = async ({
   mes,
   ano,
@@ -128,16 +149,17 @@ const fetchStatus = async ({
 
   return response.json();
 };
+// ==============
 
+// ==============================================================
 // ==================== COMPONENTE PRINCIPAL ====================
+// ==============================================================
 export function Filtros({ showRefreshButton = false }: FiltersProps) {
   const hoje = new Date();
   const { filters, setFilters } = useFilters();
   const { isAdmin, codCliente } = useAuth();
   const queryClient = useQueryClient();
 
-  // ==================== INICIALIZAÇÃO CORRETA ====================
-  // CRITICAL: Use apenas os valores do contexto, SEM valores padrão locais
   // Estados locais - inicializados APENAS com valores do contexto
   const [ano, setAno] = useState(filters.ano);
   const [mes, setMes] = useState(filters.mes);
@@ -148,10 +170,7 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
   // Flag para controlar se já foi inicializado
   const [isInitialized, setIsInitialized] = useState(false);
 
-  // IMPORTANT: Sincroniza estado local com contexto APENAS na montagem
   useEffect(() => {
-    console.log('🎯 Filtros montado - Sincronizando com contexto:', filters);
-
     // Atualiza os estados locais com os valores do contexto
     setAno(filters.ano);
     setMes(filters.mes);
@@ -161,8 +180,8 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
 
     // Marca como inicializado
     setIsInitialized(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Executa apenas na montagem
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debounce apenas dos filtros opcionais (não ano/mês)
   const [debouncedClienteSelecionado] = useDebounce(clienteSelecionado, 300);
@@ -231,14 +250,6 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
   useEffect(() => {
     if (!isInitialized) return;
 
-    console.log('📤 Atualizando contexto com:', {
-      ano,
-      mes,
-      cliente: debouncedClienteSelecionado,
-      recurso: debouncedRecursoSelecionado,
-      status: debouncedStatusSelecionado,
-    });
-
     setFilters({
       ano,
       mes,
@@ -265,7 +276,6 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
         (c) => c.cod === clienteSelecionado,
       );
       if (!clienteExiste) {
-        console.log('⚠️ Cliente selecionado não existe na lista, limpando...');
         setClienteSelecionado('');
         setRecursoSelecionado('');
         setStatusSelecionado('');
@@ -291,7 +301,6 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
         (r) => r.cod === recursoSelecionado,
       );
       if (!recursoExiste) {
-        console.log('⚠️ Recurso selecionado não existe na lista, limpando...');
         setRecursoSelecionado('');
         setStatusSelecionado('');
       }
@@ -305,7 +314,6 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     if (statusSelecionado && statusData.length > 0) {
       const statusExiste = statusData.includes(statusSelecionado);
       if (!statusExiste) {
-        console.log('⚠️ Status selecionado não existe na lista, limpando...');
         setStatusSelecionado('');
       }
     }
@@ -338,12 +346,12 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     queryClient.invalidateQueries({ queryKey: ['clientes'] });
     queryClient.invalidateQueries({ queryKey: ['recursos'] });
     queryClient.invalidateQueries({ queryKey: ['status'] });
-    queryClient.invalidateQueries({ queryKey: ['tabela-chamados'] }); // Adicione
-    queryClient.invalidateQueries({ queryKey: ['tabela-os'] }); // Adicione
+    queryClient.invalidateQueries({ queryKey: ['tabela-chamados'] });
+    queryClient.invalidateQueries({ queryKey: ['tabela-os'] });
   };
 
   // ==================== CONSTANTES ====================
-  const years = [2024, 2025];
+  const years = [2024, 2025, 2026];
   const months = [
     'Janeiro',
     'Fevereiro',
@@ -391,7 +399,12 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className={className}
+          className={`${className} ${hasValue && !disabled && showClear ? 'pr-16' : 'pr-10'}`}
+          style={{
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+          }}
         >
           <option
             value=""
@@ -405,8 +418,9 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
               key={`option-${opt.value}`}
               value={opt.value}
               className="tracking-widest font-semibold select-none"
+              title={opt.label}
             >
-              {opt.label}
+              {processarNome(opt.label, 2)}
             </option>
           ))}
         </select>
@@ -417,12 +431,12 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
               e.preventDefault();
               onClear();
             }}
-            className="group absolute right-10 top-1/2 -translate-y-1/2 bg-slate-300 p-1 rounded-full hover:bg-red-500 cursor-pointer shadow-md shadow-black"
+            className="group absolute right-10 top-1/2 -translate-y-1/2 bg-red-500 p-1 rounded-full cursor-pointer hover:scale-125 transition-all active:scale-95 shadow-md shadow-black z-10"
             title="Limpar filtro"
           >
             <IoClose
               size={20}
-              className="text-black group-hover:text-white group-hover:rotate-180 transition-all"
+              className="text-white group-hover:scale-125 group-active:scale-95 transition-all"
             />
           </button>
         )}
@@ -443,7 +457,7 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
         </div>
 
         <div className="flex items-center gap-8 mr-4">
-          {showRefreshButton && (
+          {/* {showRefreshButton && (
             <div>
               <FiRefreshCw
                 onClick={handleRefresh}
@@ -452,7 +466,7 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
                 size={32}
               />
             </div>
-          )}
+          )} */}
           <div className="flex items-center justify-center gap-2 text-xl font-extrabold tracking-widest select-none text-black">
             <MdCalendarMonth className="text-black" size={32} />
             {hoje.toLocaleString('pt-BR', {

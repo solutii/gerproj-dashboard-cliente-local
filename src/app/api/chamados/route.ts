@@ -117,25 +117,28 @@ async function buscarChamadosComOSNoPeriodo(
     let sql = `
       SELECT DISTINCT CAST(OS.CHAMADO_OS AS INTEGER) AS COD_CHAMADO
       FROM OS
+      LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
       WHERE OS.DTINI_OS >= ? 
         AND OS.DTINI_OS < ?
         AND OS.CHAMADO_OS IS NOT NULL
         AND OS.CHAMADO_OS <> ''
+        AND TAREFA.EXIBECHAM_TAREFA = 1  -- ✅ Adicionar este filtro
     `;
 
     const sqlParams: any[] = [dataInicio, dataFim];
 
-    // Se tiver filtro de cliente, precisamos fazer join
     if (!params.isAdmin && params.codCliente) {
       sql = `
         SELECT DISTINCT CAST(OS.CHAMADO_OS AS INTEGER) AS COD_CHAMADO
         FROM OS
         LEFT JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
+        LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA  -- ✅ Adicionar JOIN
         WHERE OS.DTINI_OS >= ? 
           AND OS.DTINI_OS < ?
           AND OS.CHAMADO_OS IS NOT NULL
           AND OS.CHAMADO_OS <> ''
           AND CHAMADO.COD_CLIENTE = ?
+          AND TAREFA.EXIBECHAM_TAREFA = 1  -- ✅ Adicionar este filtro
       `;
       sqlParams.push(parseInt(params.codCliente));
     } else if (params.codClienteFilter) {
@@ -143,19 +146,27 @@ async function buscarChamadosComOSNoPeriodo(
         SELECT DISTINCT CAST(OS.CHAMADO_OS AS INTEGER) AS COD_CHAMADO
         FROM OS
         LEFT JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
+        LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA  -- ✅ Adicionar JOIN
         WHERE OS.DTINI_OS >= ? 
           AND OS.DTINI_OS < ?
           AND OS.CHAMADO_OS IS NOT NULL
           AND OS.CHAMADO_OS <> ''
           AND CHAMADO.COD_CLIENTE = ?
+          AND TAREFA.EXIBECHAM_TAREFA = 1  -- ✅ Adicionar este filtro
       `;
       sqlParams.push(parseInt(params.codClienteFilter));
     }
 
-    const resultado = await firebirdQuery<{ COD_CHAMADO: number }>(sql, sqlParams);
+    const resultado = await firebirdQuery<{ COD_CHAMADO: number }>(
+      sql,
+      sqlParams,
+    );
     return resultado.map((r) => r.COD_CHAMADO);
   } catch (error) {
-    console.error('[API CHAMADOS] Erro ao buscar chamados com OS no período:', error);
+    console.error(
+      '[API CHAMADOS] Erro ao buscar chamados com OS no período:',
+      error,
+    );
     return [];
   }
 }
@@ -167,7 +178,7 @@ function construirSQLBase(
   codChamadosComOS: number[],
 ): string {
   const campos = Object.values(CAMPOS_CHAMADO).join(',\n    ');
-  
+
   // Se não há chamados com OS no período, usa query simples
   if (codChamadosComOS.length === 0) {
     return `
@@ -183,7 +194,7 @@ function construirSQLBase(
 
   // Com chamados que têm OS no período, usa IN para incluí-los
   const placeholders = codChamadosComOS.map(() => '?').join(',');
-  
+
   return `
   SELECT 
     ${campos}
@@ -236,6 +247,8 @@ function aplicarFiltros(
 // ==================== BUSCAR HORAS DE OS POR CHAMADOS ====================
 async function buscarHorasPorChamados(
   codChamados: number[],
+  dataInicio: string,
+  dataFim: string,
 ): Promise<Map<number, number>> {
   if (codChamados.length === 0) {
     return new Map();
@@ -243,7 +256,7 @@ async function buscarHorasPorChamados(
 
   try {
     const placeholders = codChamados.map(() => '?').join(',');
-    
+
     const sql = `
       SELECT 
         CAST(OS.CHAMADO_OS AS INTEGER) AS COD_CHAMADO,
@@ -255,14 +268,18 @@ async function buscarHorasPorChamados(
         ) AS TOTAL_HORAS
       FROM OS
       WHERE OS.CHAMADO_OS IN (${placeholders})
+        AND OS.DTINI_OS >= ?
+        AND OS.DTINI_OS < ?
       GROUP BY OS.CHAMADO_OS
     `;
 
-    const params = codChamados.map(String);
-    const resultado = await firebirdQuery<{ COD_CHAMADO: number; TOTAL_HORAS: number }>(
-      sql,
-      params,
-    );
+    // Adicionar os códigos dos chamados + datas ao array de parâmetros
+    const params = [...codChamados.map(String), dataInicio, dataFim];
+
+    const resultado = await firebirdQuery<{
+      COD_CHAMADO: number;
+      TOTAL_HORAS: number;
+    }>(sql, params);
 
     const mapaHoras = new Map<number, number>();
     resultado.forEach((item) => {
@@ -277,10 +294,13 @@ async function buscarHorasPorChamados(
 }
 
 // ==================== PROCESSAMENTO DE DADOS ====================
-function processarChamados(chamados: any[], mapaHoras: Map<number, number>): Chamado[] {
+function processarChamados(
+  chamados: any[],
+  mapaHoras: Map<number, number>,
+): Chamado[] {
   return chamados.map((chamado) => {
     const totalHoras = mapaHoras.get(chamado.COD_CHAMADO) || 0;
-    
+
     return {
       COD_CHAMADO: chamado.COD_CHAMADO,
       DATA_CHAMADO: chamado.DATA_CHAMADO,
@@ -507,7 +527,12 @@ async function buscarStatusChamado(
         )
         AND UPPER(CHAMADO.STATUS_CHAMADO) LIKE UPPER(?)
       `;
-      sqlParams = [dataInicio, dataFim, ...codChamadosComOS, `%${statusFilter}%`];
+      sqlParams = [
+        dataInicio,
+        dataFim,
+        ...codChamadosComOS,
+        `%${statusFilter}%`,
+      ];
     }
 
     if (!params.isAdmin && params.codCliente) {
@@ -547,9 +572,11 @@ export async function GET(request: NextRequest) {
 
     const { dataInicio, dataFim } = construirDatas(params.mes, params.ano);
 
-    console.log('[API CHAMADOS] 🔍 Buscando chamados com OS no período...');
-    const codChamadosComOS = await buscarChamadosComOSNoPeriodo(dataInicio, dataFim, params);
-    console.log(`[API CHAMADOS] ✅ ${codChamadosComOS.length} chamados têm OS no período`);
+    const codChamadosComOS = await buscarChamadosComOSNoPeriodo(
+      dataInicio,
+      dataFim,
+      params,
+    );
 
     let nomeClienteFiltro: string | null = null;
     const codClienteAplicado =
@@ -586,27 +613,32 @@ export async function GET(request: NextRequest) {
 
     // Query principal com chamados que têm OS no período
     const sqlBase = construirSQLBase(dataInicio, dataFim, codChamadosComOS);
-    
+
     const paramsArray: any[] = [dataInicio, dataFim];
     if (codChamadosComOS.length > 0) {
       paramsArray.push(...codChamadosComOS.map(String));
     }
-    
-    const { sql, params: sqlParams } = aplicarFiltros(sqlBase, params, paramsArray);
+
+    const { sql, params: sqlParams } = aplicarFiltros(
+      sqlBase,
+      params,
+      paramsArray,
+    );
 
     const sqlFinal = `${sql} ORDER BY CHAMADO.DATA_CHAMADO DESC, CHAMADO.HORA_CHAMADO DESC`;
 
-    console.log('[API CHAMADOS] 🔍 Executando query principal...');
     const chamados = await firebirdQuery<any>(sqlFinal, sqlParams);
-    console.log(`[API CHAMADOS] ✅ ${chamados.length} chamados encontrados`);
 
     // Buscar horas de OS para todos os chamados
     const codChamados = chamados.map((c) => c.COD_CHAMADO);
-    
+
     if (codChamados.length > 0) {
-      console.log('[API CHAMADOS] 🔍 Buscando horas de OS...');
-      const mapaHoras = await buscarHorasPorChamados(codChamados);
-      console.log(`[API CHAMADOS] ✅ Horas carregadas para ${mapaHoras.size} chamados`);
+      // ✅ PASSAR dataInicio e dataFim aqui
+      const mapaHoras = await buscarHorasPorChamados(
+        codChamados,
+        dataInicio,
+        dataFim,
+      );
 
       // Processar chamados com as horas
       const chamadosProcessados = processarChamados(chamados, mapaHoras);

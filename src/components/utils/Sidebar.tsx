@@ -155,7 +155,7 @@ export function Sidebar() {
             </Link>
 
             {/* Relatório Link */}
-            <Link
+            {/* <Link
               href="/paginas/tabela"
               onClick={(e) => handleNavigation(e, '/paginas/tabela')}
               className={`group relative flex items-center rounded-2xl px-5 py-4 transition-all ${
@@ -195,7 +195,7 @@ export function Sidebar() {
               >
                 Relatório
               </span>
-            </Link>
+            </Link> */}
 
             {/* ⭐ NOVO: Chamados Link */}
             <Link

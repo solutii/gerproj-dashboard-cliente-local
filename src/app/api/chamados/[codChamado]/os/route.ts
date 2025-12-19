@@ -125,6 +125,26 @@ function construirDatas(
   return { dataInicio, dataFim };
 }
 
+// ✅ NOVA FUNÇÃO: Buscar data do chamado
+async function buscarDataChamado(codChamado: number): Promise<Date | null> {
+  try {
+    const sql = `
+      SELECT DATA_CHAMADO 
+      FROM CHAMADO 
+      WHERE COD_CHAMADO = ?
+    `;
+
+    const resultado = await firebirdQuery<{ DATA_CHAMADO: Date }>(sql, [
+      codChamado,
+    ]);
+
+    return resultado.length > 0 ? resultado[0].DATA_CHAMADO : null;
+  } catch (error) {
+    console.error('[API OS] Erro ao buscar data do chamado:', error);
+    return null;
+  }
+}
+
 // ==================== VERIFICAR PERMISSÃO ====================
 async function verificarPermissaoChamado(
   codChamado: number,
@@ -238,6 +258,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // ✅ NOVO: Buscar data do chamado
+    const dataChamado = await buscarDataChamado(codChamadoValidado);
+
     // Construir SQL dinamicamente com ou sem filtro de período
     let sqlParams: any[] = [codChamado];
     let dataInicio: string | undefined;
@@ -274,10 +297,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       ),
     };
 
+    // ✅ MODIFICADO: Incluir dataChamado na resposta
     return NextResponse.json(
       {
         success: true,
         codChamado: codChamadoValidado,
+        dataChamado: dataChamado, // ✅ NOVO campo
         periodo: temFiltroPeriodo
           ? { mes: auth.mes, ano: auth.ano }
           : undefined,

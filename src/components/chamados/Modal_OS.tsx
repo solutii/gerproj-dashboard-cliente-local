@@ -1,9 +1,11 @@
-// src/components/chamados/Modal_Lista_OS.tsx
+// src/components/chamados/Modal_OS.tsx
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
 import { useFilters } from '@/context/FiltersContext';
+import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { useColumnResize } from '@/hooks/useColumnResize';
 import { useQuery } from '@tanstack/react-query';
 import {
   flexRender,
@@ -15,16 +17,14 @@ import { IoClose } from 'react-icons/io5';
 import { TbFileInvoice } from 'react-icons/tb';
 import { IsError } from '../utils/IsError';
 import { IsLoading } from '../utils/IsLoading';
-import {
-  getColumnWidthOS,
-  getColunasOS,
-  OSRowProps,
-} from './Colunas_Tabela_OS';
+import { getColunasOS, OSRowProps } from './Colunas_Tabela_OS';
+import { ResizeHandle } from './ResizeHandle';
 
 // ==================== INTERFACES ====================
 interface ApiResponseOS {
   success: boolean;
   codChamado: number;
+  dataChamado?: string; // ✅ NOVO: Data do chamado
   periodo?: {
     mes: number;
     ano: number;
@@ -101,6 +101,23 @@ export function ModalOS({
   const { filters } = useFilters();
   const { mes, ano } = filters;
 
+  // Larguras iniciais das colunas
+  const initialColumnWidths = {
+    NUM_OS: 120,
+    DTINI_OS: 140,
+    HRINI_OS: 120,
+    HRFIM_OS: 120,
+    TOTAL_HORAS_OS: 150,
+    OBS: 300,
+    NOME_RECURSO: 200,
+    NOME_TAREFA: 250,
+    VALCLI_OS: 150,
+  };
+
+  // Hook de resize
+  const { columnWidths, handleMouseDown, handleDoubleClick, resizingColumn } =
+    useColumnResize(initialColumnWidths);
+
   // Query de OS's
   const { data, isLoading, error } = useQuery({
     queryKey: ['modal-os-lista', codChamado, isAdmin, codCliente, mes, ano],
@@ -119,6 +136,15 @@ export function ModalOS({
 
   const osData = useMemo(() => data?.data ?? [], [data?.data]);
   const columns = useMemo(() => getColunasOS(), []);
+
+  // ✅ NOVO: Extrai a data do chamado da resposta da API
+  const dataChamado = useMemo(() => {
+    if (data?.dataChamado) {
+      return formatarDataParaBR(data.dataChamado);
+    }
+    // Fallback para mes/ano caso a API não retorne dataChamado
+    return `${mes}/${ano}`;
+  }, [data?.dataChamado, mes, ano]);
 
   const table = useReactTable<OSRowProps>({
     data: osData,
@@ -157,8 +183,9 @@ export function ModalOS({
               <h1 className="text-2xl font-extrabold tracking-widest text-gray-200 select-none">
                 ORDENS DE SERVIÇO
               </h1>
+              {/* ✅ MODIFICADO: Agora usa dataChamado formatada */}
               <p className="text-xl font-extrabold tracking-widest text-gray-200 select-none italic">
-                Chamado #{formatarNumeros(codChamado)} - {mes}/{ano}
+                Chamado #{formatarNumeros(codChamado)} - {dataChamado}
               </p>
             </div>
           </div>
@@ -207,7 +234,8 @@ export function ModalOS({
               <div className="mb-6 flex items-center gap-4">
                 <div className="h-2.5 w-2.5 rounded-full bg-teal-800 animate-pulse"></div>
                 <span className="text-2xl font-extrabold text-gray-800 tracking-widest select-none">
-                  Total: {osData.length} {osData.length === 1 ? 'OS' : "OS's"} em {mes}/{ano}
+                  Total: {osData.length} {osData.length === 1 ? 'OS' : "OS's"}{' '}
+                  em {mes}/{ano}
                 </span>
               </div>
 
@@ -221,24 +249,37 @@ export function ModalOS({
                     className="w-full border-separate border-spacing-0"
                     style={{ tableLayout: 'fixed' }}
                   >
+                    {/* Thead com ResizeHandle */}
                     <thead className="sticky top-0 z-10">
                       {table.getHeaderGroups().map((headerGroup) => (
                         <tr key={headerGroup.id}>
-                          {headerGroup.headers.map((header) => (
+                          {headerGroup.headers.map((header, idx) => (
                             <th
                               key={header.id}
-                              className="bg-teal-800 p-4 font-extrabold tracking-widest select-none text-base text-white border-b border-teal-900"
-                              style={{ width: getColumnWidthOS(header.id) }}
+                              className="bg-teal-800 p-4 font-extrabold tracking-widest select-none text-base text-white border-teal-900 relative border-r shadow-md shadow-black"
+                              style={{ width: `${columnWidths[header.id]}px` }}
                             >
                               {flexRender(
                                 header.column.columnDef.header,
                                 header.getContext(),
+                              )}
+
+                              {/* ResizeHandle em cada coluna (exceto última) */}
+                              {idx < headerGroup.headers.length - 1 && (
+                                <ResizeHandle
+                                  columnId={header.id}
+                                  onMouseDown={handleMouseDown}
+                                  onDoubleClick={handleDoubleClick}
+                                  isResizing={resizingColumn === header.id}
+                                />
                               )}
                             </th>
                           ))}
                         </tr>
                       ))}
                     </thead>
+
+                    {/* Tbody com larguras dinâmicas */}
                     <tbody>
                       {table.getRowModel().rows.map((row, idx) => (
                         <tr
@@ -253,7 +294,7 @@ export function ModalOS({
                               key={cell.id}
                               className="p-4 border-b border-gray-300"
                               style={{
-                                width: getColumnWidthOS(cell.column.id),
+                                width: `${columnWidths[cell.column.id]}px`,
                               }}
                             >
                               {flexRender(
