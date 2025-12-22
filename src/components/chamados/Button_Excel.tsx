@@ -371,8 +371,6 @@ export function ExportaExcelChamadosButton({
         renderSecao("CHAMADOS SEM OS's", chamadosSemOS);
       }
 
-      if (chamadosSemOS.length > 0)
-        renderSecao("CHAMADOS SEM OS's", chamadosSemOS);
       if (chamadosComOS.length > 0)
         renderSecao("CHAMADOS COM OS's", chamadosComOS);
 
