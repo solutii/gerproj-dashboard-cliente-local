@@ -32,7 +32,6 @@ const getInitialFilters = (): FiltersState => {
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        console.log('✅ Filtros recuperados do localStorage:', parsed);
         return parsed;
       }
     } catch (error) {
@@ -49,8 +48,7 @@ const getInitialFilters = (): FiltersState => {
     recurso: '',
     status: '',
   };
-  
-  console.log('🆕 Usando filtros padrão (data atual):', defaultFilters);
+
   return defaultFilters;
 };
 
@@ -84,16 +82,13 @@ export function FiltersProvider({ children }: { children: React.ReactNode }) {
 
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
-      console.log('💾 Filtros salvos no localStorage:', filters);
     } catch (error) {
       console.error('❌ Erro ao salvar filtros no localStorage:', error);
     }
   }, [filters, isInitialized]);
 
   // DEBUG: Log quando os filtros mudarem
-  useEffect(() => {
-    console.log('🔍 Filtros atualizados no contexto:', filters);
-  }, [filters]);
+  useEffect(() => {}, [filters]);
 
   // Retorna o provedor do contexto, disponibilizando os valores e funções
   return (

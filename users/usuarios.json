@@ -3,70 +3,60 @@
     "email": "administrador@email.com.br",
     "password": "$2b$10$THcl/IvlV7q8rLxTmA662e9YGbOL827Lp.frNC6VgTAMz4q16Zbxy",
     "cod_cliente": null,
-    "codrec_os": null,
     "isAdmin": true
   },
   {
     "email": "contabil@fundicaoaraguaia.com.br",
     "password": "$2b$10$UK68XLbKWgagX/5/YxqOtuCM5O9tNHJgUPAyWFEc6Y/6zReHw5mE.",
     "cod_cliente": "147",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
     "email": "magdiel.ozorio@doxbrasil.com.br",
     "password": "$2b$10$leUTt5I4KCwSbpDNwkWR..W4unWXunAHoxMc2/oezkZPSUy2BZyau",
     "cod_cliente": "78",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
     "email": "william.souza@tocfrio.com.br",
     "password": "$2b$10$997MIJ32uWJVfkCw2twMy.G1hvh/PIQayA0Os88YSaHzEFtieEwL6",
     "cod_cliente": "149",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
     "email": "daniel@tirolplantas.com.br",
     "password": "$2b$10$gIV3Ef3XGcIfKXVhQNuuyeAdOfwPqmJCYy2vZnE7skHYWVzLXNvF2",
     "cod_cliente": "142",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
     "email": "financeiro@somapel.com.br",
     "password": "$2b$10$OxHUkBoqvAHhWnP.Tj9DMOEOPujj8KVPMUxlIq1VV61msdxEzMK06",
     "cod_cliente": "36",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
     "email": "brener@gvpneus.com.br",
     "password": "$2b$10$997MIJ32uWJVfkCw2twMy.G1hvh/PIQayA0Os88YSaHzEFtieEwL6",
     "cod_cliente": "56",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
     "email": "ruan@rodriguescolchoes.com.br",
     "password": "$2b$10$.cko9BuDnKEGBT9RmoxXR..cYAvmWd7312ctYTqPSI6B9V7ytpYvO",
     "cod_cliente": "158",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
     "email": "lorrane.ramos@lautbeer.com.br",
     "password": "$2b$10$94J/.X2DeSF.L1tfLjnDXuLDAJhu6BSicCt5POZ1eqHwQVGHV3qP.",
     "cod_cliente": "120",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
     "email": "denilson.souza@tecnosulfur.com.br",
     "password": "$2b$10$yBDAZ6OhheeCJKI9bZQ8hurO/PRjeIGefJF4ML0xBP9EhuWB8pNhq",
     "cod_cliente": "156",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
@@ -79,21 +69,18 @@
     "email": "edmar@fidelip.com.br",
     "password": "$2b$10$0Rh9WfJJqXybnkHEnqajr.ZBXfAejuyo16EXXM0/yoVZv3NIB7ixm",
     "cod_cliente": "67",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
     "email": "expedicao@embalagensm2b.com.br",
     "password": "$2b$10$fJG1MTyktmATDSvlh0fZDeh88jwIioQ48yMiLqH5./12gmyAEMwZO",
     "cod_cliente": "82",
-    "codrec_os": null,
     "isAdmin": false
   },
   {
     "email": "rafael.aguiar@transaguiar.com.br",
     "password": "$2b$10$Z6QZNplE7VvSQPPajfF/gOGZmif21lbj.X8R.NhVz3/y8R.BWDnrG",
     "cod_cliente": "159",
-    "codrec_os": null,
     "isAdmin": false
   },
   {

@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useFilters } from '@/context/FiltersContext';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
-import { useColumnResize } from '@/hooks/useColumnResize';
+import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
 import { useQuery } from '@tanstack/react-query';
 import {
   flexRender,
@@ -18,7 +18,7 @@ import { TbFileInvoice } from 'react-icons/tb';
 import { IsError } from '../utils/IsError';
 import { IsLoading } from '../utils/IsLoading';
 import { getColunasOS, OSRowProps } from './Colunas_Tabela_OS';
-import { ResizeHandle } from './ResizeHandle';
+import { RedimensionarColunas } from './Redimensionar_Colunas';
 
 // ==================== INTERFACES ====================
 interface ApiResponseOS {
@@ -116,7 +116,7 @@ export function ModalOS({
 
   // Hook de resize
   const { columnWidths, handleMouseDown, handleDoubleClick, resizingColumn } =
-    useColumnResize(initialColumnWidths);
+    useRedimensionarColunas(initialColumnWidths);
 
   // Query de OS's
   const { data, isLoading, error } = useQuery({
@@ -266,7 +266,7 @@ export function ModalOS({
 
                               {/* ResizeHandle em cada coluna (exceto última) */}
                               {idx < headerGroup.headers.length - 1 && (
-                                <ResizeHandle
+                                <RedimensionarColunas
                                   columnId={header.id}
                                   onMouseDown={handleMouseDown}
                                   onDoubleClick={handleDoubleClick}

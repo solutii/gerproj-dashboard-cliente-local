@@ -36,16 +36,6 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
     if (filters.recurso) params.append('codRecursoFilter', filters.recurso);
     if (filters.status) params.append('status', filters.status);
 
-    console.log('🔍 [CARD TOTALIZADORES] Buscando dados com params:', {
-      mes: filters.mes,
-      ano: filters.ano,
-      isAdmin,
-      codCliente,
-      cliente: filters.cliente,
-      recurso: filters.recurso,
-      status: filters.status,
-    });
-
     const response = await fetch(
       `/api/cards-metricas/total-chamados-os?${params.toString()}`,
       {
@@ -67,7 +57,6 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
     }
 
     const data = await response.json();
-    console.log('✅ [CARD TOTALIZADORES] Dados recebidos:', data);
 
     return data;
   };
@@ -76,13 +65,6 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
     queryKey: ['totalizadoresChamados', filters, isAdmin, codCliente],
     queryFn: fetchData,
     enabled: !!filters && (isAdmin || codCliente !== null),
-  });
-
-  console.log('📊 [CARD TOTALIZADORES] Estado atual:', {
-    data,
-    isLoading,
-    isError,
-    error,
   });
 
   if (isLoading) {

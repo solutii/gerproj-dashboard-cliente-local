@@ -2,8 +2,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
-import { IoMdAnalytics } from 'react-icons/io';
-import { IoHome, IoCall } from 'react-icons/io5';
+import { IoCall, IoHome } from 'react-icons/io5';
 import { ButtonLogout } from './Button_Logout';
 
 export function Sidebar() {
@@ -59,7 +58,7 @@ export function Sidebar() {
               <div className="flex flex-col items-center gap-3">
                 <div className="flex items-center justify-center gap-1">
                   <h3 className="text-white text-2xl font-extrabold tracking-widest select-none">
-                    Aguarde 
+                    Aguarde
                   </h3>
                   <div className="flex items-center justify-center gap-1">
                     <span className="h-2 w-2 animate-[bounce_1s_ease-in-out_infinite] rounded-full bg-white"></span>
@@ -69,7 +68,8 @@ export function Sidebar() {
                 </div>
 
                 <p className="animate-pulse text-sm font-semibold text-white tracking-widest select-none">
-                  {targetRoute === '/paginas/dashboard' && 'Carregando Dashboard'}
+                  {targetRoute === '/paginas/dashboard' &&
+                    'Carregando Dashboard'}
                   {targetRoute === '/paginas/tabela' && 'Carregando Tabela'}
                   {targetRoute === '/paginas/chamados' && 'Carregando Chamados'}
                 </p>
@@ -153,49 +153,6 @@ export function Sidebar() {
                 Dashboard
               </span>
             </Link>
-
-            {/* Relatório Link */}
-            {/* <Link
-              href="/paginas/tabela"
-              onClick={(e) => handleNavigation(e, '/paginas/tabela')}
-              className={`group relative flex items-center rounded-2xl px-5 py-4 transition-all ${
-                pathname === '/paginas/tabela'
-                  ? 'bg-gradient-to-r from-purple-950 to-blue-950 ring-2 ring-teal-500'
-                  : 'bg-white/20 hover:bg-white/30 shadow-md shadow-black hover:shadow-lg hover:shadow-black hover:scale-105'
-              } ${
-                isNavigating && targetRoute === '/paginas/tabela'
-                  ? 'pointer-events-none opacity-60'
-                  : 'hover:scale-[1.02] active:scale-95'
-              }`}
-            >
-              {pathname === '/paginas/tabela' && (
-                <div className="absolute left-0 top-1/2 h-3/4 w-1.5 -translate-y-1/2 rounded-r-full bg-teal-500 shadow-lg shadow-black animate-pulse"></div>
-              )}
-
-              <div className="relative flex items-center justify-center">
-                {isNavigating && targetRoute === '/paginas/tabela' ? (
-                  <div className="h-7 w-7 animate-spin rounded-full border-3 border-white/20 border-t-white"></div>
-                ) : (
-                  <IoMdAnalytics
-                    className={`h-7 w-7 transition-all ${
-                      pathname === '/paginas/tabela'
-                        ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
-                        : 'text-white/80 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]'
-                    }`}
-                  />
-                )}
-              </div>
-
-              <span
-                className={`ml-4 text-lg font-extrabold tracking-widest select-none transition-all ${
-                  pathname === '/paginas/tabela'
-                    ? 'text-white'
-                    : 'text-white/80'
-                }`}
-              >
-                Relatório
-              </span>
-            </Link> */}
 
             {/* ⭐ NOVO: Chamados Link */}
             <Link

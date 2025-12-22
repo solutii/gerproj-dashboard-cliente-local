@@ -36,7 +36,6 @@ export default function LoginForm() {
 
     try {
       const userData = await login(email, password);
-      console.log('UserData retornado pelo login:', userData);
 
       if (userData) {
         if (rememberMe) {
@@ -48,23 +47,15 @@ export default function LoginForm() {
         await sleep(1000); // opcional, só para UX
 
         // Agora usando os dados retornados pela função login
-        console.log('Verificando redirecionamento:', {
-          isAdmin: userData.isAdmin,
-          codCliente: userData.codCliente,
-          codRecurso: userData.codRecurso,
-        });
 
         if (userData.isAdmin) {
-          console.log('Redirecionando para dashboard (admin)');
           await router.push('/paginas/dashboard');
         } else if (userData.codCliente) {
-          console.log('Redirecionando para dashboard (cliente)');
           await router.push('/paginas/dashboard');
         } else if (userData.codRecurso) {
-          console.log('Redirecionando para tabela chamados (recurso)');
+          await router.push('/paginas/tabela-chamados-abertos');
           await router.push('/paginas/tabela-chamados-abertos');
         } else {
-          console.log('Nenhuma permissão encontrada:', userData);
           setError('Usuário autenticado, mas sem permissões definidas.');
           setIsLoading(false);
         }

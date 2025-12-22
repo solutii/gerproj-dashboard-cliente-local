@@ -4,7 +4,7 @@
 import { useAuth } from '@/context/AuthContext';
 import { useFilters } from '@/context/FiltersContext';
 import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
-import { useColumnResize } from '@/hooks/useColumnResize';
+import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
 import { useQuery } from '@tanstack/react-query';
 import {
   ColumnFiltersState,
@@ -28,7 +28,7 @@ import {
 } from './Filtro_Header_Tabela_Chamados';
 import { ModalOS } from './Modal_OS';
 import { ModalValidacaoOS } from './Modal_Validacao_OS';
-import { ResizeHandle } from './ResizeHandle';
+import { RedimensionarColunas } from './Redimensionar_Colunas';
 
 // ==================== INTERFACE ====================
 interface ApiResponseChamados {
@@ -121,7 +121,7 @@ export function TabelaChamados() {
   };
 
   const { columnWidths, handleMouseDown, handleDoubleClick, resizingColumn } =
-    useColumnResize(initialColumnWidths);
+    useRedimensionarColunas(initialColumnWidths);
 
   // Query de Chamados
   const {
@@ -627,7 +627,7 @@ function TableHeader({
                   )}
 
               {idx < headerGroup.headers.length - 1 && (
-                <ResizeHandle
+                <RedimensionarColunas
                   columnId={header.id}
                   onMouseDown={handleMouseDown}
                   onDoubleClick={handleDoubleClick}
@@ -657,7 +657,7 @@ function TableHeader({
             )}
 
             {idx < table.getAllColumns().length - 1 && (
-              <ResizeHandle
+              <RedimensionarColunas
                 columnId={column.id}
                 onMouseDown={handleMouseDown}
                 onDoubleClick={handleDoubleClick}

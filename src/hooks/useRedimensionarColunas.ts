@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export const useColumnResize = (initialWidths: Record<string, number>) => {
+export const useRedimensionarColunas = (initialWidths: Record<string, number>) => {
   const [columnWidths, setColumnWidths] = useState(initialWidths);
   const [resizingColumn, setResizingColumn] = useState<string | null>(null);
   const startXRef = useRef(0);

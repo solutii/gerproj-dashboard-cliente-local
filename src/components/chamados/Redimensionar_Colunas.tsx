@@ -7,7 +7,7 @@ interface ResizeHandleProps {
   isResizing: boolean;
 }
 
-export const ResizeHandle: React.FC<ResizeHandleProps> = ({
+export const RedimensionarColunas: React.FC<ResizeHandleProps> = ({
   columnId,
   onMouseDown,
   onDoubleClick, // ✅ NOVA PROP

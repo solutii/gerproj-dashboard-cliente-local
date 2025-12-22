@@ -734,5 +734,4 @@ export async function GET(request: NextRequest) {
 export function limparCacheChamados(): void {
   nomeClienteCache.clear();
   nomeRecursoCache.clear();
-  console.log('[API CHAMADOS] Caches limpos');
 }

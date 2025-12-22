@@ -42,3 +42,16 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# ==================== DADOS SENSÍVEIS E LOGS ====================
+# Arquivo de usuários (contém senhas hasheadas)
+/users/usuarios.json
+
+# Backups de usuários
+/users/backups/
+
+# Logs dos scripts
+/scripts/logs/
+
+# Arquivos de lock temporários
+*.lock
