@@ -13,27 +13,16 @@ interface FilterProps {
     status: string;
   };
 }
-// ==========
 
-interface ApiResponse {
-  success: boolean;
-  totalChamados: number;
-  totalOS: number;
-  totalHorasOS: number;
-  cliente: string | null;
-  recurso: string | null;
-  status: string | null;
-  mes: number;
-  ano: number;
-  data: any[];
+interface TotalizadoresResponse {
+  TOTAL_CHAMADOS: number;
+  TOTAL_OS: number;
 }
-// ==========
 
 export function CardTotalChamadosOS({ filters }: FilterProps) {
   const { isAdmin, codCliente } = useAuth();
 
-  // ========== REQUISIÇÃO DOS DADOS ==========
-  const fetchData = async (): Promise<ApiResponse> => {
+  const fetchData = async (): Promise<TotalizadoresResponse> => {
     const params = new URLSearchParams();
     params.append('mes', filters.mes.toString());
     params.append('ano', filters.ano.toString());
@@ -45,9 +34,9 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
 
     if (filters.cliente) params.append('codClienteFilter', filters.cliente);
     if (filters.recurso) params.append('codRecursoFilter', filters.recurso);
-    if (filters.status) params.append('statusFilter', filters.status);
+    if (filters.status) params.append('status', filters.status);
 
-    console.log('🔍 [CARD] Buscando dados com params:', {
+    console.log('🔍 [CARD TOTALIZADORES] Buscando dados com params:', {
       mes: filters.mes,
       ano: filters.ano,
       isAdmin,
@@ -57,40 +46,44 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
       status: filters.status,
     });
 
-    const response = await fetch(`/api/chamados?${params.toString()}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      `/api/total-chamados-os?${params.toString()}`,
+      {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('❌ [CARD] Erro na resposta da API:', response.status, errorText);
+      console.error(
+        '❌ [CARD TOTALIZADORES] Erro na resposta:',
+        response.status,
+        errorText,
+      );
       throw new Error(`Erro na requisição: ${response.status}`);
     }
 
     const data = await response.json();
-    console.log('✅ [CARD] Dados recebidos:', data);
-    
+    console.log('✅ [CARD TOTALIZADORES] Dados recebidos:', data);
+
     return data;
   };
 
   const { data, isLoading, isError, error } = useQuery({
-    queryKey: ['totalChamados', filters, isAdmin, codCliente],
+    queryKey: ['totalizadoresChamados', filters, isAdmin, codCliente],
     queryFn: fetchData,
     enabled: !!filters && (isAdmin || codCliente !== null),
   });
 
-  console.log('📊 [CARD] Estado atual:', { 
-    data, 
-    isLoading, 
-    isError, 
+  console.log('📊 [CARD TOTALIZADORES] Estado atual:', {
+    data,
+    isLoading,
+    isError,
     error,
-    totalChamados: data?.totalChamados,
-    totalOS: data?.totalOS 
   });
-  // ==========
 
   if (isLoading) {
     return (
@@ -104,7 +97,6 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
       </div>
     );
   }
-  // ==========
 
   if (isError || !data) {
     return (
@@ -123,9 +115,7 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
       </div>
     );
   }
-  // ==========
 
-  // ==================== RENDERIZAÇÃO PRINCIPAL ====================
   return (
     <div className="relative flex h-54 flex-col rounded-xl border bg-gradient-to-br from-white via-purple-100/30 to-indigo-100/30 shadow-md shadow-black overflow-hidden">
       {/* Linha decorativa diagonal */}
@@ -139,7 +129,7 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
           </span>
           <div className="flex items-baseline gap-1">
             <span className="text-4xl font-extrabold tracking-widest bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent select-none">
-              {data.totalChamados ?? 0}
+              {data.TOTAL_CHAMADOS ?? 0}
             </span>
           </div>
         </div>
@@ -156,13 +146,13 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
           </span>
           <div className="flex items-baseline gap-1">
             <span className="text-4xl font-extrabold tracking-widest bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent select-none">
-              {data.totalOS ?? 0}
+              {data.TOTAL_OS ?? 0}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Badge de status (opcional) */}
+      {/* Badge de status */}
       <div className="absolute top-3 right-3">
         <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/50"></div>
       </div>

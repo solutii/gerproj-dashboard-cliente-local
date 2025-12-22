@@ -156,7 +156,7 @@ const fetchOrdensServico = async (
     params.append('status', filters.status);
   }
 
-  const response = await fetch(`/api/ordens-servico?${params.toString()}`);
+  const response = await fetch(`/api/graficos?${params.toString()}`);
 
   if (!response.ok) {
     throw new Error(`Erro HTTP: ${response.status}`);
@@ -174,7 +174,7 @@ export function Graficos({ filters }: FilterProps) {
     error,
     refetch,
   } = useQuery({
-    queryKey: ['ordens-servico', filters, isAdmin, codCliente],
+    queryKey: ['graficos', filters, isAdmin, codCliente],
     queryFn: () => fetchOrdensServico(filters, isAdmin, codCliente),
     staleTime: 1000 * 60 * 5,
     retry: 1,
@@ -695,7 +695,6 @@ export function Graficos({ filters }: FilterProps) {
             </ChartCard>
           )}
         </div>
-
       </div>
     </div>
   );

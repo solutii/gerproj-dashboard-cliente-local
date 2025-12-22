@@ -1,9 +1,9 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
-import { formatarHorasTotaisSufixo } from '../../../formatters/formatar-hora';
 import { useQuery } from '@tanstack/react-query';
 import { FaExclamationTriangle } from 'react-icons/fa';
+import { formatarHorasTotaisSufixo } from '../../../formatters/formatar-hora';
 
 interface FilterProps {
   filters: {
@@ -15,74 +15,17 @@ interface FilterProps {
   };
 }
 
-interface Chamado {
-  COD_CHAMADO: number;
-  DATA_CHAMADO: Date;
-  HORA_CHAMADO: string;
-  CONCLUSAO_CHAMADO: Date | null;
-  STATUS_CHAMADO: string;
-  DTENVIO_CHAMADO: string | null;
-  ASSUNTO_CHAMADO: string | null;
-  EMAIL_CHAMADO: string | null;
-  PRIOR_CHAMADO: number;
-  COD_CLASSIFICACAO: number;
-  NOME_CLIENTE?: string | null;
-  NOME_RECURSO?: string | null;
-  NOME_CLASSIFICACAO?: string | null;
-  TEM_OS?: boolean;
-  TOTAL_HORAS_OS?: number;
-}
-
-interface ApiResponse {
-  success: boolean;
-  cliente: string | null;
-  recurso: string | null;
-  status: string | null;
-  totalChamados: number;
-  totalOS: number;
-  totalHorasOS: number;
-  mes: number;
-  ano: number;
-  data: Chamado[];
-}
-
-interface Totalizadores {
-  totalChamadosComHoras: number;
-  totalTarefasDistintas: number;
-  mediaHorasPorChamado: number;
-  mediaHorasPorTarefa: number;
-}
-
-// Função para calcular os totalizadores a partir dos dados da API
-function calcularTotalizadores(chamados: Chamado[], totalOS: number, totalHorasOS: number): Totalizadores {
-  // Total de chamados que possuem horas (TEM_OS = true)
-  const totalChamadosComHoras = chamados.filter(c => c.TEM_OS).length;
-
-  // Total de tarefas distintas = totalOS (cada OS é uma tarefa)
-  const totalTarefasDistintas = totalOS;
-
-  // Média de horas por chamado
-  const mediaHorasPorChamado = totalChamadosComHoras > 0 
-    ? totalHorasOS / totalChamadosComHoras 
-    : 0;
-
-  // Média de horas por tarefa (OS)
-  const mediaHorasPorTarefa = totalTarefasDistintas > 0 
-    ? totalHorasOS / totalTarefasDistintas 
-    : 0;
-
-  return {
-    totalChamadosComHoras,
-    totalTarefasDistintas,
-    mediaHorasPorChamado,
-    mediaHorasPorTarefa,
-  };
+interface MediasResponse {
+  MEDIA_HRS_POR_CHAMADO: number;
+  MEDIA_HRS_POR_TAREFA: number;
+  TOTAL_CHAMADOS_COM_HORAS: number;
+  TOTAL_TAREFAS_COM_HORAS: number;
 }
 
 export function CardMediaHorasChamado({ filters }: FilterProps) {
   const { isAdmin, codCliente } = useAuth();
 
-  const fetchData = async (): Promise<ApiResponse> => {
+  const fetchData = async (): Promise<MediasResponse> => {
     const params = new URLSearchParams();
     params.append('mes', filters.mes.toString());
     params.append('ano', filters.ano.toString());
@@ -94,29 +37,55 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
 
     if (filters.cliente) params.append('codClienteFilter', filters.cliente);
     if (filters.recurso) params.append('codRecursoFilter', filters.recurso);
-    if (filters.status) params.append('statusFilter', filters.status);
+    if (filters.status) params.append('status', filters.status);
+
+    console.log('🔍 [CARD MÉDIAS] Buscando dados com params:', {
+      mes: filters.mes,
+      ano: filters.ano,
+      isAdmin,
+      codCliente,
+      cliente: filters.cliente,
+      recurso: filters.recurso,
+      status: filters.status,
+    });
 
     const response = await fetch(
-      `/api/chamados?${params.toString()}`,
+      `/api/media-hrs-chamado?${params.toString()}`,
       {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-      }
+      },
     );
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(
+        '❌ [CARD MÉDIAS] Erro na resposta:',
+        response.status,
+        errorText,
+      );
       throw new Error(`Erro na requisição: ${response.status}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('✅ [CARD MÉDIAS] Dados recebidos:', data);
+
+    return data;
   };
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['mediaHoraChamado', filters, isAdmin, codCliente],
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['mediasHoras', filters, isAdmin, codCliente],
     queryFn: fetchData,
     enabled: !!filters && (isAdmin || codCliente !== null),
+  });
+
+  console.log('📊 [CARD MÉDIAS] Estado atual:', {
+    data,
+    isLoading,
+    isError,
+    error,
   });
 
   if (isLoading) {
@@ -132,30 +101,32 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
     );
   }
 
-  if (isError || !data || !data.success) {
+  if (isError || !data) {
     return (
       <div className="flex h-54 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
-        <div className="flex h-full flex-col items-center justify-center">
+        <div className="flex h-full flex-col items-center justify-center gap-2">
           <FaExclamationTriangle className="text-red-500" size={20} />
           <span className="mt-3 tracking-widest font-semibold italic text-slate-600 select-none">
             Erro ao carregar os dados
           </span>
+          {error && (
+            <span className="text-xs text-red-500 select-none">
+              {error instanceof Error ? error.message : 'Erro desconhecido'}
+            </span>
+          )}
         </div>
       </div>
     );
   }
 
-  // Calcular totalizadores a partir dos dados retornados
-  const totalizadores = calcularTotalizadores(data.data, data.totalOS, data.totalHorasOS);
-
-  const mediaHorasChamado = totalizadores.mediaHorasPorChamado;
-  const mediaHorasTarefa = totalizadores.mediaHorasPorTarefa;
+  const mediaHorasChamado = data.MEDIA_HRS_POR_CHAMADO;
+  const mediaHorasTarefa = data.MEDIA_HRS_POR_TAREFA;
 
   return (
     <div className="relative flex h-54 flex-col rounded-xl border bg-gradient-to-br from-white via-cyan-100/30 to-indigo-100/30 shadow-md shadow-black overflow-hidden">
       {/* Linha decorativa diagonal */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 shadow-xs shadow-black/20 transform rotate-45 translate-x-16 -translate-y-16"></div>
-      
+
       {/* Média por Chamado - Superior Esquerdo */}
       <div className="absolute top-6 left-6">
         <div className="flex flex-col gap-1">

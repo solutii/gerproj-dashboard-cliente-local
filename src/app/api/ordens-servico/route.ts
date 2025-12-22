@@ -441,6 +441,148 @@ function gerarHorasPorCliente(ordensServico: OSComHoras[]) {
     .sort((a, b) => b.horas - a.horas);
 }
 
+// ==================== BUSCAR TOTAL DE CHAMADOS (COM E SEM OS) ====================
+async function buscarTotalChamados(
+  dataInicio: string,
+  dataFim: string,
+  params: QueryParams,
+  codChamadosComOS: number[],
+): Promise<number> {
+  try {
+    let sql = '';
+    let sqlParams: any[] = [];
+
+    if (params.isAdmin) {
+      // Admin: chamados do período OU com OS no período
+      if (codChamadosComOS.length === 0) {
+        sql = `
+          SELECT COUNT(DISTINCT CHAMADO.COD_CHAMADO) AS TOTAL_CHAMADOS
+          FROM CHAMADO
+          WHERE CHAMADO.DATA_CHAMADO >= ? 
+            AND CHAMADO.DATA_CHAMADO < ?
+        `;
+        sqlParams = [dataInicio, dataFim];
+      } else {
+        const placeholders = codChamadosComOS.map(() => '?').join(',');
+        sql = `
+          SELECT COUNT(DISTINCT CHAMADO.COD_CHAMADO) AS TOTAL_CHAMADOS
+          FROM CHAMADO
+          WHERE (
+            (CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)
+            OR CHAMADO.COD_CHAMADO IN (${placeholders})
+          )
+        `;
+        sqlParams = [dataInicio, dataFim, ...codChamadosComOS];
+      }
+    } else {
+      // Não-admin: apenas chamados com OS no período
+      if (codChamadosComOS.length === 0) {
+        return 0;
+      }
+
+      const placeholders = codChamadosComOS.map(() => '?').join(',');
+      sql = `
+        SELECT COUNT(DISTINCT CHAMADO.COD_CHAMADO) AS TOTAL_CHAMADOS
+        FROM CHAMADO
+        WHERE CHAMADO.COD_CHAMADO IN (${placeholders})
+      `;
+      sqlParams = [...codChamadosComOS];
+    }
+
+    // Aplicar filtros adicionais
+    if (!params.isAdmin && params.codCliente) {
+      sql += ` AND CHAMADO.COD_CLIENTE = ?`;
+      sqlParams.push(parseInt(params.codCliente));
+    }
+
+    if (params.codClienteFilter) {
+      sql += ` AND CHAMADO.COD_CLIENTE = ?`;
+      sqlParams.push(parseInt(params.codClienteFilter));
+    }
+
+    if (params.codRecursoFilter) {
+      sql += ` AND CHAMADO.COD_RECURSO = ?`;
+      sqlParams.push(parseInt(params.codRecursoFilter));
+    }
+
+    if (params.status) {
+      sql += ` AND UPPER(CHAMADO.STATUS_CHAMADO) LIKE UPPER(?)`;
+      sqlParams.push(`%${params.status}%`);
+    }
+
+    const resultado = await firebirdQuery<{ TOTAL_CHAMADOS: number }>(
+      sql,
+      sqlParams,
+    );
+
+    return resultado.length > 0 ? resultado[0].TOTAL_CHAMADOS : 0;
+  } catch (error) {
+    console.error('[API OS] Erro ao buscar total de chamados:', error);
+    return 0;
+  }
+}
+
+// ==================== BUSCAR CHAMADOS COM OS NO PERÍODO ====================
+async function buscarChamadosComOSNoPeriodo(
+  dataInicio: string,
+  dataFim: string,
+  params: QueryParams,
+): Promise<number[]> {
+  try {
+    let sql = `
+      SELECT DISTINCT CAST(OS.CHAMADO_OS AS INTEGER) AS COD_CHAMADO
+      FROM OS
+      LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
+      WHERE OS.DTINI_OS >= ? 
+        AND OS.DTINI_OS < ?
+        AND OS.CHAMADO_OS IS NOT NULL
+        AND OS.CHAMADO_OS <> ''
+        AND TAREFA.EXIBECHAM_TAREFA = 1
+    `;
+
+    const sqlParams: any[] = [dataInicio, dataFim];
+
+    if (!params.isAdmin && params.codCliente) {
+      sql = `
+        SELECT DISTINCT CAST(OS.CHAMADO_OS AS INTEGER) AS COD_CHAMADO
+        FROM OS
+        LEFT JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
+        LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
+        WHERE OS.DTINI_OS >= ? 
+          AND OS.DTINI_OS < ?
+          AND OS.CHAMADO_OS IS NOT NULL
+          AND OS.CHAMADO_OS <> ''
+          AND CHAMADO.COD_CLIENTE = ?
+          AND TAREFA.EXIBECHAM_TAREFA = 1
+      `;
+      sqlParams.push(parseInt(params.codCliente));
+    } else if (params.codClienteFilter) {
+      sql = `
+        SELECT DISTINCT CAST(OS.CHAMADO_OS AS INTEGER) AS COD_CHAMADO
+        FROM OS
+        LEFT JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
+        LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
+        WHERE OS.DTINI_OS >= ? 
+          AND OS.DTINI_OS < ?
+          AND OS.CHAMADO_OS IS NOT NULL
+          AND OS.CHAMADO_OS <> ''
+          AND CHAMADO.COD_CLIENTE = ?
+          AND TAREFA.EXIBECHAM_TAREFA = 1
+      `;
+      sqlParams.push(parseInt(params.codClienteFilter));
+    }
+
+    const resultado = await firebirdQuery<{ COD_CHAMADO: number }>(
+      sql,
+      sqlParams,
+    );
+    return resultado.map((r) => r.COD_CHAMADO);
+  } catch (error) {
+    console.error('[API OS] Erro ao buscar chamados com OS no período:', error);
+    return [];
+  }
+}
+
 async function gerarHorasPorMes(ano: number, params: QueryParams) {
   const mesesNomes = [
     'Jan',
@@ -542,6 +684,7 @@ function calcularTotalizadores(
   horasPorChamado: Map<string, number>,
   horasPorTarefa: Map<number, number>,
   totaisDB: any,
+  totalChamadosGeral: number, // ✅ Novo parâmetro
 ) {
   const totalHoras = ordensServico.reduce(
     (acc, os) => acc + (os.TOTAL_HRS_OS || 0),
@@ -565,11 +708,9 @@ function calcularTotalizadores(
     totalTarefasComHoras > 0 ? totalHorasTarefas / totalTarefasComHoras : 0;
 
   return {
-    ...(totaisDB[0] || {
-      TOTAL_OS: 0,
-      TOTAL_CHAMADOS: 0,
-      TOTAL_RECURSOS: 0,
-    }),
+    TOTAL_OS: totaisDB[0]?.TOTAL_OS || 0,
+    TOTAL_CHAMADOS: totalChamadosGeral, // ✅ Usar o total geral (com e sem OS)
+    TOTAL_RECURSOS: totaisDB[0]?.TOTAL_RECURSOS || 0,
     TOTAL_HRS: parseFloat(totalHoras.toFixed(2)),
     TOTAL_HRS_CHAMADOS: parseFloat(totalHorasChamados.toFixed(2)),
     TOTAL_HRS_TAREFAS: parseFloat(totalHorasTarefas.toFixed(2)),
@@ -589,6 +730,21 @@ export async function GET(request: Request) {
     if (params instanceof NextResponse) return params;
 
     const { dataInicio, dataFim } = construirDatas(params.mes, params.ano);
+
+    // ✅ 1. Buscar códigos de chamados que têm OS no período
+    const codChamadosComOS = await buscarChamadosComOSNoPeriodo(
+      dataInicio,
+      dataFim,
+      params,
+    );
+
+    // ✅ 2. Buscar total de chamados (com e sem OS)
+    const totalChamadosGeral = await buscarTotalChamados(
+      dataInicio,
+      dataFim,
+      params,
+      codChamadosComOS,
+    );
 
     const sqlBase = construirSQLBase();
     const { sql: sqlPrincipal, params: paramsPrincipal } = aplicarFiltros(
@@ -616,11 +772,14 @@ export async function GET(request: Request) {
     const { horasPorChamado, horasPorTarefa } = agruparHoras(
       ordensServicoComHoras,
     );
+
+    // ✅ 3. Passar o total geral de chamados
     const totalizadores = calcularTotalizadores(
       ordensServicoComHoras,
       horasPorChamado,
       horasPorTarefa,
       totalizadoresDB,
+      totalChamadosGeral, // ✅ Novo parâmetro
     );
 
     const horasPorDia = gerarHorasPorDia(
