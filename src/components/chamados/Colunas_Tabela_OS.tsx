@@ -238,7 +238,7 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
           >
             {/* Texto que inicia truncado e se expande até um máximo */}
             <div
-              className="flex-1 font-semibold tracking-widest text-sm text-black select-none text-left"
+              className="flex-1 font-semibold tracking-widest text-sm text-black select-none text-justify"
               style={{
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',

@@ -11,7 +11,7 @@ interface LayoutProps {
 }
 
 // ===== CONFIGURAÇÃO DE ZOOM =====
-const ZOOM_LEVEL = 0.75; // Mude apenas este valor
+const ZOOM_LEVEL = 0.67; // Mude apenas este valor
 const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL; // Calcula automaticamente (ex: 100 / 0.75 = 133.33)
 // ================================
 

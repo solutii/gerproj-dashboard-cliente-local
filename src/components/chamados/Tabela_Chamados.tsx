@@ -30,6 +30,17 @@ import { ModalOS } from './Modal_OS';
 import { ModalValidacaoOS } from './Modal_Validacao_OS';
 import { RedimensionarColunas } from './Redimensionar_Colunas';
 
+// ===== CONFIGURAÇÃO DE ALTURA DA TABELA =====
+const ZOOM_LEVEL = 0.67; // Deve ser o mesmo valor do LayoutDashboard
+const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL; // Compensa automaticamente (ex: 100 / 0.67 = 149.25)
+const HEADER_HEIGHT = 293; // Altura do header em pixels (ajuste conforme necessário)
+const BASE_MIN_HEIGHT = 400; // Altura mínima base em pixels
+
+// Cálculos automáticos
+const MAX_HEIGHT = `calc(${ZOOM_COMPENSATION}vh - ${HEADER_HEIGHT}px)`;
+const MIN_HEIGHT = `${(BASE_MIN_HEIGHT * ZOOM_COMPENSATION) / 100}px`;
+// ============================================
+
 // ==================== INTERFACE ====================
 interface ApiResponseChamados {
   success: boolean;
@@ -370,8 +381,8 @@ export function TabelaChamados() {
           <div
             className="flex-1 overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-track-purple-100 scrollbar-thumb-purple-600 hover:scrollbar-thumb-purple-800"
             style={{
-              maxHeight: 'calc(133.33vh - 293px)', // Ajustado para compensar o zoom
-              minHeight: '533px', // 400px * 1.3333
+              maxHeight: MAX_HEIGHT,
+              minHeight: MIN_HEIGHT,
             }}
           >
             <table
@@ -724,8 +735,8 @@ function TableBody({
               temOS ? 'cursor-pointer' : 'cursor-not-allowed'
             } ${
               rowIndex % 2 === 0
-                ? 'bg-white hover:bg-gray-300'
-                : 'bg-white hover:bg-gray-300'
+                ? 'bg-white hover:bg-teal-200'
+                : 'bg-white hover:bg-teal-200'
             }`}
           >
             {row.getVisibleCells().map((cell: any, cellIndex: number) => (

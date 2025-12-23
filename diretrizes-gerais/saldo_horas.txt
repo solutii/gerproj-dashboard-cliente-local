@@ -1,0 +1,390 @@
+// ==================== PARTE 1: API para Salvar Saldo Mensal ====================
+// Arquivo: app/api/saldo-horas/salvar/route.ts
+
+import { firebirdQuery } from '@/lib/firebird/firebird-client';
+import { NextResponse } from 'next/server';
+
+interface SalvarSaldoRequest {
+  codCliente: string;
+  mes: number;
+  ano: number;
+  horasContratadas: number;
+  horasExecutadas: number;
+  saldo: number;
+}
+
+export async function POST(request: Request) {
+  try {
+    const body: SalvarSaldoRequest = await request.json();
+    
+    const { codCliente, mes, ano, horasContratadas, horasExecutadas, saldo } = body;
+
+    // Verificar se já existe registro para este mês/ano/cliente
+    const checkSQL = `
+      SELECT COD_SALDO_HORAS 
+      FROM SALDO_HORAS_MENSAL
+      WHERE COD_CLIENTE = ? AND MES = ? AND ANO = ?
+    `;
+    
+    const existing = await firebirdQuery(checkSQL, [
+      parseInt(codCliente),
+      mes,
+      ano
+    ]);
+
+    if (existing && existing.length > 0) {
+      // UPDATE
+      const updateSQL = `
+        UPDATE SALDO_HORAS_MENSAL
+        SET HORAS_CONTRATADAS = ?,
+            HORAS_EXECUTADAS = ?,
+            SALDO = ?,
+            SALDO_UTILIZADO = 0,
+            DATA_ATUALIZACAO = CURRENT_TIMESTAMP
+        WHERE COD_CLIENTE = ? AND MES = ? AND ANO = ?
+      `;
+      
+      await firebirdQuery(updateSQL, [
+        horasContratadas,
+        horasExecutadas,
+        saldo,
+        parseInt(codCliente),
+        mes,
+        ano
+      ]);
+    } else {
+      // INSERT
+      const insertSQL = `
+        INSERT INTO SALDO_HORAS_MENSAL (
+          COD_CLIENTE,
+          MES,
+          ANO,
+          HORAS_CONTRATADAS,
+          HORAS_EXECUTADAS,
+          SALDO,
+          SALDO_UTILIZADO,
+          DATA_CRIACAO
+        ) VALUES (?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+      `;
+      
+      await firebirdQuery(insertSQL, [
+        parseInt(codCliente),
+        mes,
+        ano,
+        horasContratadas,
+        horasExecutadas,
+        saldo
+      ]);
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('[API SALDO] Erro ao salvar:', error);
+    return NextResponse.json(
+      { error: 'Erro ao salvar saldo' },
+      { status: 500 }
+    );
+  }
+}
+
+// ==================== PARTE 2: API para Consultar Saldo Disponível ====================
+// Arquivo: app/api/saldo-horas/consultar/route.ts
+
+interface SaldoMensal {
+  COD_CLIENTE: number;
+  MES: number;
+  ANO: number;
+  SALDO: number;
+  SALDO_UTILIZADO: number;
+}
+
+interface SaldoDisponivel {
+  codCliente: string;
+  saldoTotal: number;
+  detalhes: Array<{
+    mes: number;
+    ano: number;
+    saldoOriginal: number;
+    saldoUtilizado: number;
+    saldoDisponivel: number;
+    mesesDesdeApuracao: number;
+    expiraEm: string;
+    expirado: boolean;
+  }>;
+}
+
+function calcularMesesDiferenca(
+  mesOrigem: number,
+  anoOrigem: number,
+  mesAtual: number,
+  anoAtual: number
+): number {
+  return (anoAtual - anoOrigem) * 12 + (mesAtual - mesOrigem);
+}
+
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const codCliente = searchParams.get('codCliente');
+    const mesAtual = Number(searchParams.get('mes'));
+    const anoAtual = Number(searchParams.get('ano'));
+
+    if (!codCliente || !mesAtual || !anoAtual) {
+      return NextResponse.json(
+        { error: 'Parâmetros obrigatórios: codCliente, mes, ano' },
+        { status: 400 }
+      );
+    }
+
+    // Buscar saldos dos últimos 3 meses (incluindo o atual)
+    const sql = `
+      SELECT 
+        COD_CLIENTE,
+        MES,
+        ANO,
+        SALDO,
+        SALDO_UTILIZADO
+      FROM SALDO_HORAS_MENSAL
+      WHERE COD_CLIENTE = ?
+        AND SALDO > SALDO_UTILIZADO
+      ORDER BY ANO DESC, MES DESC
+    `;
+
+    const saldos: SaldoMensal[] = await firebirdQuery(sql, [parseInt(codCliente)]);
+
+    const detalhes = saldos
+      .map(saldo => {
+        const mesesDesdeApuracao = calcularMesesDiferenca(
+          saldo.MES,
+          saldo.ANO,
+          mesAtual,
+          anoAtual
+        );
+
+        // Regra: saldo expira após 2 meses (pode usar no mês atual + 2 posteriores)
+        const expirado = mesesDesdeApuracao > 2;
+        
+        const saldoDisponivel = expirado 
+          ? 0 
+          : saldo.SALDO - saldo.SALDO_UTILIZADO;
+
+        // Calcular mês de expiração
+        let mesExpiracao = saldo.MES + 3;
+        let anoExpiracao = saldo.ANO;
+        
+        if (mesExpiracao > 12) {
+          mesExpiracao -= 12;
+          anoExpiracao += 1;
+        }
+
+        return {
+          mes: saldo.MES,
+          ano: saldo.ANO,
+          saldoOriginal: saldo.SALDO,
+          saldoUtilizado: saldo.SALDO_UTILIZADO,
+          saldoDisponivel,
+          mesesDesdeApuracao,
+          expiraEm: `${mesExpiracao.toString().padStart(2, '0')}/${anoExpiracao}`,
+          expirado
+        };
+      })
+      .filter(d => !d.expirado && d.saldoDisponivel > 0);
+
+    const saldoTotal = detalhes.reduce((acc, d) => acc + d.saldoDisponivel, 0);
+
+    const response: SaldoDisponivel = {
+      codCliente,
+      saldoTotal: Math.round(saldoTotal * 100) / 100,
+      detalhes
+    };
+
+    return NextResponse.json(response);
+  } catch (error) {
+    console.error('[API SALDO] Erro ao consultar:', error);
+    return NextResponse.json(
+      { error: 'Erro ao consultar saldo' },
+      { status: 500 }
+    );
+  }
+}
+
+// ==================== PARTE 3: API para Utilizar Saldo ====================
+// Arquivo: app/api/saldo-horas/utilizar/route.ts
+
+interface UtilizarSaldoRequest {
+  codCliente: string;
+  mesAtual: number;
+  anoAtual: number;
+  horasAUtilizar: number;
+}
+
+export async function POST(request: Request) {
+  try {
+    const body: UtilizarSaldoRequest = await request.json();
+    const { codCliente, mesAtual, anoAtual, horasAUtilizar } = body;
+
+    // Buscar saldos disponíveis (do mais antigo para o mais novo - FIFO)
+    const sql = `
+      SELECT 
+        COD_SALDO_HORAS,
+        MES,
+        ANO,
+        SALDO,
+        SALDO_UTILIZADO
+      FROM SALDO_HORAS_MENSAL
+      WHERE COD_CLIENTE = ?
+        AND SALDO > SALDO_UTILIZADO
+      ORDER BY ANO ASC, MES ASC
+    `;
+
+    const saldos = await firebirdQuery(sql, [parseInt(codCliente)]);
+
+    let horasRestantes = horasAUtilizar;
+
+    for (const saldo of saldos) {
+      if (horasRestantes <= 0) break;
+
+      // Verificar se não expirou
+      const mesesDiff = calcularMesesDiferenca(
+        saldo.MES,
+        saldo.ANO,
+        mesAtual,
+        anoAtual
+      );
+
+      if (mesesDiff > 2) continue; // Saldo expirado
+
+      const saldoDisponivel = saldo.SALDO - saldo.SALDO_UTILIZADO;
+      const horasADebitar = Math.min(horasRestantes, saldoDisponivel);
+
+      // Atualizar saldo utilizado
+      const updateSQL = `
+        UPDATE SALDO_HORAS_MENSAL
+        SET SALDO_UTILIZADO = SALDO_UTILIZADO + ?
+        WHERE COD_SALDO_HORAS = ?
+      `;
+
+      await firebirdQuery(updateSQL, [
+        horasADebitar,
+        saldo.COD_SALDO_HORAS
+      ]);
+
+      horasRestantes -= horasADebitar;
+    }
+
+    return NextResponse.json({
+      success: true,
+      horasDebitadas: horasAUtilizar - horasRestantes,
+      horasNaoDebitadas: horasRestantes
+    });
+  } catch (error) {
+    console.error('[API SALDO] Erro ao utilizar:', error);
+    return NextResponse.json(
+      { error: 'Erro ao utilizar saldo' },
+      { status: 500 }
+    );
+  }
+}
+
+// ==================== PARTE 4: Componente Card Atualizado ====================
+// Atualização no Card_Horas_Contratadas_Horas_Executadas.tsx
+
+interface ApiResponseComSaldo extends ApiResponse {
+  saldoAnteriorDisponivel?: number;
+  saldoAtual?: number;
+  detalheSaldo?: Array<{
+    mes: number;
+    ano: number;
+    saldo: number;
+    expiraEm: string;
+  }>;
+}
+
+// Adicionar ao fetchData:
+const fetchDataComSaldo = async (): Promise<ApiResponseComSaldo> => {
+  const params = new URLSearchParams();
+  params.append('mes', filters.mes.toString());
+  params.append('ano', filters.ano.toString());
+  params.append('isAdmin', isAdmin.toString());
+
+  if (!isAdmin && codCliente) {
+    params.append('codCliente', codCliente);
+  }
+
+  if (filters.cliente) params.append('codClienteFilter', filters.cliente);
+  if (filters.recurso) params.append('codRecursoFilter', filters.recurso);
+  if (filters.status) params.append('status', filters.status);
+
+  const [responseHoras, responseSaldo] = await Promise.all([
+    fetch(`/api/cards-metricas/hrs-contratadas-hrs-executadas?${params.toString()}`),
+    fetch(`/api/saldo-horas/consultar?codCliente=${codCliente || filters.cliente}&mes=${filters.mes}&ano=${filters.ano}`)
+  ]);
+
+  if (!responseHoras.ok) {
+    throw new Error(`Erro na requisição: ${responseHoras.status}`);
+  }
+
+  const dataHoras = await responseHoras.json();
+  const dataSaldo = responseSaldo.ok ? await responseSaldo.json() : null;
+
+  return {
+    ...dataHoras,
+    saldoAnteriorDisponivel: dataSaldo?.saldoTotal || 0,
+    detalheSaldo: dataSaldo?.detalhes || []
+  };
+};
+
+// Adicionar no render do card (após as barras):
+{data.saldoAnteriorDisponivel && data.saldoAnteriorDisponivel > 0 && (
+  <div className="mt-2 pt-2 border-t border-gray-200">
+    <div className="flex items-center justify-between">
+      <span className="text-[9px] sm:text-[11px] font-bold text-emerald-700 tracking-widest select-none uppercase">
+        Saldo Anterior Disponível
+      </span>
+      <span className="text-[10px] sm:text-sm font-bold text-emerald-600 tracking-widest select-none">
+        {formatarHorasTotaisSufixo(data.saldoAnteriorDisponivel)}
+      </span>
+    </div>
+    {data.detalheSaldo && data.detalheSaldo.length > 0 && (
+      <div className="mt-1 text-[8px] sm:text-[10px] text-gray-600">
+        {data.detalheSaldo.map((d, i) => (
+          <div key={i} className="flex justify-between">
+            <span>{d.mes}/{d.ano}</span>
+            <span>Expira: {d.expiraEm}</span>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
+// ==================== SQL para Criar Tabela ====================
+/*
+CREATE TABLE SALDO_HORAS_MENSAL (
+  COD_SALDO_HORAS INTEGER NOT NULL PRIMARY KEY,
+  COD_CLIENTE INTEGER NOT NULL,
+  MES INTEGER NOT NULL,
+  ANO INTEGER NOT NULL,
+  HORAS_CONTRATADAS NUMERIC(10,2) NOT NULL,
+  HORAS_EXECUTADAS NUMERIC(10,2) NOT NULL,
+  SALDO NUMERIC(10,2) NOT NULL,
+  SALDO_UTILIZADO NUMERIC(10,2) DEFAULT 0,
+  DATA_CRIACAO TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  DATA_ATUALIZACAO TIMESTAMP,
+  CONSTRAINT UNQ_SALDO_MES UNIQUE (COD_CLIENTE, MES, ANO)
+);
+
+CREATE INDEX IDX_SALDO_CLIENTE ON SALDO_HORAS_MENSAL(COD_CLIENTE);
+CREATE INDEX IDX_SALDO_DATA ON SALDO_HORAS_MENSAL(ANO, MES);
+
+CREATE GENERATOR GEN_SALDO_HORAS_ID;
+SET GENERATOR GEN_SALDO_HORAS_ID TO 0;
+
+CREATE TRIGGER TRG_SALDO_HORAS_BI FOR SALDO_HORAS_MENSAL
+ACTIVE BEFORE INSERT POSITION 0
+AS
+BEGIN
+  IF (NEW.COD_SALDO_HORAS IS NULL) THEN
+    NEW.COD_SALDO_HORAS = GEN_ID(GEN_SALDO_HORAS_ID, 1);
+END;
+*/

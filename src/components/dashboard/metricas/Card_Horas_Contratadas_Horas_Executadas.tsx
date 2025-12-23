@@ -118,10 +118,10 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FilterProps) {
         {/* Contratadas */}
         <div>
           <div className="mb-0.5 sm:mb-1 flex items-center justify-between">
-            <span className="text-[9px] sm:text-[10px] font-bold text-slate-800 tracking-widest select-none uppercase">
+            <span className="text-[9px] sm:text-[12px] font-bold text-slate-800 tracking-widest select-none uppercase">
               Contratadas
             </span>
-            <span className="text-[10px] sm:text-xs font-bold text-blue-600 tracking-widest select-none">
+            <span className="text-[10px] sm:text-sm font-bold text-blue-600 tracking-widest select-none">
               {formatarHorasTotaisSufixo(totalHorasContratadas)}
             </span>
           </div>
@@ -136,11 +136,11 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FilterProps) {
         {/* Executadas */}
         <div>
           <div className="mb-0.5 sm:mb-1 flex items-center justify-between">
-            <span className="text-[9px] sm:text-[10px] font-bold text-slate-800 tracking-widest select-none uppercase">
+            <span className="text-[9px] sm:text-[12px] font-bold text-slate-800 tracking-widest select-none uppercase">
               Executadas
             </span>
             <span
-              className={`text-[10px] sm:text-xs font-bold tracking-widest select-none ${
+              className={`text-[10px] sm:text-sm font-bold tracking-widest select-none ${
                 diferenca > 0.5
                   ? 'text-red-600'
                   : diferenca < -0.5
