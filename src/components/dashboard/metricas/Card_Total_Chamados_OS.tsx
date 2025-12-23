@@ -14,9 +14,14 @@ interface FilterProps {
   };
 }
 
+// ========== CARD 1: Total Chamados OS ==========
 interface TotalizadoresResponse {
   TOTAL_CHAMADOS: number;
   TOTAL_OS: number;
+  CHAMADOS_FINALIZADO: number;
+  CHAMADOS_STANDBY: number;
+  CHAMADOS_EM_ATENDIMENTO: number;
+  CHAMADOS_AGUARDANDO_VALIDACAO: number;
 }
 
 export function CardTotalChamadosOS({ filters }: FilterProps) {
@@ -57,7 +62,6 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
     }
 
     const data = await response.json();
-
     return data;
   };
 
@@ -69,10 +73,10 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
 
   if (isLoading) {
     return (
-      <div className="flex h-54 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
+      <div className="flex h-36 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
         <div className="flex h-full flex-col items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600"></div>
-          <span className="mt-3 tracking-widest font-semibold italic text-slate-600 select-none">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600"></div>
+          <span className="mt-2 text-xs tracking-widest font-semibold italic text-slate-600 select-none">
             Carregando...
           </span>
         </div>
@@ -82,14 +86,14 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
 
   if (isError || !data) {
     return (
-      <div className="flex h-54 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
+      <div className="flex h-36 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
         <div className="flex h-full flex-col items-center justify-center gap-2">
-          <FaExclamationTriangle className="text-red-500" size={20} />
-          <span className="mt-3 tracking-widest font-semibold italic text-slate-600 select-none">
+          <FaExclamationTriangle className="text-red-500" size={16} />
+          <span className="mt-2 text-xs tracking-widest font-semibold italic text-slate-600 select-none">
             Erro ao carregar os dados
           </span>
           {error && (
-            <span className="text-xs text-red-500 select-none">
+            <span className="text-[10px] text-red-500 select-none">
               {error instanceof Error ? error.message : 'Erro desconhecido'}
             </span>
           )}
@@ -99,44 +103,65 @@ export function CardTotalChamadosOS({ filters }: FilterProps) {
   }
 
   return (
-    <div className="relative flex h-54 flex-col rounded-xl border bg-gradient-to-br from-white via-purple-100/30 to-indigo-100/30 shadow-md shadow-black overflow-hidden">
-      {/* Linha decorativa diagonal */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-500/10 to-indigo-500/10 shadow-xs shadow-black/20 transform rotate-45 translate-x-16 -translate-y-16"></div>
-
-      {/* Total de Chamados - Superior Esquerdo */}
-      <div className="absolute top-6 left-6">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-bold text-slate-800 tracking-widest select-none uppercase">
-            QTD. CHAMADOS
+    <div className="relative flex h-36 flex-col rounded-xl border bg-white shadow-md shadow-black overflow-hidden">
+      {/* Chamados Finalizados - Superior Esquerdo */}
+      <div className="absolute top-2 left-2">
+        <div className="flex flex-col gap-0">
+          <span className="text-[9px] font-bold text-slate-600 tracking-wide select-none uppercase">
+            Finalizados
           </span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-4xl font-extrabold tracking-widest bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent select-none">
-              {data.TOTAL_CHAMADOS ?? 0}
-            </span>
-          </div>
+          <span className="text-lg font-extrabold tracking-wide bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent select-none">
+            {data.CHAMADOS_FINALIZADO ?? 0}
+          </span>
         </div>
       </div>
 
-      {/* Divisor visual */}
-      <div className="absolute top-1/2 left-1/2 w-0.5 h-34 bg-gradient-to-b from-transparent via-slate-400 to-transparent transform -translate-x-1/2 -translate-y-1/2 rotate-45"></div>
-
-      {/* Total de OS's - Inferior Direito */}
-      <div className="absolute bottom-6 right-6 text-right">
-        <div className="flex flex-col gap-1 items-end">
-          <span className="text-sm font-bold text-slate-800 tracking-widest select-none">
-            TOTAL OS's
+      {/* Chamados Em Atendimento - Superior Direito */}
+      <div className="absolute top-2 right-2 text-right">
+        <div className="flex flex-col gap-0 items-end">
+          <span className="text-[9px] font-bold text-slate-600 tracking-wide select-none uppercase">
+            Em Atendimento
           </span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-4xl font-extrabold tracking-widest bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent select-none">
-              {data.TOTAL_OS ?? 0}
-            </span>
-          </div>
+          <span className="text-lg font-extrabold tracking-wide bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent select-none">
+            {data.CHAMADOS_EM_ATENDIMENTO ?? 0}
+          </span>
         </div>
       </div>
 
-      {/* Badge de status */}
-      <div className="absolute top-3 right-3">
-        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse shadow-lg shadow-green-500/50"></div>
+      {/* Total de Chamados - Centro */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+        <div className="flex flex-col gap-0.5 items-center">
+          <span className="text-xs font-bold text-slate-800 tracking-widest select-none uppercase">
+            Total Chamados
+          </span>
+          <span className="text-3xl font-extrabold tracking-widest bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent select-none">
+            {data.TOTAL_CHAMADOS ?? 0}
+          </span>
+        </div>
+      </div>
+
+      {/* Chamados Standby - Inferior Esquerdo */}
+      <div className="absolute bottom-2 left-2">
+        <div className="flex flex-col gap-0">
+          <span className="text-[9px] font-bold text-slate-600 tracking-wide select-none uppercase">
+            Standby
+          </span>
+          <span className="text-lg font-extrabold tracking-wide bg-gradient-to-r from-yellow-600 to-yellow-700 bg-clip-text text-transparent select-none">
+            {data.CHAMADOS_STANDBY ?? 0}
+          </span>
+        </div>
+      </div>
+
+      {/* Chamados Aguardando Validação - Inferior Direito */}
+      <div className="absolute bottom-2 right-2 text-right">
+        <div className="flex flex-col gap-0 items-end">
+          <span className="text-[9px] font-bold text-slate-600 tracking-wide select-none uppercase">
+            Aguard. Validação
+          </span>
+          <span className="text-lg font-extrabold tracking-wide bg-gradient-to-r from-orange-600 to-orange-700 bg-clip-text text-transparent select-none">
+            {data.CHAMADOS_AGUARDANDO_VALIDACAO ?? 0}
+          </span>
+        </div>
       </div>
     </div>
   );

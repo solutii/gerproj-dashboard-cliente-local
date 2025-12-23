@@ -46,9 +46,9 @@ export default function DashboardPage() {
           <Filtros showRefreshButton={true} />
         </div>
         
-        <div className="flex-shrink-0">
+        {/* <div className="flex-shrink-0">
           <ContainerCardsMetricas filters={filters} />
-        </div>
+        </div> */}
 
         {/* Área com scroll - gráficos */}
         <div className="flex-1 min-h-0">

@@ -2,12 +2,9 @@
 
 import { useAuth } from '@/context/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import { Minus } from 'lucide-react';
 import { FaExclamationTriangle } from 'react-icons/fa';
-import { IoIosTrendingDown, IoIosTrendingUp } from 'react-icons/io';
-import { formatarDiferencaHoras, formatarHorasTotaisSufixo } from '../../../formatters/formatar-hora';
 
-interface FiltersProps {
+interface FilterProps {
   filters: {
     ano: number;
     mes: number;
@@ -17,13 +14,22 @@ interface FiltersProps {
   };
 }
 
+// ========== CARD 2: Horas Contratadas × Executadas ==========
 interface ApiResponse {
   totalHorasContratadas: number;
   totalHorasExecutadas: number;
   detalhes: any[];
 }
 
-export function CardHorasContratadasHorasExecutadas({ filters }: FiltersProps) {
+const formatarHorasTotaisSufixo = (horas: number): string => {
+  if (horas === 0) return '0h';
+  const h = Math.floor(horas);
+  const m = Math.round((horas - h) * 60);
+  if (m === 0) return `${h}h`;
+  return `${h}h${m}m`;
+};
+
+export function CardHorasContratadasHorasExecutadas({ filters }: FilterProps) {
   const { isAdmin, codCliente } = useAuth();
 
   const fetchData = async (): Promise<ApiResponse> => {
@@ -65,10 +71,10 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FiltersProps) {
 
   if (isLoading) {
     return (
-      <div className="flex h-54 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
+      <div className="flex h-36 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
         <div className="flex h-full flex-col items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600"></div>
-          <span className="mt-3 tracking-widest font-semibold italic text-slate-600 select-none">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600"></div>
+          <span className="mt-2 text-xs tracking-widest font-semibold italic text-slate-600 select-none">
             Carregando...
           </span>
         </div>
@@ -78,10 +84,10 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FiltersProps) {
 
   if (isError || !data) {
     return (
-      <div className="flex h-54 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
+      <div className="flex h-36 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
         <div className="flex h-full flex-col items-center justify-center">
-          <FaExclamationTriangle className=" text-red-500" size={20} />
-          <span className="mt-3 tracking-widest font-semibold italic text-slate-600 select-none">
+          <FaExclamationTriangle className="text-red-500" size={16} />
+          <span className="mt-2 text-xs tracking-widest font-semibold italic text-slate-600 select-none">
             Erro ao carregar os dados
           </span>
         </div>
@@ -97,37 +103,6 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FiltersProps) {
       : 0;
   const diferenca = totalHorasExecutadas - totalHorasContratadas;
 
-  const getStatusIcon = () => {
-    if (diferenca > 0.5)
-      return <IoIosTrendingUp className="text-red-500" size={22} />;
-    if (diferenca < -0.5)
-      return <IoIosTrendingDown className="text-emerald-500" size={22} />;
-    return <Minus className="text-blue-500" size={22} />;
-  };
-
-  const getStatusConfig = () => {
-    if (diferenca > 0.5)
-      return {
-        color: 'text-red-700',
-        bg: 'bg-red-50',
-        border: 'border-red-200',
-        gradient: 'from-red-50 to-red-100/50',
-      };
-    if (diferenca < -0.5)
-      return {
-        color: 'text-emerald-700',
-        bg: 'bg-emerald-50',
-        border: 'border-emerald-200',
-        gradient: 'from-emerald-50 to-emerald-100/50',
-      };
-    return {
-      color: 'text-blue-700',
-      bg: 'bg-blue-50',
-      border: 'border-blue-200',
-      gradient: 'from-blue-50 to-blue-100/50',
-    };
-  };
-
   const getBarColor = () => {
     if (diferenca > 0.5) return 'bg-gradient-to-r from-red-500 to-red-600';
     if (diferenca < -0.5)
@@ -135,49 +110,43 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FiltersProps) {
     return 'bg-gradient-to-r from-blue-500 to-blue-600';
   };
 
-  const statusConfig = getStatusConfig();
-
   return (
-    <div className="relative flex h-54 flex-col justify-center rounded-xl border bg-gradient-to-br from-white via-pink-100/30 to-indigo-100/30 px-6 shadow-md shadow-black overflow-hidden">
-      {/* Elemento decorativo */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-pink-500/10 to-indigo-500/10 shadow-xs shadow-black/20 transform rotate-45 translate-x-16 -translate-y-16"></div>
-
+    <div className="relative flex h-36 flex-col justify-center rounded-xl border bg-white px-4 shadow-md shadow-black overflow-hidden">
       {/* Título */}
-      <div className="text-center relative z-10">
-        <span className="text-sm font-bold text-slate-800 tracking-widest select-none uppercase">
+      <div className="text-center mb-2 relative z-10">
+        <span className="text-xs font-bold text-slate-800 tracking-widest select-none uppercase">
           Horas Contratadas × Executadas
         </span>
       </div>
 
       {/* Barras de progresso e status */}
-      <div className="w-full flex flex-col gap-4 relative z-10">
+      <div className="w-full flex flex-col gap-2.5 relative z-10">
         {/* Contratadas */}
         <div>
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800 tracking-widest select-none uppercase">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-[10px] font-bold text-slate-800 tracking-widest select-none uppercase">
               Contratadas
             </span>
-            <span className="text-sm font-bold text-amber-600 tracking-widest select-none mr-6">
+            <span className="text-xs font-bold text-blue-600 tracking-widest select-none">
               {formatarHorasTotaisSufixo(totalHorasContratadas)}
             </span>
           </div>
-          <div className="h-2.5 w-full rounded-full bg-gray-200 overflow-hidden shadow-xs shadow-black">
+          <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden shadow-xs shadow-black">
             <div
-              className="h-2.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500"
+              className="h-2 rounded-full bg-gradient-to-r from-blue-400 to-blue-500"
               style={{ width: '100%' }}
             />
           </div>
         </div>
-        {/* ===== */}
 
         {/* Executadas */}
         <div>
-          <div className="mb-1.5 flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-800 tracking-widest select-none uppercase">
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-[10px] font-bold text-slate-800 tracking-widest select-none uppercase">
               Executadas
             </span>
             <span
-              className={`text-sm font-bold tracking-widest select-none ${
+              className={`text-xs font-bold tracking-widest select-none ${
                 diferenca > 0.5
                   ? 'text-red-600'
                   : diferenca < -0.5
@@ -188,9 +157,9 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FiltersProps) {
               {formatarHorasTotaisSufixo(totalHorasExecutadas)}
             </span>
           </div>
-          <div className="h-2.5 w-full rounded-full bg-gray-200 overflow-hidden relative shadow-black shadow-xs">
+          <div className="h-2 w-full rounded-full bg-gray-200 overflow-hidden relative shadow-black shadow-xs">
             <div
-              className={`h-2.5 rounded-full ${getBarColor()} shadow-sm transition-all duration-500 ${
+              className={`h-2 rounded-full ${getBarColor()} shadow-sm transition-all duration-500 ${
                 percentual > 100 ? 'animate-pulse' : ''
               }`}
               style={{ width: `${Math.min(percentual, 100)}%` }}
@@ -200,33 +169,6 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FiltersProps) {
             )}
           </div>
         </div>
-        {/* ===== */}
-
-        {/* Status */}
-     <div
-          className={`flex items-center justify-center mt-2 gap-2.5 shadow-xs shadow-black rounded-md border ${statusConfig.border} ${statusConfig.bg} bg-gradient-to-r ${statusConfig.gradient} p-2 text-sm font-extrabold tracking-widest select-none`}
-        >
-          {getStatusIcon()}
-          <span className={statusConfig.color}>
-            {formatarDiferencaHoras(diferenca)}
-            <span className="ml-3 text-sm font-extrabold tracking-widest text-slate-500 select-none">
-              ({percentual.toFixed(0)}%)
-            </span>
-          </span>
-        </div>
-      </div>
-
-      {/* Badge de status */}
-      <div className="absolute top-3 right-3">
-        <div
-          className={`w-2 h-2 rounded-full shadow-lg ${
-            diferenca > 0.5
-              ? 'bg-red-500 animate-pulse shadow-red-500/50'
-              : diferenca < -0.5
-                ? 'bg-emerald-500 shadow-emerald-500/50'
-                : 'bg-blue-500 shadow-blue-500/50'
-          }`}
-        ></div>
       </div>
     </div>
   );

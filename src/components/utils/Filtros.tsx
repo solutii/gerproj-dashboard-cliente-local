@@ -26,26 +26,19 @@ interface Recurso {
 // ==================== FUNÇÕES AUXILIARES ====================
 // Limita o nome a um número máximo de palavras
 function limitarNome(nome: string, maxPalavras: number = 2): string {
-  // ✅ ADICIONAR: Verificar se nome é uma string válida
   if (!nome || typeof nome !== 'string') return '';
-
   const palavras = nome.trim().split(/\s+/);
   return palavras.slice(0, maxPalavras).join(' ');
 }
-// ===============
 
 // Processa o nome corrigindo texto corrompido e limitando palavras
 function processarNome(nome: string, maxPalavras: number = 2): string {
-  // ✅ ADICIONAR: Verificar se nome é uma string válida
   if (!nome || typeof nome !== 'string') return '';
-
   const nomeCorrigido = corrigirTextoCorrompido(nome);
   return limitarNome(nomeCorrigido, maxPalavras);
 }
-// ===============
 
 // ==================== FUNÇÕES DE FETCH ====================
-// Fetch para buscar clientes
 const fetchClientes = async ({
   mes,
   ano,
@@ -74,9 +67,7 @@ const fetchClientes = async ({
 
   return response.json();
 };
-// ===============
 
-// Fetch para buscar recursos
 const fetchRecursos = async ({
   mes,
   ano,
@@ -111,9 +102,7 @@ const fetchRecursos = async ({
 
   return response.json();
 };
-// ===============
 
-// Fetch para buscar status
 const fetchStatus = async ({
   mes,
   ano,
@@ -154,7 +143,6 @@ const fetchStatus = async ({
 
   return response.json();
 };
-// ==============
 
 // ==============================================================
 // ==================== COMPONENTE PRINCIPAL ====================
@@ -165,35 +153,27 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
   const { isAdmin, codCliente } = useAuth();
   const queryClient = useQueryClient();
 
-  // Estados locais - inicializados APENAS com valores do contexto
   const [ano, setAno] = useState(filters.ano);
   const [mes, setMes] = useState(filters.mes);
   const [clienteSelecionado, setClienteSelecionado] = useState(filters.cliente);
   const [recursoSelecionado, setRecursoSelecionado] = useState(filters.recurso);
   const [statusSelecionado, setStatusSelecionado] = useState(filters.status);
-
-  // Flag para controlar se já foi inicializado
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // Atualiza os estados locais com os valores do contexto
     setAno(filters.ano);
     setMes(filters.mes);
     setClienteSelecionado(filters.cliente);
     setRecursoSelecionado(filters.recurso);
     setStatusSelecionado(filters.status);
-
-    // Marca como inicializado
     setIsInitialized(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Debounce apenas dos filtros opcionais (não ano/mês)
   const [debouncedClienteSelecionado] = useDebounce(clienteSelecionado, 300);
   const [debouncedRecursoSelecionado] = useDebounce(recursoSelecionado, 300);
   const [debouncedStatusSelecionado] = useDebounce(statusSelecionado, 300);
 
-  // ==================== REACT QUERY - CLIENTES ====================
   const { data: clientesData = [], isLoading: clientesLoading } = useQuery({
     queryKey: ['clientes', mes, ano, isAdmin, codCliente],
     queryFn: () => fetchClientes({ mes, ano, isAdmin, codCliente }),
@@ -202,7 +182,6 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     retry: 2,
   });
 
-  // ==================== REACT QUERY - RECURSOS ====================
   const { data: recursosData = [], isLoading: recursosLoading } = useQuery({
     queryKey: [
       'recursos',
@@ -225,7 +204,6 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     retry: 2,
   });
 
-  // ==================== REACT QUERY - STATUS ====================
   const { data: statusData = [], isLoading: statusLoading } = useQuery({
     queryKey: [
       'status',
@@ -245,14 +223,11 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
         clienteSelecionado: debouncedClienteSelecionado,
         recursoSelecionado: debouncedRecursoSelecionado,
       }),
-    // ✅ CORRIGIR: Remover a dependência de codCliente para admin
     enabled: !!(mes && ano && isInitialized && (isAdmin || codCliente)),
     staleTime: 1000 * 60 * 5,
     retry: 2,
   });
 
-  // ==================== EFEITOS ====================
-  // CRITICAL: Atualiza o contexto apenas após inicialização completa
   useEffect(() => {
     if (!isInitialized) return;
 
@@ -273,10 +248,8 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     setFilters,
   ]);
 
-  // Validação de cliente selecionado quando a lista de clientes muda
   useEffect(() => {
     if (!isInitialized) return;
-
     if (clienteSelecionado && clientesData.length > 0) {
       const clienteExiste = clientesData.some(
         (c) => c.cod === clienteSelecionado,
@@ -289,19 +262,15 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     }
   }, [clientesData, clienteSelecionado, isInitialized]);
 
-  // Sincroniza cliente quando não é admin
   useEffect(() => {
     if (!isInitialized) return;
-
     if (!isAdmin && codCliente && clientesData.length > 0) {
       setClienteSelecionado(codCliente);
     }
   }, [isAdmin, codCliente, clientesData, isInitialized]);
 
-  // Validação de recurso selecionado quando a lista de recursos muda
   useEffect(() => {
     if (!isInitialized) return;
-
     if (recursoSelecionado && recursosData.length > 0) {
       const recursoExiste = recursosData.some(
         (r) => r.cod === recursoSelecionado,
@@ -313,10 +282,8 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     }
   }, [recursosData, recursoSelecionado, isInitialized]);
 
-  // Validação de status selecionado quando a lista de status muda
   useEffect(() => {
     if (!isInitialized) return;
-
     if (statusSelecionado && statusData.length > 0) {
       const statusExiste = statusData.includes(statusSelecionado);
       if (!statusExiste) {
@@ -325,7 +292,6 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     }
   }, [statusData, statusSelecionado, isInitialized]);
 
-  // Função para limpar todos os filtros
   const clearAllFilters = () => {
     const novoAno = hoje.getFullYear();
     const novoMes = hoje.getMonth() + 1;
@@ -336,7 +302,6 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     setRecursoSelecionado('');
     setStatusSelecionado('');
 
-    // Atualiza o contexto imediatamente
     setFilters({
       ano: novoAno,
       mes: novoMes,
@@ -346,7 +311,6 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     });
   };
 
-  // Função para atualizar os dados e limpar os filtros
   const handleRefresh = () => {
     clearAllFilters();
     queryClient.invalidateQueries({ queryKey: ['clientes'] });
@@ -356,7 +320,6 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
     queryClient.invalidateQueries({ queryKey: ['tabela-os'] });
   };
 
-  // ==================== CONSTANTES ====================
   const years = [2024, 2025, 2026];
   const months = [
     'Janeiro',
@@ -405,7 +368,7 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
           value={value}
           onChange={(e) => onChange(e.target.value)}
           disabled={disabled}
-          className={`${className} ${hasValue && !disabled && showClear ? 'pr-16' : 'pr-10'}`}
+          className={`${className} ${hasValue && !disabled && showClear ? 'pr-12' : 'pr-8'}`}
           style={{
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -415,12 +378,11 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
           <option
             value=""
             key="placeholder-option"
-            className="select-none text-lg tracking-widest font-semibold"
+            className="select-none text-sm tracking-widest font-semibold"
           >
             {placeholder}
           </option>
           {options.map((opt, index) => {
-            // ✅ ADICIONAR: Garantir que value é string/número
             const optValue =
               typeof opt.value === 'object'
                 ? JSON.stringify(opt.value)
@@ -431,9 +393,9 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
 
             return (
               <option
-                key={`option-${optValue}-${index}`} // ✅ Adicionar index como fallback
+                key={`option-${optValue}-${index}`}
                 value={optValue}
-                className="tracking-widest font-semibold select-none"
+                className="tracking-widest font-semibold select-none text-sm"
                 title={optLabel}
               >
                 {processarNome(optLabel, 2)}
@@ -448,12 +410,12 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
               e.preventDefault();
               onClear();
             }}
-            className="group absolute right-10 top-1/2 -translate-y-1/2 bg-red-500 p-1 rounded-full cursor-pointer hover:scale-125 transition-all active:scale-95 shadow-md shadow-black z-10"
+            className="group absolute right-8 top-1/2 -translate-y-1/2 bg-red-500 p-0.5 rounded-full cursor-pointer hover:scale-110 transition-all active:scale-95 shadow-sm shadow-black z-10"
             title="Limpar filtro"
           >
             <IoClose
-              size={20}
-              className="text-white group-hover:scale-125 group-active:scale-95 transition-all"
+              size={16}
+              className="text-white group-hover:scale-110 group-active:scale-95 transition-all"
             />
           </button>
         )}
@@ -463,48 +425,36 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
 
   // ==================== RENDERIZAÇÃO PRINCIPAL ====================
   return (
-    <div className="flex flex-col gap-3">
-      {/* Título para desktop */}
+    <div className="flex flex-col gap-2">
+      {/* Cabeçalho compacto */}
       <header className="flex items-center justify-between">
-        <div className="flex items-center justify-center gap-4">
-          <MdFilterAlt className="text-black" size={32} />
-          <h1 className="text-2xl select-none tracking-widest font-extrabold text-black">
+        <div className="flex items-center gap-3">
+          <MdFilterAlt className="text-black" size={24} />
+          <h1 className="text-xl select-none tracking-widest font-extrabold text-black">
             FILTROS
           </h1>
         </div>
 
-        <div className="flex items-center gap-8 mr-4">
-          {/* {showRefreshButton && (
-            <div>
-              <FiRefreshCw
-                onClick={handleRefresh}
-                title="Atualizar Dados"
-                className="cursor-pointer text-blue-500 transition-all hover:scale-125 hover:rotate-180 active:scale-95 mr-7"
-                size={32}
-              />
-            </div>
-          )} */}
-          <div className="flex items-center justify-center gap-2 text-xl font-extrabold tracking-widest select-none text-black">
-            <MdCalendarMonth className="text-black" size={32} />
+        <div className="flex items-center gap-6 mr-2">
+          <div className="flex items-center gap-2 text-base font-extrabold tracking-widest select-none text-black">
+            <MdCalendarMonth className="text-black" size={24} />
             {hoje.toLocaleString('pt-BR', {
               day: '2-digit',
               month: '2-digit',
               year: 'numeric',
             })}
           </div>
-          <div>
-            <Relogio />
-          </div>
+          <Relogio />
         </div>
       </header>
 
-      {/* ========== FILTROS ========== */}
-      <div className="grid grid-cols-5 gap-6">
+      {/* Filtros compactos */}
+      <div className="grid grid-cols-5 gap-4">
         {/* Ano */}
         <select
           value={ano}
           onChange={(e) => setAno(Number(e.target.value))}
-          className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-lg select-none border p-3 shadow-md shadow-black transition-all hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
+          className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-sm select-none border p-2 shadow-sm shadow-black transition-all hover:shadow-md hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
         >
           {years.map((yearOption) => (
             <option
@@ -521,7 +471,7 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
         <select
           value={mes}
           onChange={(e) => setMes(Number(e.target.value))}
-          className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-lg select-none border p-3 shadow-md shadow-black transition-all hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
+          className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-sm select-none border p-2 shadow-sm shadow-black transition-all hover:shadow-md hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
         >
           {months.map((monthName, i) => (
             <option
@@ -542,10 +492,10 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
           disabled={!clientesData.length || !!codCliente || clientesLoading}
           options={clientesData.map((c) => ({ value: c.cod, label: c.nome }))}
           placeholder={
-            clientesLoading ? 'Carregando clientes...' : 'Selecione o cliente'
+            clientesLoading ? 'Carregando...' : 'Selecione o cliente'
           }
           showClear={!codCliente}
-          className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-lg select-none border p-3 shadow-md shadow-black transition-all hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+          className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-sm select-none border p-2 shadow-sm shadow-black transition-all hover:shadow-md hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30"
         />
 
         {/* Recurso */}
@@ -555,10 +505,8 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
           onClear={() => setRecursoSelecionado('')}
           disabled={!recursosData.length || isLoading}
           options={recursosData.map((r) => ({ value: r.cod, label: r.nome }))}
-          placeholder={
-            isLoading ? 'Carregando recursos...' : 'Selecione o recurso'
-          }
-          className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-lg select-none border p-3 shadow-md shadow-black transition-all hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
+          placeholder={isLoading ? 'Carregando...' : 'Selecione o recurso'}
+          className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-sm select-none border p-2 shadow-sm shadow-black transition-all hover:shadow-md hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
         />
 
         {/* Status */}
@@ -568,10 +516,8 @@ export function Filtros({ showRefreshButton = false }: FiltersProps) {
           onClear={() => setStatusSelecionado('')}
           disabled={!statusData.length || isLoading}
           options={statusData.map((s) => ({ value: s, label: s }))}
-          placeholder={
-            isLoading ? 'Carregando status...' : 'Selecione o status'
-          }
-          className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-lg select-none border p-3 shadow-md shadow-black transition-all hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
+          placeholder={isLoading ? 'Carregando...' : 'Selecione o status'}
+          className="w-full cursor-pointer rounded-md tracking-widest font-extrabold text-sm select-none border p-2 shadow-sm shadow-black transition-all hover:shadow-md hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
         />
       </div>
     </div>

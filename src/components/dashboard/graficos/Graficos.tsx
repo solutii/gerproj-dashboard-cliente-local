@@ -1,5 +1,8 @@
 import { useAuth } from '@/context/AuthContext';
-import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
+import {
+  formatarHorasArredondadas,
+  formatarHorasTotaisSufixo,
+} from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import {
@@ -25,6 +28,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { ContainerCardsMetricas } from '../metricas/Container_Cards_Metricas';
 
 // Cores para os gráficos
 const COLORS = {
@@ -156,7 +160,9 @@ const fetchOrdensServico = async (
     params.append('status', filters.status);
   }
 
-  const response = await fetch(`/api/cards-metricas/graficos?${params.toString()}`);
+  const response = await fetch(
+    `/api/cards-metricas/graficos?${params.toString()}`,
+  );
 
   if (!response.ok) {
     throw new Error(`Erro HTTP: ${response.status}`);
@@ -255,18 +261,22 @@ export function Graficos({ filters }: FilterProps) {
   const { totalizadores } = dados;
 
   return (
-    <div className="h-full overflow-y-auto p-6 border bg-slate-50 border-b-slate-500">
+    <div className="h-full overflow-y-auto px-6 pb-6 border-b-slate-500">
       <div className="w-full flex flex-col gap-10">
-        {/* Cabeçalho - fixo no topo */}
-        <h1 className="text-3xl font-extrabold text-black tracking-widest select-none">
-          GRÁFICOS DE ANÁLISES
-        </h1>
+        <div className="flex flex-col gap-2">
+          <h1 className="text-xl font-extrabold text-black tracking-widest select-none">
+            MÉTRICAS & GRÁFICOS DE ANÁLISES
+          </h1>
+          <ContainerCardsMetricas filters={filters} />
+        </div>
 
         {/* Grid de gráficos - área com scroll */}
         <div className="grid grid-cols-2 gap-10">
           {/* Gráfico 1: Evolução Diária de Horas */}
           {horasPorDia && horasPorDia.length > 0 && (
-            <ChartCard title="Evolução Diária de Horas">
+            <ChartCard
+              title={`Evolução Diária de Horas - ${filters.mes}/${filters.ano}`}
+            >
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={horasPorDia}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -281,6 +291,11 @@ export function Graficos({ filters }: FilterProps) {
                       fontWeight: 800,
                       letterSpacing: '0.2em',
                       textAnchor: 'middle',
+                    }}
+                    tickFormatter={(value) => {
+                      // Extrai apenas o dia da data (formato DD/MM ou DD-MM)
+                      const day = value.split(/[\/\-]/)[0];
+                      return day;
                     }}
                   />
                   <YAxis
@@ -327,10 +342,12 @@ export function Graficos({ filters }: FilterProps) {
 
           {/* Gráfico 2: Top Chamados */}
           {topChamados && topChamados.length > 0 && (
-            <ChartCard title="Top 5 Chamados por Horas">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={topChamados.slice(0, 5)}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <ChartCard title={`Top 5 Chamados por Horas - ${filters.mes}/${filters.ano}`}>
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart
+                  data={topChamados.slice(0, 5)}
+                  margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
+                >
                   <XAxis
                     dataKey="chamado"
                     stroke="#6b7280"
@@ -343,7 +360,7 @@ export function Graficos({ filters }: FilterProps) {
                       letterSpacing: '0.2em',
                       textAnchor: 'middle',
                     }}
-                    tickFormatter={formatarNumeros}
+                    tickFormatter={(value) => `#${formatarNumeros(value)}`}
                     textAnchor="end"
                     interval={0}
                     height={60}
@@ -363,7 +380,7 @@ export function Graficos({ filters }: FilterProps) {
                     content={
                       <CustomTooltip
                         labelFormatter={(label) =>
-                          `Chamado - ${formatarNumeros(label)}`
+                          `Chamado - #${formatarNumeros(label)}`
                         }
                         valueFormatter={(value) =>
                           `${formatarHorasTotaisSufixo(value)}`
@@ -377,6 +394,15 @@ export function Graficos({ filters }: FilterProps) {
                     fill={COLORS.secondary}
                     radius={[8, 8, 0, 0]}
                     name="Horas Consumidas"
+                    label={{
+                      position: 'top',
+                      fill: '#111827',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: '0.2em',
+                      formatter: (value: number) =>
+                        formatarHorasArredondadas(value),
+                    }}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -409,7 +435,9 @@ export function Graficos({ filters }: FilterProps) {
 
           {/* Gráfico 3: Distribuição por Status */}
           {isAdmin && horasPorStatus && horasPorStatus.length > 0 && (
-            <ChartCard title="Distribuição de Horas por Status">
+            <ChartCard
+              title={`Distribuição de Horas por Status - ${filters.mes}/${filters.ano}`}
+            >
               <ResponsiveContainer width="100%" height={300}>
                 <PieChart>
                   <Pie
@@ -484,7 +512,9 @@ export function Graficos({ filters }: FilterProps) {
 
           {/* Gráfico 4: Horas por Recurso */}
           {horasPorRecurso && horasPorRecurso.length > 0 && (
-            <ChartCard title="Horas por Recurso">
+            <ChartCard
+              title={`Horas por Recurso - ${filters.mes}/${filters.ano}`}
+            >
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={horasPorRecurso} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
@@ -504,7 +534,7 @@ export function Graficos({ filters }: FilterProps) {
                   <YAxis
                     dataKey="recurso"
                     type="category"
-                    width={100}
+                    width={150}
                     stroke="#6b7280"
                     tickLine={false}
                     axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
@@ -554,13 +584,16 @@ export function Graficos({ filters }: FilterProps) {
               </div>
             </ChartCard>
           )}
-
           {/* Gráfico 5: Horas por Cliente */}
           {isAdmin && horasPorCliente && horasPorCliente.length > 0 && (
-            <ChartCard title="Horas por Cliente">
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={horasPorCliente.slice(0, 10)}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+            <ChartCard
+              title={`Horas por Cliente - ${filters.mes}/${filters.ano}`}
+            >
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart
+                  data={horasPorCliente.slice(0, 10)}
+                  margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
+                >
                   <XAxis
                     dataKey="cliente"
                     stroke="#6b7280"
@@ -604,6 +637,15 @@ export function Graficos({ filters }: FilterProps) {
                     fill={COLORS.info}
                     radius={[8, 8, 0, 0]}
                     name="Horas"
+                    label={{
+                      position: 'top',
+                      fill: '#111827',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: '0.2em',
+                      formatter: (value: number) =>
+                        formatarHorasArredondadas(value),
+                    }}
                   />
                 </BarChart>
               </ResponsiveContainer>
@@ -613,9 +655,11 @@ export function Graficos({ filters }: FilterProps) {
           {/* Gráfico 6: Horas por Mês */}
           {horasPorMes && horasPorMes.length > 0 && (
             <ChartCard title={`Horas Totais por Mês - ${filters.ano}`}>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={horasPorMes}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <ResponsiveContainer width="100%" height={350}>
+                <BarChart
+                  data={horasPorMes}
+                  margin={{ top: 20, right: 20, left: 20, bottom: 20 }}
+                >
                   <XAxis
                     dataKey="mes"
                     stroke="#6b7280"
@@ -658,6 +702,15 @@ export function Graficos({ filters }: FilterProps) {
                     fill={COLORS.gradient}
                     radius={[8, 8, 0, 0]}
                     name="Total de Horas"
+                    label={{
+                      position: 'top',
+                      fill: '#111827',
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: '0.2em',
+                      formatter: (value: number) =>
+                        formatarHorasArredondadas(value),
+                    }}
                   >
                     {horasPorMes.map((entry: any, index: number) => (
                       <Cell

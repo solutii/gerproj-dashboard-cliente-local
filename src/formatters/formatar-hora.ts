@@ -46,6 +46,94 @@ export const formatarHora = (
 };
 // ====================================================================================================
 
+export const formatarHorasArredondadas = (
+  value: string | number | null | undefined,
+): string => {
+  if (value == null) return '-';
+
+  const { hours, minutes } = parseTimeValueArredondadas(value);
+
+  // Validação final
+  if (
+    isNaN(hours) ||
+    isNaN(minutes) ||
+    hours < 0 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return '-';
+  }
+
+  // Arredonda com base nos minutos
+  let horasArredondadas = hours;
+  
+  if (minutes >= 30) {
+    horasArredondadas += 1; // Arredonda para cima
+  }
+  // Se minutes < 30, mantém as horas (arredonda para baixo)
+
+  // Retorna apenas as horas com sufixo
+  if (horasArredondadas === 1) {
+    return `${horasArredondadas}h`;
+  } else {
+    return `${horasArredondadas}hs`;
+  }
+};
+
+// Função auxiliar para extrair horas e minutos
+const parseTimeValueArredondadas = (value: string | number): { hours: number; minutes: number } => {
+  let hours = 0;
+  let minutes = 0;
+
+  if (typeof value === 'number') {
+    return parseDecimalTimeArredondadas(value);
+  }
+
+  const cleanValue = value.trim();
+
+  // Formato "HH:MM" ou "HH:MM:SS"
+  if (cleanValue.includes(':')) {
+    const parts = cleanValue.split(':');
+    hours = parseInt(parts[0], 10) || 0;
+    minutes = parseInt(parts[1], 10) || 0;
+  }
+  // Formato decimal como string "12.5" ou "12,5"
+  else if (cleanValue.includes('.') || cleanValue.includes(',')) {
+    const numericValue = parseFloat(cleanValue.replace(',', '.'));
+    if (!isNaN(numericValue)) {
+      return parseDecimalTimeArredondadas(numericValue);
+    }
+  }
+  // Formato "HHMM" (4 dígitos)
+  else if (/^\d{4}$/.test(cleanValue)) {
+    hours = parseInt(cleanValue.substring(0, 2), 10) || 0;
+    minutes = parseInt(cleanValue.substring(2, 4), 10) || 0;
+  }
+  // Apenas número como string "125" (minutos totais)
+  else if (/^\d+$/.test(cleanValue)) {
+    const totalMinutes = parseInt(cleanValue, 10);
+    hours = Math.floor(totalMinutes / 60);
+    minutes = totalMinutes % 60;
+  }
+
+  return { hours, minutes };
+};
+
+// Função auxiliar para converter número decimal em horas e minutos
+const parseDecimalTimeArredondadas = (value: number): { hours: number; minutes: number } => {
+  let hours = Math.floor(value);
+  const decimalPart = value - hours;
+  let minutes = Math.round(decimalPart * 60);
+
+  // Ajuste para casos onde minutos podem ser 60 (devido ao arredondamento)
+  if (minutes === 60) {
+    hours += 1;
+    minutes = 0;
+  }
+
+  return { hours, minutes };
+};
+
 // Função para formatar horas totais com sufixos "h", "hs" e "min"
 export const formatarHorasTotaisSufixo = (
   value: string | number | null | undefined,

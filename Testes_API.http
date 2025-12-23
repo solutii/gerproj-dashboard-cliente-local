@@ -77,3 +77,9 @@ GET http://localhost:3000/api/chamados?mes=12&ano=2025&isAdmin=true&statusFilter
 
 ### Buscar todas as OS's vinculadas a um CHAMADO específico - ADMIN
 GET http://localhost:3000//api/chamados/13230/os?isAdmin=true&mes=12&ano=2025
+
+
+
+
+### Buscar todas as OS's vinculadas a um CHAMADO específico - ADMIN
+GET http://localhost:3000//api/cards-metricas/total-chamados-os?mes=12&ano=2025&isAdmin=true

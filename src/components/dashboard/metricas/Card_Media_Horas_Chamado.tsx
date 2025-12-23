@@ -1,9 +1,9 @@
 'use client';
 
 import { useAuth } from '@/context/AuthContext';
+import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { useQuery } from '@tanstack/react-query';
 import { FaExclamationTriangle } from 'react-icons/fa';
-import { formatarHorasTotaisSufixo } from '../../../formatters/formatar-hora';
 
 interface FilterProps {
   filters: {
@@ -15,6 +15,7 @@ interface FilterProps {
   };
 }
 
+// ========== CARD 3: Média Horas por Chamado (SIMPLIFICADO) ==========
 interface MediasResponse {
   MEDIA_HRS_POR_CHAMADO: number;
   MEDIA_HRS_POR_TAREFA: number;
@@ -60,7 +61,6 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
     }
 
     const data = await response.json();
-
     return data;
   };
 
@@ -72,10 +72,10 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
 
   if (isLoading) {
     return (
-      <div className="flex h-54 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
+      <div className="flex h-36 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
         <div className="flex h-full flex-col items-center justify-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600"></div>
-          <span className="mt-3 tracking-widest font-semibold italic text-slate-600 select-none">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600"></div>
+          <span className="mt-2 text-xs tracking-widest font-semibold italic text-slate-600 select-none">
             Carregando...
           </span>
         </div>
@@ -85,14 +85,14 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
 
   if (isError || !data) {
     return (
-      <div className="flex h-54 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
+      <div className="flex h-36 cursor-pointer flex-col items-center justify-center rounded-xl border bg-gradient-to-br from-white to-gray-50 shadow-md shadow-black">
         <div className="flex h-full flex-col items-center justify-center gap-2">
-          <FaExclamationTriangle className="text-red-500" size={20} />
-          <span className="mt-3 tracking-widest font-semibold italic text-slate-600 select-none">
+          <FaExclamationTriangle className="text-red-500" size={16} />
+          <span className="mt-2 text-xs tracking-widest font-semibold italic text-slate-600 select-none">
             Erro ao carregar os dados
           </span>
           {error && (
-            <span className="text-xs text-red-500 select-none">
+            <span className="text-[10px] text-red-500 select-none">
               {error instanceof Error ? error.message : 'Erro desconhecido'}
             </span>
           )}
@@ -102,51 +102,21 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
   }
 
   const mediaHorasChamado = data.MEDIA_HRS_POR_CHAMADO;
-  const mediaHorasTarefa = data.MEDIA_HRS_POR_TAREFA;
 
   return (
-    <div className="relative flex h-54 flex-col rounded-xl border bg-gradient-to-br from-white via-cyan-100/30 to-indigo-100/30 shadow-md shadow-black overflow-hidden">
-      {/* Linha decorativa diagonal */}
-      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-cyan-500/10 to-indigo-500/10 shadow-xs shadow-black/20 transform rotate-45 translate-x-16 -translate-y-16"></div>
-
-      {/* Média por Chamado - Superior Esquerdo */}
-      <div className="absolute top-6 left-6">
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-bold text-slate-800 tracking-widest select-none uppercase">
-            Média por Chamado
+    <div className="relative flex h-36 flex-col items-center justify-center rounded-xl border bg-white shadow-md shadow-black overflow-hidden">
+      {/* Conteúdo Centralizado */}
+      <div className="flex flex-col gap-1 items-center">
+        <span className="text-xs font-bold text-slate-800 tracking-widest select-none uppercase">
+          Média por Chamado
+        </span>
+        <div className="flex items-baseline gap-1">
+          <span className="text-3xl font-extrabold tracking-widest bg-gradient-to-r from-cyan-600 to-cyan-700 bg-clip-text text-transparent select-none">
+            {mediaHorasChamado !== null && mediaHorasChamado !== undefined
+              ? formatarHorasTotaisSufixo(mediaHorasChamado)
+              : '--'}
           </span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-4xl font-extrabold tracking-widest bg-gradient-to-r from-cyan-600 to-cyan-700 bg-clip-text text-transparent select-none">
-              {mediaHorasChamado !== null && mediaHorasChamado !== undefined
-                ? formatarHorasTotaisSufixo(mediaHorasChamado)
-                : '--'}
-            </span>
-          </div>
         </div>
-      </div>
-
-      {/* Divisor visual */}
-      <div className="absolute top-1/2 left-1/2 w-0.5 h-34 bg-gradient-to-b from-transparent via-slate-400 to-transparent transform -translate-x-1/2 -translate-y-1/2 rotate-45"></div>
-
-      {/* Média por Tarefa - Inferior Direito */}
-      <div className="absolute bottom-6 right-6 text-right">
-        <div className="flex flex-col gap-1 items-end">
-          <span className="text-sm font-bold text-slate-800 tracking-widest select-none uppercase">
-            Média por Tarefa
-          </span>
-          <div className="flex items-baseline gap-1">
-            <span className="text-4xl font-extrabold tracking-widest bg-gradient-to-r from-cyan-600 to-cyan-700 bg-clip-text text-transparent select-none">
-              {mediaHorasTarefa !== null && mediaHorasTarefa !== undefined
-                ? formatarHorasTotaisSufixo(mediaHorasTarefa)
-                : '--'}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Badge de status */}
-      <div className="absolute top-3 right-3">
-        <div className="w-2 h-2 rounded-full bg-cyan-500 animate-pulse shadow-lg shadow-cyan-500/50"></div>
       </div>
     </div>
   );

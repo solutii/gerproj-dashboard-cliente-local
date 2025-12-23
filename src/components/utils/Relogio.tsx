@@ -29,8 +29,8 @@ export function Relogio() {
   }, []);
 
   return (
-    <div className="flex items-center justify-center gap-2 text-xl font-extrabold tracking-widest select-none text-black">
-      <IoMdClock className="text-black" size={32} />
+    <div className="flex items-center justify-center gap-2 text-base font-extrabold tracking-widest select-none text-black">
+      <IoMdClock className="text-black" size={26} />
       {formatarHora(horaAtual)}
     </div>
   );
