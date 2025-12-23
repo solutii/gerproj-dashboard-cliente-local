@@ -145,32 +145,4 @@
   animation: slideDown 0.3s ease-out;
 }
 
-/* Ajuste responsivo para notebooks de 11 a 18 polegadas */
 
-/* Notebooks 11-13 polegadas (geralmente 1366x768 ou 1440x900) */
-@media screen and (max-width: 1440px) and (max-height: 900px) {
-  html {
-    zoom: 0.75;
-  }
-}
-
-/* Notebooks 14-15 polegadas (geralmente 1920x1080) */
-@media screen and (min-width: 1441px) and (max-width: 1920px) and (max-height: 1080px) {
-  html {
-    zoom: 0.85;
-  }
-}
-
-/* Notebooks 15-16 polegadas Full HD+ (1920x1080 ou 1920x1200) */
-@media screen and (min-width: 1920px) and (max-width: 2560px) and (max-height: 1200px) {
-  html {
-    zoom: 0.9;
-  }
-}
-
-/* Notebooks 17-18 polegadas (geralmente 1920x1080 ou superior) */
-@media screen and (min-width: 1920px) and (max-height: 1080px) {
-  html {
-    zoom: 0.95;
-  }
-}

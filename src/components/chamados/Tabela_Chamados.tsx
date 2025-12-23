@@ -205,7 +205,7 @@ export function TabelaChamados() {
     [refetch],
   );
 
-  // Colunas dinâmicas (sem expandedRows)
+  // Colunas dinâmicas
   const columns = useMemo(
     () => getColunasChamados(isAdmin, new Set(), columnWidths),
     [isAdmin, columnWidths],
@@ -368,12 +368,18 @@ export function TabelaChamados() {
 
         <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
           <div
-            className="flex-1 overflow-y-auto scrollbar-thin scrollbar-track-purple-100 scrollbar-thumb-purple-600 hover:scrollbar-thumb-purple-800"
-            style={{ maxHeight: 'calc(100vh - 290px)' }}
+            className="flex-1 overflow-x-auto overflow-y-auto scrollbar-thin scrollbar-track-purple-100 scrollbar-thumb-purple-600 hover:scrollbar-thumb-purple-800"
+            style={{ 
+              maxHeight: 'calc(100vh - 220px)',
+              minHeight: '400px'
+            }}
           >
             <table
               className="w-full border-separate border-spacing-0"
-              style={{ tableLayout: 'fixed' }}
+              style={{ 
+                tableLayout: 'fixed',
+                minWidth: '1400px'
+              }}
             >
               <TableHeader
                 table={table}
@@ -455,13 +461,14 @@ function Header({
   const { cliente, recurso, status } = useFilters().filters;
 
   return (
-    <header className="flex flex-col gap-4 bg-purple-900 p-4">
-      <div className="flex w-full items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-md bg-white border border-purple-300">
-            <IoCall className="text-black" size={32} />
+    <header className="flex flex-col gap-3 bg-purple-900 p-3 lg:p-4 lg:gap-4">
+      {/* Linha 1: Título e Refresh */}
+      <div className="flex w-full items-center justify-between gap-2">
+        <div className="flex items-center gap-2 lg:gap-4">
+          <div className="flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-md bg-white border border-purple-300 flex-shrink-0">
+            <IoCall className="text-black" size={28} />
           </div>
-          <h2 className="text-2xl tracking-widest select-none font-bold text-white">
+          <h2 className="text-lg lg:text-2xl tracking-widest select-none font-bold text-white whitespace-nowrap">
             RELATÓRIO CHAMADOS - {mes}/{ano}
           </h2>
         </div>
@@ -469,54 +476,54 @@ function Header({
         <FiRefreshCw
           onClick={onRefresh}
           title="Atualizar Dados"
-          className="cursor-pointer text-white transition-all hover:scale-125 hover:rotate-180 active:scale-95 mr-4"
-          size={36}
+          className="cursor-pointer text-white transition-all hover:scale-125 hover:rotate-180 active:scale-95 flex-shrink-0"
+          size={28}
         />
       </div>
 
-      <div className="flex w-full items-center justify-between gap-4">
-        <div className="flex items-center justify-start flex-1 gap-3 flex-wrap">
+      {/* Linha 2: Badges e Ações */}
+      <div className="flex w-full items-start lg:items-center justify-between gap-3 flex-col lg:flex-row">
+        {/* Badges de Totalizadores */}
+        <div className="flex items-center justify-start flex-1 gap-2 flex-wrap w-full lg:w-auto">
           <BadgeTotalizador
             label={totalChamadosFiltrados === 1 ? 'Chamado' : 'Chamados'}
             valor={totalChamadosFiltrados}
             valorTotal={hasActiveFilters ? totalChamados : undefined}
-            width="w-[260px]"
           />
 
           <BadgeTotalizador
             label={totalOSFiltrados === 1 ? 'OS' : "OS's"}
             valor={totalOSFiltrados}
             valorTotal={hasActiveFilters ? totalOS : undefined}
-            width="w-[210px]"
           />
 
           <BadgeTotalizador
-            label="Horas Trabalhadas"
+            label="Horas"
             valor={formatarHorasTotaisSufixo(totalHorasFiltradas)}
             valorTotal={
               hasActiveFilters
                 ? formatarHorasTotaisSufixo(totalHorasOS)
                 : undefined
             }
-            width="w-[520px]"
           />
         </div>
 
-        <div className="flex items-center justify-end gap-6">
+        {/* Ações: Filtros, Export e Admin Badge */}
+        <div className="flex items-center justify-between lg:justify-end gap-3 w-full lg:w-auto flex-wrap">
           {hasActiveFilters && (
             <button
               onClick={clearAllFilters}
               title="Limpar Filtros"
-              className="group cursor-pointer rounded-full border border-purple-300 bg-white p-3 text-lg font-extrabold tracking-widest text-white transition-all hover:scale-115 active:scale-95"
+              className="group cursor-pointer rounded-full border border-purple-300 bg-white p-2 lg:p-3 text-lg font-extrabold tracking-widest text-white transition-all hover:scale-110 active:scale-95 flex-shrink-0"
             >
               <FaEraser
-                size={16}
-                className="text-black group-hover:scale-115 transition-all"
+                size={14}
+                className="text-black group-hover:scale-110 transition-all"
               />
             </button>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <ExportaExcelChamadosButton
               data={filteredData}
               isAdmin={isAdmin}
@@ -553,10 +560,10 @@ function Header({
           </div>
 
           {isAdmin && (
-            <div className="flex items-center gap-3 rounded-full bg-purple-900 px-4 py-1.5 ring-2 ring-emerald-600 shadow-md shadow-black">
+            <div className="flex items-center gap-2 lg:gap-3 rounded-full bg-purple-900 px-3 lg:px-4 py-1 lg:py-1.5 ring-2 ring-emerald-600 shadow-md shadow-black flex-shrink-0">
               <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-600"></div>
-              <span className="text-sm font-bold text-emerald-300 tracking-widest select-none italic">
-                Administrador
+              <span className="text-xs lg:text-sm font-bold text-emerald-300 tracking-widest select-none italic whitespace-nowrap">
+                Admin
               </span>
             </div>
           )}
@@ -571,23 +578,19 @@ interface BadgeTotalizadorProps {
   label: string;
   valor: string | number;
   valorTotal?: string | number;
-  width?: string;
 }
 
 function BadgeTotalizador({
   label,
   valor,
   valorTotal,
-  width,
 }: BadgeTotalizadorProps) {
   return (
-    <div
-      className={`group flex items-center gap-3 rounded bg-white px-4 py-1.5 border border-purple-300 flex-shrink-0 ${width}`}
-    >
+    <div className="group flex items-center gap-2 rounded bg-white px-3 py-1 lg:py-1.5 border border-purple-300 flex-shrink-0">
       <div className="h-2 w-2 animate-pulse rounded-full bg-purple-900"></div>
-      <span className="text-base tracking-widest font-extrabold select-none text-gray-800">
+      <span className="text-xs lg:text-sm tracking-widest font-extrabold select-none text-gray-800 whitespace-nowrap">
         {label}:{' '}
-        <span className="text-base tracking-widest font-extrabold select-none text-purple-600 italic">
+        <span className="text-xs lg:text-sm tracking-widest font-extrabold select-none text-purple-600 italic">
           {valor}
           {valorTotal !== undefined && (
             <span className="ml-1">/{valorTotal}</span>
@@ -621,7 +624,7 @@ function TableHeader({
           {headerGroup.headers.map((header: any, idx: number) => (
             <th
               key={header.id}
-              className="bg-teal-700 py-3 pl-3 pr-3 relative border-r border-teal-900 shadow-md shadow-black"
+              className="bg-teal-700 py-2 lg:py-3 px-2 lg:px-3 relative border-r border-teal-900 shadow-md shadow-black"
               style={{ width: `${columnWidths[header.id]}px` }}
             >
               {header.isPlaceholder
@@ -648,11 +651,11 @@ function TableHeader({
         {table.getAllColumns().map((column: any, idx: number) => (
           <th
             key={column.id}
-            className="p-2 relative"
+            className="p-1 lg:p-2 relative"
             style={{ width: `${columnWidths[column.id]}px` }}
           >
             {column.id === 'TOTAL_HORAS_OS' ? (
-              <div className="h-[38px]" />
+              <div className="h-[34px] lg:h-[38px]" />
             ) : (
               <FiltroHeaderChamados
                 value={(column.getFilterValue() as string) ?? ''}
@@ -698,7 +701,7 @@ function TableBody({
     return (
       <tbody>
         <tr>
-          <td colSpan={columns.length} className="py-40 text-center">
+          <td colSpan={columns.length} className="py-20 lg:py-40 text-center">
             <EmptyState clearAllFilters={clearAllFilters} />
           </td>
         </tr>
@@ -733,9 +736,9 @@ function TableBody({
               <td
                 key={cell.id}
                 style={{ width: `${columnWidths[cell.column.id]}px` }}
-                className={`border-b border-r border-gray-500 p-2 transition-all ${
-                  cellIndex === 0 ? 'pl-3' : ''
-                } ${cellIndex === row.getVisibleCells().length - 1 ? 'pr-4' : ''}`}
+                className={`border-b border-r border-gray-500 p-1.5 lg:p-2 transition-all ${
+                  cellIndex === 0 ? 'pl-2 lg:pl-3' : ''
+                } ${cellIndex === row.getVisibleCells().length - 1 ? 'pr-2 lg:pr-4' : ''}`}
               >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </td>
@@ -750,16 +753,16 @@ function TableBody({
 // ==================== EMPTY STATE ====================
 function EmptyState({ clearAllFilters }: { clearAllFilters: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center gap-4">
-      <FaEraser className="text-slate-300 mb-6" size={80} />
-      <div className="text-3xl font-extrabold text-black select-none tracking-widest">
+    <div className="flex flex-col items-center justify-center gap-3 lg:gap-4 px-4">
+      <FaEraser className="text-slate-300 mb-3 lg:mb-6" size={60} />
+      <div className="text-xl lg:text-3xl font-extrabold text-black select-none tracking-widest text-center">
         Nenhum resultado encontrado
       </div>
-      <div className="text-lg text-slate-600 select-none tracking-widest italic font-semibold mb-6">
+      <div className="text-base lg:text-lg text-slate-600 select-none tracking-widest italic font-semibold mb-3 lg:mb-6 text-center">
         Tente ajustar os filtros para encontrar o que procura
       </div>
       <button
-        className="group cursor-pointer rounded-md border-none bg-gradient-to-br from-red-600 to-red-700 px-6 py-3 text-lg font-extrabold tracking-widest text-white shadow-md shadow-black transition-all hover:scale-110 active:scale-95"
+        className="group cursor-pointer rounded-md border-none bg-gradient-to-br from-red-600 to-red-700 px-4 lg:px-6 py-2 lg:py-3 text-base lg:text-lg font-extrabold tracking-widest text-white shadow-md shadow-black transition-all hover:scale-110 active:scale-95"
         onClick={clearAllFilters}
       >
         Limpar Filtros
