@@ -591,7 +591,7 @@ function TableHeader({
                     {headerGroup.headers.map((header: any, idx: number) => (
                         <th
                             key={header.id}
-                            className="relative border-r border-teal-900 bg-teal-700 p-4 shadow-sm shadow-black lg:p-5"
+                            className="relative border-r border-teal-900 bg-teal-700 p-4 shadow-md shadow-black lg:p-5"
                             style={{ width: `${columnWidths[header.id]}px` }}
                         >
                             {header.isPlaceholder
@@ -623,7 +623,7 @@ function TableHeader({
                         className={`relative transition-all duration-300 ${
                             hasAnyFilter
                                 ? 'p-1 lg:p-2'
-                                : 'h-0 p-0 group-hover/header:h-auto group-hover/header:p-1 group-hover/header:lg:p-2'
+                                : 'h-0 p-0 group-hover/header:h-auto group-hover/header:p-1 group-hover/header:lg:p-3'
                         }`}
                         style={{ width: `${columnWidths[column.id]}px` }}
                     >
