@@ -169,34 +169,32 @@ export function ModalOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProp
     return (
         <div
             onClick={handleBackdropClick}
-            className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-300 sm:p-4"
+            className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-300 ease-out"
         >
             {/* Overlay */}
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
             {/* Modal Container */}
-            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex h-full max-h-[100vh] w-full max-w-[2200px] flex-col overflow-hidden rounded-xl bg-white transition-all ease-out">
+            <div className="animate-in slide-in-from-bottom-4 relative z-10 w-[2200px] overflow-hidden rounded-xl bg-white transition-all duration-300 ease-out">
                 {/* Header */}
-                <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 px-3 py-2 shadow-md shadow-black sm:px-4 sm:py-3 lg:px-6">
-                    <div className="flex min-w-0 items-center gap-3 sm:gap-4 lg:gap-6">
-                        <TbFileInvoice className="flex-shrink-0 text-white" size={40} />
-                        <div className="flex min-w-0 flex-col">
-                            <h1 className="truncate text-base font-extrabold tracking-widest text-gray-200 select-none sm:text-lg lg:text-2xl">
+                <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
+                    <div className="flex items-center gap-4">
+                        <TbFileInvoice className="flex-shrink-0 text-white" size={60} />
+                        <div className="flex flex-col">
+                            <h1 className="text-2xl font-extrabold tracking-widest text-white select-none">
                                 ORDENS DE SERVIÇO
                             </h1>
-                            <p className="truncate text-sm font-extrabold tracking-widest text-gray-200 italic select-none sm:text-base lg:text-xl">
+                            <p className="text-base font-semibold tracking-widest text-white select-none">
                                 Chamado #{formatarNumeros(codChamado)} - {dataChamado}
                             </p>
                         </div>
                     </div>
                     <button
-                        onClick={handleClose}
-                        className="group flex-shrink-0 cursor-pointer rounded-full bg-white/20 p-2 shadow-md shadow-black transition-all hover:scale-125 hover:bg-red-500 active:scale-95 sm:p-3"
+                        onClick={onClose}
+                        className="group flex-shrink-0 cursor-pointer rounded-full bg-white/20 p-3 shadow-md shadow-black transition-all duration-200 hover:scale-103 hover:bg-red-500 hover:shadow-xl hover:shadow-black active:scale-95"
+                        aria-label="Fechar modal"
                     >
-                        <IoClose
-                            className="text-white group-hover:scale-125 group-active:scale-95"
-                            size={18}
-                        />
+                        <IoClose className="text-white" size={20} />
                     </button>
                 </header>
                 {/* ==================== */}
@@ -228,15 +226,6 @@ export function ModalOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProp
 
                     {!isLoading && !error && osData.length > 0 && (
                         <>
-                            {/* Badge com total */}
-                            <div className="mb-4 flex items-center gap-2 sm:mb-6 sm:gap-3 lg:gap-4">
-                                <div className="h-2 w-2 flex-shrink-0 animate-pulse rounded-full bg-teal-800 sm:h-2.5 sm:w-2.5"></div>
-                                <span className="text-sm font-extrabold tracking-widest text-gray-800 select-none sm:text-base lg:text-xl">
-                                    Total: {osData.length} {osData.length === 1 ? 'OS' : "OS's"} em{' '}
-                                    {mes}/{ano}
-                                </span>
-                            </div>
-
                             {/* Tabela de OS's com altura fixa */}
                             <div className="overflow-hidden rounded-lg border border-teal-800 shadow-lg">
                                 <div
@@ -258,7 +247,7 @@ export function ModalOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProp
                                                     {headerGroup.headers.map((header, idx) => (
                                                         <th
                                                             key={header.id}
-                                                            className="relative bg-purple-800 p-1.5 text-xs font-extrabold tracking-widest text-white shadow-md shadow-black select-none sm:p-2 sm:text-sm lg:text-base"
+                                                            className="relative bg-purple-700 p-3 text-xs font-extrabold tracking-widest text-white shadow-md shadow-black select-none"
                                                             style={{
                                                                 width: `${columnWidths[header.id]}px`,
                                                             }}
@@ -294,13 +283,13 @@ export function ModalOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProp
                                                     key={row.id}
                                                     onClick={() => onSelectOS(row.original)}
                                                     className={`cursor-pointer transition-all ${
-                                                        idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                                        idx % 2 === 0 ? 'bg-white' : 'bg-white'
                                                     } hover:bg-teal-100`}
                                                 >
                                                     {row.getVisibleCells().map((cell) => (
                                                         <td
                                                             key={cell.id}
-                                                            className="border-b border-gray-300 p-1.5 text-xs sm:p-2 sm:text-sm"
+                                                            className="border-b border-gray-300 p-2"
                                                             style={{
                                                                 width: `${columnWidths[cell.column.id]}px`,
                                                             }}

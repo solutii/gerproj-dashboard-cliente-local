@@ -80,9 +80,17 @@ GET http://localhost:3000//api/chamados/13230/os?isAdmin=true&mes=12&ano=2025
 
 
 
+# ========================================
+# API/CARDS-METRICAS/TOTAL-CHAMADOS-OS
+# ========================================
+### BUSCAR TOTAL DE CHAMADOS POR STATUS - ADMIN
+GET http://localhost:3000/api/cards-metricas/total-chamados-os?mes=12&ano=2025&isAdmin=true
 
-### Buscar todas as OS's vinculadas a um CHAMADO específico - ADMIN
-GET http://localhost:3000//api/cards-metricas/total-chamados-os?mes=12&ano=2025&isAdmin=true
+# ========================================
+# API/CARDS-METRICAS/TOTAL-CHAMADOS-OS
+# ========================================
+### BUSCAR MÉDIA DE HORAS POR CHAMADO - ADMIN
+GET http://localhost:3000/api/cards-metricas/media-hrs-chamado-tarefa?codCliente=156&mes=12&ano=2025&isAdmin=true
 
 
 
@@ -95,3 +103,4 @@ GET http://localhost:3000//api/cards-metricas/total-chamados-os?mes=12&ano=2025&
 
 ### Buscar histórico de 6 meses para cliente 123
 GET http://localhost:3000/api/saldo-horas?codCliente=156&mes=12&ano=2025&isAdmin=true&mesesHistorico=6
+

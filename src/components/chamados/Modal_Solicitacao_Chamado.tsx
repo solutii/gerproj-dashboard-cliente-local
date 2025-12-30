@@ -1,38 +1,35 @@
 'use client';
 
+import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import React, { useState } from 'react';
 import { FiCheck, FiCopy } from 'react-icons/fi';
-import { IoClose } from 'react-icons/io5';
-import { TbFileInvoice } from 'react-icons/tb';
+import { IoCall, IoClose } from 'react-icons/io5';
 
-interface ModalObservacaoOSProps {
+interface ModalSolicitacaoChamadoProps {
     isOpen: boolean;
     onClose: () => void;
-    observacao: string;
-    numOS: number;
-    dataOS?: string;
-    consultor?: string;
+    solicitacao: string;
+    codChamado: number;
+    dataChamado?: string;
 }
-
 // ================================================================================
 // COMPONENTE PRINCIPAL
 // ================================================================================
-export function ModalObservacaoOS({
+export function ModalSolicitacaoChamado({
     isOpen,
     onClose,
-    observacao,
-    numOS,
-    dataOS,
-    consultor,
-}: ModalObservacaoOSProps) {
+    solicitacao,
+    codChamado,
+    dataChamado,
+}: ModalSolicitacaoChamadoProps) {
     const [copied, setCopied] = useState(false);
 
-    const observacaoCorrigida = corrigirTextoCorrompido(observacao);
+    const solicitacaoCorrigida = corrigirTextoCorrompido(solicitacao);
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(observacaoCorrigida);
+        navigator.clipboard.writeText(solicitacaoCorrigida);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -61,15 +58,15 @@ export function ModalObservacaoOS({
                 {/* Header */}
                 <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
                     <div className="flex items-center gap-4">
-                        <TbFileInvoice className="flex-shrink-0 text-white" size={60} />
+                        <IoCall className="flex-shrink-0 text-white" size={60} />
                         <div className="flex flex-col">
                             <h1 className="text-2xl font-extrabold tracking-widest text-white select-none">
-                                OBSERVAÇÃO DA OS
+                                SOLICITAÇÃO DO CHAMADO
                             </h1>
                             <p className="text-base font-semibold tracking-widest text-white select-none">
-                                OS #{formatarNumeros(numOS)}
-                                {dataOS && ` - ${dataOS}`}
-                                {consultor && ` - ${consultor}`}
+                                Chamado #{formatarNumeros(codChamado)}
+                                {formatarDataParaBR(dataChamado) &&
+                                    ` - ${formatarDataParaBR(dataChamado)}`}
                             </p>
                         </div>
                     </div>
@@ -88,7 +85,7 @@ export function ModalObservacaoOS({
                     {/* Área de texto com scroll */}
                     <div className="scrollbar-thin scrollbar-track-gray-200 scrollbar-thumb-purple-500 max-h-[60vh] overflow-y-auto rounded-xl border bg-gray-100 p-6 shadow-xs shadow-black">
                         <p className="text-base leading-relaxed font-semibold tracking-widest whitespace-pre-wrap text-black select-none">
-                            {observacaoCorrigida}
+                            {solicitacaoCorrigida}
                         </p>
                     </div>
 

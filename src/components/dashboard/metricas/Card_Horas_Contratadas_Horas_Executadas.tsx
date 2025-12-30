@@ -3,7 +3,8 @@
 import { useAuth } from '@/context/AuthContext';
 import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { useQuery } from '@tanstack/react-query';
-import { FaChartLine, FaExclamationTriangle } from 'react-icons/fa';
+import { useEffect, useState } from 'react';
+import { FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
 
 interface FilterProps {
     filters: {
@@ -21,6 +22,150 @@ interface ApiResponse {
     detalhes: any[];
 }
 
+interface HorasBarProps {
+    label: string;
+    value: number;
+    formattedValue: string;
+    percentage: number;
+    gradient: string;
+    textColor: string;
+    icon: React.ReactNode;
+    statusIcon?: string;
+    isOverLimit?: boolean;
+}
+
+// =================== CONSTANTES ====================
+const COLORS = {
+    contratadas: {
+        gradient: 'bg-gradient-to-r from-blue-500 to-indigo-600',
+        text: 'text-blue-600',
+    },
+    executadasNormal: {
+        gradient: 'bg-gradient-to-r from-blue-500 to-blue-600',
+        text: 'text-blue-600',
+    },
+    executadasAbaixo: {
+        gradient: 'bg-gradient-to-r from-emerald-500 to-emerald-600',
+        text: 'text-emerald-600',
+    },
+    executadasAcima: {
+        gradient: 'bg-gradient-to-r from-red-500 to-red-600',
+        text: 'text-red-600',
+    },
+};
+
+// =================== COMPONENTE CONTADOR ANIMADO ====================
+const AnimatedCounter = ({ value, duration = 1000 }: { value: number; duration?: number }) => {
+    const [count, setCount] = useState(0);
+
+    useEffect(() => {
+        let startTime: number | null = null;
+        let animationFrame: number;
+
+        const animate = (currentTime: number) => {
+            if (!startTime) startTime = currentTime;
+            const progress = Math.min((currentTime - startTime) / duration, 1);
+
+            const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+            setCount(easeOutQuart * value);
+
+            if (progress < 1) {
+                animationFrame = requestAnimationFrame(animate);
+            } else {
+                setCount(value);
+            }
+        };
+
+        animationFrame = requestAnimationFrame(animate);
+        return () => cancelAnimationFrame(animationFrame);
+    }, [value, duration]);
+
+    return <>{formatarHorasTotaisSufixo(count)}</>;
+};
+
+// =================== COMPONENTE BARRA DE HORAS ====================
+const HorasBar = ({
+    label,
+    value,
+    percentage,
+    gradient,
+    textColor,
+    icon,
+    statusIcon,
+    isOverLimit = false,
+}: HorasBarProps) => {
+    return (
+        <div className="group/bar w-full">
+            {/* Label e Valor */}
+            <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                    <div className={`${gradient} rounded-full border p-2 text-white`}>{icon}</div>
+                    {statusIcon && <span className="text-sm">{statusIcon}</span>}
+                    <span className="text-sm font-semibold tracking-widest text-black uppercase select-none sm:text-sm">
+                        {label}
+                    </span>
+                </div>
+                <span
+                    className={`text-base font-semibold tracking-widest select-none ${textColor}`}
+                >
+                    <AnimatedCounter value={value} />
+                </span>
+            </div>
+
+            {/* Barra de Progresso */}
+            <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200 shadow-xs shadow-black transition-all group-hover/bar:h-3.5 sm:h-3.5">
+                <div
+                    className={`h-full rounded-full ${gradient} transition-all duration-1000 ease-out ${
+                        isOverLimit ? 'animate-pulse' : ''
+                    }`}
+                    style={{ width: `${Math.min(percentage, 100)}%` }}
+                />
+                {isOverLimit && (
+                    <div className="absolute inset-0 animate-pulse rounded-full border-2 border-red-400"></div>
+                )}
+            </div>
+        </div>
+    );
+};
+
+// =================== SKELETON LOADING ====================
+const SkeletonLoadingCard = () => (
+    <div className="flex h-32 flex-col overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20 shadow-lg sm:h-36 lg:h-40">
+        <div className="flex h-full items-center justify-center">
+            <div className="relative h-20 w-20">
+                {/* Círculo externo girando no sentido horário */}
+                <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-blue-600 border-r-blue-400"></div>
+
+                {/* Círculo interno girando no sentido anti-horário */}
+                <div className="animate-spin-reverse absolute inset-2 rounded-full border-4 border-transparent border-b-indigo-600 border-l-indigo-400"></div>
+
+                {/* Círculo central estático */}
+                <div className="absolute inset-4 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
+                    <div className="h-6 w-6 animate-pulse rounded-full bg-gradient-to-br from-blue-500 to-indigo-500"></div>
+                </div>
+            </div>
+        </div>
+
+        {/* Adicionar animação CSS personalizada */}
+        <style jsx>{`
+            @keyframes spin-reverse {
+                from {
+                    transform: rotate(360deg);
+                }
+                to {
+                    transform: rotate(0deg);
+                }
+            }
+            .animate-spin-reverse {
+                animation: spin-reverse 1s linear infinite;
+            }
+        `}</style>
+    </div>
+);
+
+// ================================================================================
+// COMPONENTE PRINCIPAL
+// ================================================================================
 export function CardHorasContratadasHorasExecutadas({ filters }: FilterProps) {
     const { isAdmin, codCliente } = useAuth();
 
@@ -49,6 +194,8 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FilterProps) {
         );
 
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ [CARD HORAS] Erro na resposta:', response.status, errorText);
             throw new Error(`Erro na requisição: ${response.status}`);
         }
 
@@ -59,126 +206,135 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FilterProps) {
         queryKey: ['horasContratadasExecutadas', filters, isAdmin, codCliente],
         queryFn: fetchData,
         enabled: !!filters && (isAdmin || codCliente !== null),
+        staleTime: 1000 * 60 * 5, // 5 minutos
+        refetchOnWindowFocus: false,
     });
 
     if (isLoading) {
-        return (
-            <div className="flex h-32 cursor-wait flex-col items-center justify-center rounded-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20 shadow-lg sm:h-36 lg:h-40">
-                <div className="flex flex-col items-center justify-center gap-3">
-                    <div className="relative">
-                        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600 sm:h-12 sm:w-12"></div>
-                        <div className="absolute inset-0 h-10 w-10 animate-ping rounded-full border-4 border-blue-300 opacity-20 sm:h-12 sm:w-12"></div>
-                    </div>
-                    <span className="animate-pulse text-xs font-semibold tracking-wide text-blue-700 select-none sm:text-sm">
-                        Carregando dados...
-                    </span>
-                </div>
-            </div>
-        );
+        return <SkeletonLoadingCard />;
     }
 
     if (isError || !data) {
         return (
-            <div className="flex h-32 cursor-not-allowed flex-col items-center justify-center rounded-xl border border-red-200 bg-gradient-to-br from-white via-red-50/30 to-red-100/20 shadow-lg sm:h-36 lg:h-40">
-                <div className="flex flex-col items-center justify-center gap-2 px-4">
-                    <FaExclamationTriangle className="animate-pulse text-red-500" size={24} />
-                    <span className="text-center text-xs font-semibold text-red-700 select-none sm:text-sm">
-                        Erro ao carregar os dados
-                    </span>
-                    {error && (
-                        <span className="max-w-xs text-center text-[10px] text-red-600 select-none sm:text-xs">
-                            {error instanceof Error ? error.message : 'Erro desconhecido'}
+            <div>
+                <div className="flex h-32 cursor-not-allowed flex-col items-center justify-center rounded-xl border border-red-400 bg-red-100 shadow-md shadow-black sm:h-36 lg:h-40">
+                    <div className="flex flex-col items-center justify-center gap-2 p-2">
+                        <FaExclamationTriangle className="text-red-500" size={24} />
+                        <span className="text-center text-sm font-semibold tracking-widest text-red-700 select-none sm:text-sm">
+                            Erro ao carregar os dados
                         </span>
-                    )}
+                        {error && (
+                            <span className="max-w-xs text-center text-sm font-semibold tracking-widest text-red-700 select-none sm:text-xs">
+                                {error instanceof Error ? error.message : 'Erro desconhecido'}
+                            </span>
+                        )}
+                    </div>
                 </div>
             </div>
         );
     }
 
-    const totalHorasContratadas = data.totalHorasContratadas;
-    const totalHorasExecutadas = data.totalHorasExecutadas;
+    const totalHorasContratadas = data.totalHorasContratadas || 0;
+    const totalHorasExecutadas = data.totalHorasExecutadas || 0;
     const percentual =
         totalHorasContratadas > 0 ? (totalHorasExecutadas / totalHorasContratadas) * 100 : 0;
     const diferenca = totalHorasExecutadas - totalHorasContratadas;
 
-    const getBarColor = () => {
-        if (diferenca > 0.5) return 'from-red-500 to-red-600';
-        if (diferenca < -0.5) return 'from-emerald-500 to-emerald-600';
-        return 'from-blue-500 to-blue-600';
+    const getExecutadasConfig = () => {
+        if (diferenca > 0.5) {
+            return {
+                gradient: COLORS.executadasAcima.gradient,
+                textColor: COLORS.executadasAcima.text,
+                statusIcon: '⚠️',
+                isOverLimit: true,
+            };
+        }
+        if (diferenca < -0.5) {
+            return {
+                gradient: COLORS.executadasAbaixo.gradient,
+                textColor: COLORS.executadasAbaixo.text,
+                statusIcon: '✅',
+                isOverLimit: false,
+            };
+        }
+        return {
+            gradient: COLORS.executadasNormal.gradient,
+            textColor: COLORS.executadasNormal.text,
+            statusIcon: '📊',
+            isOverLimit: false,
+        };
     };
 
-    const getStatusColor = () => {
-        if (diferenca > 0.5) return 'text-red-600';
-        if (diferenca < -0.5) return 'text-emerald-600';
-        return 'text-blue-600';
-    };
+    const executadasConfig = getExecutadasConfig();
 
-    const getStatusIcon = () => {
-        if (diferenca > 0.5) return '⚠️';
-        if (diferenca < -0.5) return '✅';
-        return '📊';
-    };
+    const horasData = [
+        {
+            label: 'Contratadas',
+            value: totalHorasContratadas,
+            formattedValue: formatarHorasTotaisSufixo(totalHorasContratadas),
+            percentage: 100,
+            gradient: COLORS.contratadas.gradient,
+            textColor: COLORS.contratadas.text,
+            icon: <FaClock className="h-2.5 w-2.5 sm:h-3 sm:w-3" />,
+        },
+        {
+            label: 'Executadas',
+            value: totalHorasExecutadas,
+            formattedValue: formatarHorasTotaisSufixo(totalHorasExecutadas),
+            percentage: percentual,
+            gradient: executadasConfig.gradient,
+            textColor: executadasConfig.textColor,
+            icon: <FaCheckCircle className="h-2.5 w-2.5 sm:h-3 sm:w-3" />,
+            isOverLimit: executadasConfig.isOverLimit,
+        },
+    ];
 
     return (
-        <div className="group relative flex h-32 flex-col justify-center overflow-hidden rounded-xl border border-slate-200 bg-gradient-to-br from-white via-blue-50/30 to-slate-50/30 px-3 shadow-md shadow-black transition-all duration-300 hover:shadow-xl sm:h-36 sm:px-4 lg:h-40">
-            {/* Accent Line */}
-            <div className="absolute top-0 right-0 left-0 h-2 bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-500"></div>
-
-            {/* Título com Ícone */}
-            <div className="relative z-10 mb-2 flex items-center justify-center gap-2 sm:mb-3">
-                <div className="rounded-lg bg-gradient-to-br from-blue-500 to-indigo-500 p-1.5 shadow-sm">
-                    <FaChartLine className="h-3 w-3 text-white sm:h-3.5 sm:w-3.5" />
-                </div>
-                <span className="text-[10px] font-bold tracking-widest text-slate-800 uppercase select-none sm:text-xs lg:text-sm">
-                    Horas Contratadas × Executadas
-                </span>
+        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="mb-2 flex items-center justify-between">
+                <h1 className="text-base font-semibold tracking-widest text-black select-none">
+                    HORAS CONTRATADAS × EXECUTADAS
+                </h1>
             </div>
 
-            {/* Barras de progresso */}
-            <div className="relative z-10 flex w-full flex-col gap-2 sm:gap-2.5 lg:gap-3">
-                {/* Contratadas */}
-                <div className="group/bar">
-                    <div className="mb-1 flex items-center justify-between">
-                        <span className="text-[9px] font-bold tracking-widest text-slate-800 uppercase select-none sm:text-[11px]">
-                            Contratadas
-                        </span>
-                        <span className="text-[10px] font-bold tracking-widest text-blue-600 select-none sm:text-xs">
-                            {formatarHorasTotaisSufixo(totalHorasContratadas)}
-                        </span>
-                    </div>
-                    <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200 shadow-inner transition-all group-hover/bar:h-2.5 sm:h-2.5">
-                        <div
-                            className="h-full rounded-full bg-gradient-to-r from-blue-400 to-blue-500 shadow-sm transition-all duration-500"
-                            style={{ width: '100%' }}
-                        />
-                    </div>
-                </div>
+            <div className="group relative flex h-71 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black">
+                {/* Gradient accent line */}
+                <div className="absolute top-0 right-0 left-0 h-1 bg-purple-500"></div>
 
-                {/* Executadas */}
-                <div className="group/bar">
-                    <div className="mb-1 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
-                            <span className="text-sm">{getStatusIcon()}</span>
-                            <span className="text-[9px] font-bold tracking-widest text-slate-800 uppercase select-none sm:text-[11px]">
-                                Executadas
+                {/* Container Principal */}
+                <div className="flex h-full flex-col justify-between gap-4 p-6">
+                    {/* Barras de Horas */}
+                    <div className="flex flex-col gap-10">
+                        {horasData.map((hora, index) => (
+                            <HorasBar key={index} {...hora} />
+                        ))}
+                    </div>
+
+                    {/* Divider sutil */}
+                    <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-gray-400 to-transparent"></div>
+
+                    {/* Percentual e Status */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <span className="text-sm font-semibold tracking-widest text-black uppercase select-none">
+                                Utilização
                             </span>
                         </div>
-                        <span
-                            className={`text-[10px] font-bold tracking-widest select-none sm:text-xs ${getStatusColor()}`}
-                        >
-                            {formatarHorasTotaisSufixo(totalHorasExecutadas)}
-                        </span>
-                    </div>
-                    <div className="relative h-2 w-full overflow-hidden rounded-full bg-gray-200 shadow-inner transition-all group-hover/bar:h-2.5 sm:h-2.5">
-                        <div
-                            className={`h-full rounded-full bg-gradient-to-r ${getBarColor()} shadow-md transition-all duration-500 ${
-                                percentual > 100 ? 'animate-pulse' : ''
-                            }`}
-                            style={{ width: `${Math.min(percentual, 100)}%` }}
-                        />
-                        {percentual > 100 && (
-                            <div className="absolute inset-0 animate-pulse rounded-full border-2 border-red-400"></div>
-                        )}
+                        <div className="flex items-center gap-2">
+                            <span
+                                className={`text-base font-semibold tracking-widest select-none ${executadasConfig.textColor}`}
+                            >
+                                {percentual.toFixed(1)}%
+                            </span>
+                            {diferenca !== 0 && (
+                                <span
+                                    className={`text-sm font-semibold tracking-widest select-none ${executadasConfig.textColor}`}
+                                >
+                                    ({diferenca > 0 ? '+' : ''}
+                                    {formatarHorasTotaisSufixo(Math.abs(diferenca))})
+                                </span>
+                            )}
+                        </div>
                     </div>
                 </div>
             </div>

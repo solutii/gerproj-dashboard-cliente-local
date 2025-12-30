@@ -23,6 +23,7 @@ import { ChamadoRowProps, getColunasChamados } from './Colunas_Tabela_Chamados';
 import { OSRowProps } from './Colunas_Tabela_OS';
 import { FiltroHeaderChamados, useFiltrosChamados } from './Filtro_Header_Tabela_Chamados';
 import { ModalOS } from './Modal_OS';
+import { ModalSolicitacaoChamado } from './Modal_Solicitacao_Chamado';
 import { ModalValidacaoOS } from './Modal_Validacao_OS';
 import { RedimensionarColunas } from './Redimensionar_Colunas';
 
@@ -117,6 +118,10 @@ export function TabelaChamados() {
     const [selectedChamado, setSelectedChamado] = useState<number | null>(null);
     const [selectedOS, setSelectedOS] = useState<OSRowProps | null>(null);
 
+    const [isModalSolicitacaoOpen, setIsModalSolicitacaoOpen] = useState(false);
+    const [selectedChamadoSolicitacao, setSelectedChamadoSolicitacao] =
+        useState<ChamadoRowProps | null>(null);
+
     const { columnFilterFn } = useFiltrosChamados();
 
     const initialColumnWidths = {
@@ -209,10 +214,22 @@ export function TabelaChamados() {
         [refetch]
     );
 
+    // Função para abrir modal de solicitação
+    const handleOpenSolicitacao = useCallback((chamado: ChamadoRowProps) => {
+        setSelectedChamadoSolicitacao(chamado);
+        setIsModalSolicitacaoOpen(true);
+    }, []);
+
+    // Função para fechar modal de solicitação
+    const handleCloseSolicitacao = useCallback(() => {
+        setIsModalSolicitacaoOpen(false);
+        setSelectedChamadoSolicitacao(null);
+    }, []);
+
     // Colunas dinâmicas
     const columns = useMemo(
-        () => getColunasChamados(isAdmin, new Set(), columnWidths),
-        [isAdmin, columnWidths]
+        () => getColunasChamados(isAdmin, new Set(), columnWidths, handleOpenSolicitacao),
+        [isAdmin, columnWidths, handleOpenSolicitacao]
     );
 
     // ==================== CALLBACKS ====================
@@ -399,6 +416,15 @@ export function TabelaChamados() {
                 onClose={handleCloseModalOS}
                 onSave={handleSaveValidation}
             />
+
+            {/* Modal Solicitação do Chamado */}
+            <ModalSolicitacaoChamado
+                isOpen={isModalSolicitacaoOpen}
+                onClose={handleCloseSolicitacao}
+                solicitacao={selectedChamadoSolicitacao?.SOLICITACAO_CHAMADO || ''}
+                codChamado={selectedChamadoSolicitacao?.COD_CHAMADO || 0}
+                dataChamado={selectedChamadoSolicitacao?.DATA_CHAMADO}
+            />
         </>
     );
 }
@@ -444,13 +470,11 @@ function Header({
     const { cliente, recurso, status } = useFilters().filters;
 
     return (
-        <header className="flex items-center justify-between gap-4 bg-purple-900 p-4 lg:p-5">
+        <header className="flex items-center justify-between gap-4 bg-purple-900 p-6">
             {/* Esquerda: Título */}
-            <div className="flex items-center gap-2 lg:gap-4">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md border border-purple-300 bg-white lg:h-12 lg:w-12">
-                    <IoCall className="text-black" size={28} />
-                </div>
-                <h2 className="text-lg font-bold tracking-widest whitespace-nowrap text-white select-none lg:text-2xl">
+            <div className="flex items-center gap-4">
+                <IoCall className="text-white" size={50} />
+                <h2 className="text-2xl font-extrabold tracking-widest text-white select-none">
                     CHAMADOS - {mes}/{ano}
                 </h2>
             </div>
@@ -530,7 +554,7 @@ function Header({
                 {isAdmin && (
                     <div className="flex flex-shrink-0 items-center gap-2 rounded-full bg-purple-900 px-3 py-1 shadow-md ring-2 shadow-black ring-emerald-600 lg:gap-3 lg:px-4 lg:py-1.5">
                         <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-600"></div>
-                        <span className="text-xs font-bold tracking-widest whitespace-nowrap text-emerald-300 italic select-none lg:text-sm">
+                        <span className="text-base font-bold tracking-widest whitespace-nowrap text-emerald-300 select-none">
                             Administrador
                         </span>
                     </div>
@@ -549,11 +573,11 @@ interface BadgeTotalizadorProps {
 
 function BadgeTotalizador({ label, valor, valorTotal }: BadgeTotalizadorProps) {
     return (
-        <div className="group flex flex-shrink-0 items-center gap-2 rounded border border-purple-300 bg-white px-3 py-1 lg:py-1.5">
+        <div className="group flex flex-shrink-0 items-center gap-2 rounded-md border bg-white px-6 py-2">
             <div className="h-2 w-2 animate-pulse rounded-full bg-purple-900"></div>
-            <span className="text-xs font-extrabold tracking-widest whitespace-nowrap text-gray-800 select-none lg:text-sm">
+            <span className="text-base font-semibold tracking-widest whitespace-nowrap text-black select-none">
                 {label}:{' '}
-                <span className="text-xs font-extrabold tracking-widest text-purple-600 italic select-none lg:text-sm">
+                <span className="text-base font-semibold tracking-widest text-black select-none">
                     {valor}
                     {valorTotal !== undefined && <span className="ml-1">/{valorTotal}</span>}
                 </span>
@@ -591,7 +615,7 @@ function TableHeader({
                     {headerGroup.headers.map((header: any, idx: number) => (
                         <th
                             key={header.id}
-                            className="relative border-r border-teal-900 bg-teal-700 p-4 shadow-md shadow-black lg:p-5"
+                            className="relative bg-teal-700 p-4 shadow-md shadow-black lg:p-5"
                             style={{ width: `${columnWidths[header.id]}px` }}
                         >
                             {header.isPlaceholder
@@ -713,7 +737,7 @@ function TableBody({ table, columns, isAdmin, clearAllFilters, columnWidths }: T
                                 style={{
                                     width: `${columnWidths[cell.column.id]}px`,
                                 }}
-                                className={`border-r border-b border-gray-500 p-1.5 transition-all lg:p-2 ${
+                                className={`border-b border-gray-500 p-1.5 transition-all lg:p-2 ${
                                     cellIndex === 0 ? 'pl-2 lg:pl-3' : ''
                                 } ${cellIndex === row.getVisibleCells().length - 1 ? 'pr-2 lg:pr-4' : ''}`}
                             >

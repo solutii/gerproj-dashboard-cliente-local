@@ -1,436 +1,444 @@
-import {
-  formatarDataHoraChamado,
-  formatarDataParaBR,
-} from '@/formatters/formatar-data';
+import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
-import {
-  formatarNumeros,
-  formatarPrioridade,
-} from '@/formatters/formatar-numeros';
+import { formatarNumeros, formatarPrioridade } from '@/formatters/formatar-numeros';
 import { ColumnDef } from '@tanstack/react-table';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, FileText } from 'lucide-react';
 import React from 'react';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 import { TooltipTabela } from '../utils/Tooltip';
 
 // ==================== TIPOS ====================
 export type ChamadoRowProps = {
-  COD_CHAMADO: number;
-  DATA_CHAMADO: string;
-  HORA_CHAMADO: string;
-  CONCLUSAO_CHAMADO: string | null;
-  STATUS_CHAMADO: string;
-  DTENVIO_CHAMADO: string | null;
-  ASSUNTO_CHAMADO: string | null;
-  EMAIL_CHAMADO: string | null;
-  PRIOR_CHAMADO: number;
-  NOME_RECURSO: string | null;
-  NOME_CLASSIFICACAO: string | null;
-  TOTAL_HORAS_OS: number;
-  TEM_OS?: boolean;
+    COD_CHAMADO: number;
+    DATA_CHAMADO: string;
+    HORA_CHAMADO: string;
+    CONCLUSAO_CHAMADO: string | null;
+    STATUS_CHAMADO: string;
+    DTENVIO_CHAMADO: string | null;
+    ASSUNTO_CHAMADO: string | null;
+    EMAIL_CHAMADO: string | null;
+    PRIOR_CHAMADO: number;
+    NOME_RECURSO: string | null;
+    NOME_CLASSIFICACAO: string | null;
+    TOTAL_HORAS_OS: number;
+    TEM_OS?: boolean;
+    SOLICITACAO_CHAMADO?: string | null;
 };
 
 // Função para obter as classes de estilo com base no status
 const getStylesStatus = (status: string | undefined) => {
-  switch (status?.toUpperCase()) {
-    case 'NAO FINALIZADO':
-      return 'bg-red-600 border border-red-700 text-white italic';
-    case 'EM ATENDIMENTO':
-      return 'bg-blue-600 border border-blue-700 text-white italic';
-    case 'FINALIZADO':
-      return 'bg-green-600 border border-green-700 text-white italic';
-    case 'NAO INICIADO':
-      return 'bg-yellow-600 border border-yellow-700 text-white italic';
-    case 'STANDBY':
-      return 'bg-orange-600 border border-orange-700 text-white italic';
-    case 'ATRIBUIDO':
-      return 'bg-teal-600 border border-teal-700 text-white italic';
-    case 'AGUARDANDO VALIDACAO':
-      return 'bg-purple-600 border border-purple-700 text-white italic';
-    default:
-      return 'bg-gray-500 border border-gray-600 text-black italic';
-  }
+    switch (status?.toUpperCase()) {
+        case 'NAO FINALIZADO':
+            return 'bg-red-600 border border-red-700 text-white italic';
+        case 'EM ATENDIMENTO':
+            return 'bg-blue-600 border border-blue-700 text-white italic';
+        case 'FINALIZADO':
+            return 'bg-green-600 border border-green-700 text-white italic';
+        case 'NAO INICIADO':
+            return 'bg-yellow-600 border border-yellow-700 text-white italic';
+        case 'STANDBY':
+            return 'bg-orange-600 border border-orange-700 text-white italic';
+        case 'ATRIBUIDO':
+            return 'bg-teal-600 border border-teal-700 text-white italic';
+        case 'AGUARDANDO VALIDACAO':
+            return 'bg-purple-600 border border-purple-700 text-white italic';
+        default:
+            return 'bg-gray-500 border border-gray-600 text-black italic';
+    }
 };
 
 // Componente de Badge para Status
 const StatusBadge = ({ status }: { status: string }) => {
-  const styles = getStylesStatus(status);
-  return (
-    <div
-      className={`inline-block w-full rounded px-6 py-1.5 text-sm font-extrabold tracking-widest select-none ${styles}`}
-    >
-      {status}
-    </div>
-  );
+    const styles = getStylesStatus(status);
+    return (
+        <div
+            className={`inline-block w-full rounded px-6 py-1.5 text-sm font-extrabold tracking-widest select-none ${styles}`}
+        >
+            {status}
+        </div>
+    );
 };
 
 // Componente auxiliar para células com tooltip condicional
 const CellWithConditionalTooltip = ({
-  content,
-  className,
-  maxWidth = '400px',
+    content,
+    className,
+    maxWidth = '400px',
 }: {
-  content: string;
-  className: string;
-  maxWidth?: string;
+    content: string;
+    className: string;
+    maxWidth?: string;
 }) => {
-  const cellRef = React.useRef<HTMLDivElement>(null);
-  const [isTruncated, setIsTruncated] = React.useState(false);
+    const cellRef = React.useRef<HTMLDivElement>(null);
+    const [isTruncated, setIsTruncated] = React.useState(false);
 
-  React.useEffect(() => {
-    const checkTruncation = () => {
-      if (cellRef.current) {
-        setIsTruncated(
-          cellRef.current.scrollWidth > cellRef.current.clientWidth,
-        );
-      }
-    };
+    React.useEffect(() => {
+        const checkTruncation = () => {
+            if (cellRef.current) {
+                setIsTruncated(cellRef.current.scrollWidth > cellRef.current.clientWidth);
+            }
+        };
 
-    checkTruncation();
+        checkTruncation();
 
-    const resizeObserver = new ResizeObserver(checkTruncation);
-    if (cellRef.current) {
-      resizeObserver.observe(cellRef.current);
-    }
+        const resizeObserver = new ResizeObserver(checkTruncation);
+        if (cellRef.current) {
+            resizeObserver.observe(cellRef.current);
+        }
 
-    return () => {
-      resizeObserver.disconnect();
-    };
-  }, [content]);
+        return () => {
+            resizeObserver.disconnect();
+        };
+    }, [content]);
 
-  const cellContent = (
-    <div ref={cellRef} className={className}>
-      {content}
-    </div>
-  );
+    const cellContent = (
+        <div ref={cellRef} className={className}>
+            {content}
+        </div>
+    );
 
-  return isTruncated ? (
-    <TooltipTabela content={content} maxWidth={maxWidth}>
-      {cellContent}
-    </TooltipTabela>
-  ) : (
-    cellContent
-  );
+    return isTruncated ? (
+        <TooltipTabela content={content} maxWidth={maxWidth}>
+            {cellContent}
+        </TooltipTabela>
+    ) : (
+        cellContent
+    );
 };
 
 // ==================== COLUNAS ====================
 export const getColunasChamados = (
-  isAdmin: boolean,
-  expandedRows: Set<number>,
-  columnWidths?: Record<string, number>,
+    isAdmin: boolean,
+    expandedRows: Set<number>,
+    columnWidths?: Record<string, number>,
+    onOpenSolicitacao?: (chamado: ChamadoRowProps) => void
 ): ColumnDef<ChamadoRowProps>[] => {
-  const allColumns: ColumnDef<ChamadoRowProps>[] = [
-    // CÓDIGO DO CHAMADO COM ÍCONE
-    {
-      accessorKey: 'COD_CHAMADO',
-      id: 'COD_CHAMADO',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          CHAMADO
-        </div>
-      ),
-      cell: ({ getValue, row }) => {
-        const temOS = row.original.TEM_OS ?? false;
-        const value = getValue() as number;
+    const allColumns: ColumnDef<ChamadoRowProps>[] = [
+        // CÓDIGO DO CHAMADO COM ÍCONE
+        {
+            accessorKey: 'COD_CHAMADO',
+            id: 'COD_CHAMADO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    CHAMADO
+                </div>
+            ),
+            cell: ({ getValue, row }) => {
+                const temOS = row.original.TEM_OS ?? false;
+                const value = getValue() as number;
 
-        return (
-          <div className="flex items-center gap-2">
-            {/* Ícone indicando que há OS's */}
-            <div className="flex items-center justify-center w-6 h-6 flex-shrink-0">
-              {temOS ? (
-                <ChevronRight
-                  className="text-gray-800 transition-transform group-hover:scale-125"
-                  size={24}
-                />
-              ) : (
-                <div className="w-6 h-6" />
-              )}
-            </div>
+                return (
+                    <div className="flex items-center gap-2">
+                        {/* Ícone indicando que há OS's */}
+                        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
+                            {temOS ? (
+                                <ChevronRight
+                                    className="text-black transition-transform group-hover:scale-125"
+                                    size={24}
+                                />
+                            ) : (
+                                <div className="h-6 w-6" />
+                            )}
+                        </div>
 
-            {/* Número do Chamado */}
-            <div className="text-left font-semibold select-none tracking-widest text-sm flex-1 text-gray-800">
-              {formatarNumeros(value)}
-            </div>
-          </div>
-        );
-      },
-      enableColumnFilter: true,
-    },
+                        {/* Número do Chamado */}
+                        <div className="flex-1 text-left text-sm font-semibold tracking-widest text-black select-none">
+                            {formatarNumeros(value)}
+                        </div>
+                    </div>
+                );
+            },
+            enableColumnFilter: true,
+        },
 
-    // Data/Hora do Chamado
-    {
-      id: 'DATA_CHAMADO',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          ENTRADA
-        </div>
-      ),
-      cell: ({ row }) => {
-        const data = row.original.DATA_CHAMADO;
-        const hora = row.original.HORA_CHAMADO;
-        return (
-          <div className="text-center font-semibold select-none tracking-widest text-sm text-gray-800">
-            {formatarDataHoraChamado(data, hora)}
-          </div>
-        );
-      },
-      enableColumnFilter: true,
-    },
+        // Data/Hora do Chamado
+        {
+            id: 'DATA_CHAMADO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    ENTRADA
+                </div>
+            ),
+            cell: ({ row }) => {
+                const data = row.original.DATA_CHAMADO;
+                const hora = row.original.HORA_CHAMADO;
+                return (
+                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                        {formatarDataHoraChamado(data, hora)}
+                    </div>
+                );
+            },
+            enableColumnFilter: true,
+        },
 
-    // Prioridade do Chamado
-    {
-      accessorKey: 'PRIOR_CHAMADO',
-      id: 'PRIOR_CHAMADO',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          PRIOR.
-        </div>
-      ),
-      cell: ({ getValue }) => {
-        const value = getValue() as number;
-        return (
-          <div className="text-center font-semibold select-none tracking-widest text-sm text-gray-800">
-            {formatarPrioridade(value)}
-          </div>
-        );
-      },
-      enableColumnFilter: true,
-    },
+        // Prioridade do Chamado
+        {
+            accessorKey: 'PRIOR_CHAMADO',
+            id: 'PRIOR_CHAMADO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    PRIOR.
+                </div>
+            ),
+            cell: ({ getValue }) => {
+                const value = getValue() as number;
+                return (
+                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                        {formatarPrioridade(value)}
+                    </div>
+                );
+            },
+            enableColumnFilter: true,
+        },
 
-    // Assunto do Chamado
-    {
-      accessorKey: 'ASSUNTO_CHAMADO',
-      id: 'ASSUNTO_CHAMADO',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          ASSUNTO
-        </div>
-      ),
-      cell: ({ getValue }) => {
-        const value = getValue() as string | null;
-        const textValue = corrigirTextoCorrompido(value);
+        // Assunto do Chamado COM BOTÃO
+        {
+            accessorKey: 'ASSUNTO_CHAMADO',
+            id: 'ASSUNTO_CHAMADO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    ASSUNTO
+                </div>
+            ),
+            cell: ({ getValue, row }) => {
+                const value = getValue() as string | null;
+                const textValue = corrigirTextoCorrompido(value);
+                const hasSolicitacao = row.original.SOLICITACAO_CHAMADO;
 
-        return (
-          <CellWithConditionalTooltip
-            content={textValue}
-            className="font-semibold select-none tracking-widest text-sm overflow-hidden whitespace-nowrap truncate text-gray-800"
-            maxWidth="400px"
-          />
-        );
-      },
-      enableColumnFilter: true,
-    },
+                return (
+                    <div className="flex w-full items-center gap-4">
+                        {/* Botão para abrir modal */}
+                        {hasSolicitacao && onOpenSolicitacao && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenSolicitacao(row.original);
+                                }}
+                                className="flex-shrink-0 cursor-pointer rounded-md bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-110 hover:bg-purple-800 hover:shadow-xl hover:shadow-black active:scale-95"
+                                title="Ver solicitação completa"
+                            >
+                                <FileText className="text-white" size={18} />
+                            </button>
+                        )}
 
-    // Email do Chamado
-    {
-      accessorKey: 'EMAIL_CHAMADO',
-      id: 'EMAIL_CHAMADO',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          EMAIL
-        </div>
-      ),
-      cell: ({ getValue }) => {
-        const value = (getValue() as string) ?? '---------------';
+                        {/* Texto do assunto */}
+                        <CellWithConditionalTooltip
+                            content={textValue}
+                            className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                            maxWidth="400px"
+                        />
+                    </div>
+                );
+            },
+            enableColumnFilter: true,
+        },
 
-        const isSemEmailChamado = value === '---------------';
+        // Email do Chamado
+        {
+            accessorKey: 'EMAIL_CHAMADO',
+            id: 'EMAIL_CHAMADO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    EMAIL
+                </div>
+            ),
+            cell: ({ getValue }) => {
+                const value = (getValue() as string) ?? '---------------';
 
-        if (isSemEmailChamado) {
-          return (
-            <div className="text-center font-semibold select-none tracking-widest text-sm text-gray-800">
-              {value}
-            </div>
-          );
-        }
+                const isSemEmailChamado = value === '---------------';
 
-        return (
-          <CellWithConditionalTooltip
-            content={value}
-            className="text-left font-semibold select-none tracking-widest text-sm overflow-hidden whitespace-nowrap truncate text-gray-800"
-            maxWidth="300px"
-          />
-        );
-      },
-      enableColumnFilter: true,
-    },
+                if (isSemEmailChamado) {
+                    return (
+                        <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                            {value}
+                        </div>
+                    );
+                }
 
-    // Nome Classificação
-    {
-      accessorKey: 'NOME_CLASSIFICACAO',
-      id: 'NOME_CLASSIFICACAO',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          CLASSIFICAÇÃO
-        </div>
-      ),
-      cell: ({ getValue }) => {
-        const value = getValue() as string | null;
-        const textValue = corrigirTextoCorrompido(value);
+                return (
+                    <CellWithConditionalTooltip
+                        content={value}
+                        className="truncate overflow-hidden text-left text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                        maxWidth="300px"
+                    />
+                );
+            },
+            enableColumnFilter: true,
+        },
 
-        return (
-          <CellWithConditionalTooltip
-            content={textValue}
-            className="text-left font-semibold select-none tracking-widest text-sm overflow-hidden whitespace-nowrap truncate text-gray-800"
-            maxWidth="300px"
-          />
-        );
-      },
-      enableColumnFilter: true,
-    },
+        // Nome Classificação
+        {
+            accessorKey: 'NOME_CLASSIFICACAO',
+            id: 'NOME_CLASSIFICACAO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    CLASSIFICAÇÃO
+                </div>
+            ),
+            cell: ({ getValue }) => {
+                const value = getValue() as string | null;
+                const textValue = corrigirTextoCorrompido(value);
 
-    // Data de Envio do Chamado
-    {
-      accessorKey: 'DTENVIO_CHAMADO',
-      id: 'DTENVIO_CHAMADO',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          ATRIBUIÇÃO
-        </div>
-      ),
-      cell: ({ getValue }) => {
-        const value = (getValue() as string) ?? '---------------';
+                return (
+                    <CellWithConditionalTooltip
+                        content={textValue}
+                        className="truncate overflow-hidden text-left text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                        maxWidth="300px"
+                    />
+                );
+            },
+            enableColumnFilter: true,
+        },
 
-        const isSemDtEnvioChamado = value === '---------------';
+        // Data de Envio do Chamado
+        {
+            accessorKey: 'DTENVIO_CHAMADO',
+            id: 'DTENVIO_CHAMADO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    ATRIBUIÇÃO
+                </div>
+            ),
+            cell: ({ getValue }) => {
+                const value = (getValue() as string) ?? '---------------';
 
-        if (isSemDtEnvioChamado) {
-          return (
-            <div className="text-center font-semibold select-none tracking-widest text-sm text-gray-800">
-              {value}
-            </div>
-          );
-        }
+                const isSemDtEnvioChamado = value === '---------------';
 
-        return (
-          <div className="text-left font-semibold select-none tracking-widest text-sm text-gray-800">
-            {value}
-          </div>
-        );
-      },
-      enableColumnFilter: true,
-    },
+                if (isSemDtEnvioChamado) {
+                    return (
+                        <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                            {value}
+                        </div>
+                    );
+                }
 
-    // Recurso do Chamado
-    {
-      accessorKey: 'NOME_RECURSO',
-      id: 'NOME_RECURSO',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          CONSULTOR
-        </div>
-      ),
-      cell: ({ getValue }) => {
-        const value = (getValue() as string) ?? '---------------';
+                return (
+                    <div className="text-left text-sm font-semibold tracking-widest text-black select-none">
+                        {value}
+                    </div>
+                );
+            },
+            enableColumnFilter: true,
+        },
 
-        const isSemNomeRecursoChamado = value === '---------------';
+        // Recurso do Chamado
+        {
+            accessorKey: 'NOME_RECURSO',
+            id: 'NOME_RECURSO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    CONSULTOR
+                </div>
+            ),
+            cell: ({ getValue }) => {
+                const value = (getValue() as string) ?? '---------------';
 
-        if (isSemNomeRecursoChamado) {
-          return (
-            <div className="text-center font-semibold select-none tracking-widest text-sm text-gray-800">
-              {value}
-            </div>
-          );
-        }
+                const isSemNomeRecursoChamado = value === '---------------';
 
-        const parts = value.trim().split(/\s+/).filter(Boolean);
-        const display =
-          parts.length <= 2 ? parts.join(' ') : parts.slice(0, 2).join(' ');
-        const textValue = corrigirTextoCorrompido(display);
+                if (isSemNomeRecursoChamado) {
+                    return (
+                        <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                            {value}
+                        </div>
+                    );
+                }
 
-        return (
-          <CellWithConditionalTooltip
-            content={textValue}
-            className="font-semibold select-none tracking-widest text-sm overflow-hidden whitespace-nowrap truncate text-gray-800"
-            maxWidth="250px"
-          />
-        );
-      },
-      enableColumnFilter: true,
-    },
+                const parts = value.trim().split(/\s+/).filter(Boolean);
+                const display = parts.length <= 2 ? parts.join(' ') : parts.slice(0, 2).join(' ');
+                const textValue = corrigirTextoCorrompido(display);
 
-    // Status do Chamado
-    {
-      accessorKey: 'STATUS_CHAMADO',
-      id: 'STATUS_CHAMADO',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          STATUS
-        </div>
-      ),
-      cell: ({ getValue }) => {
-        const value = getValue() as string;
-        return (
-          <div className="text-center font-semibold select-none tracking-widest text-sm w-full">
-            <StatusBadge status={value} />
-          </div>
-        );
-      },
-      enableColumnFilter: true,
-      filterFn: (row, _columnId, filterValue) => {
-        if (!filterValue) return true;
+                return (
+                    <CellWithConditionalTooltip
+                        content={textValue}
+                        className="truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                        maxWidth="250px"
+                    />
+                );
+            },
+            enableColumnFilter: true,
+        },
 
-        const value = row.getValue('STATUS_CHAMADO') as
-          | string
-          | null
-          | undefined;
-        const cellValueUpper = (value ?? '').toString().toUpperCase().trim();
-        const filterValueUpper = filterValue.toString().toUpperCase().trim();
+        // Status do Chamado
+        {
+            accessorKey: 'STATUS_CHAMADO',
+            id: 'STATUS_CHAMADO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    STATUS
+                </div>
+            ),
+            cell: ({ getValue }) => {
+                const value = getValue() as string;
+                return (
+                    <div className="w-full text-center text-sm font-semibold tracking-widest select-none">
+                        <StatusBadge status={value} />
+                    </div>
+                );
+            },
+            enableColumnFilter: true,
+            filterFn: (row, _columnId, filterValue) => {
+                if (!filterValue) return true;
 
-        return cellValueUpper === filterValueUpper;
-      },
-    },
+                const value = row.getValue('STATUS_CHAMADO') as string | null | undefined;
+                const cellValueUpper = (value ?? '').toString().toUpperCase().trim();
+                const filterValueUpper = filterValue.toString().toUpperCase().trim();
 
-    // Conclusão do chamado
-    {
-      accessorKey: 'CONCLUSAO_CHAMADO',
-      id: 'CONCLUSAO_CHAMADO',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          CONCLUSÃO
-        </div>
-      ),
-      cell: ({ getValue }) => {
-        const value = (getValue() as string) ?? '---------------';
+                return cellValueUpper === filterValueUpper;
+            },
+        },
 
-        const isSemConclusaoChamado = value === '---------------';
+        // Conclusão do chamado
+        {
+            accessorKey: 'CONCLUSAO_CHAMADO',
+            id: 'CONCLUSAO_CHAMADO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    CONCLUSÃO
+                </div>
+            ),
+            cell: ({ getValue }) => {
+                const value = (getValue() as string) ?? '---------------';
 
-        if (isSemConclusaoChamado) {
-          return (
-            <div className="text-center font-semibold select-none tracking-widest text-sm text-gray-800">
-              {value}
-            </div>
-          );
-        }
+                const isSemConclusaoChamado = value === '---------------';
 
-        return (
-          <div className="text-center font-semibold select-none tracking-widest text-sm text-gray-800">
-            {formatarDataParaBR(value)}
-          </div>
-        );
-      },
-      enableColumnFilter: true,
-    },
+                if (isSemConclusaoChamado) {
+                    return (
+                        <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                            {value}
+                        </div>
+                    );
+                }
 
-    // Quantidade de horas
-    {
-      accessorKey: 'TOTAL_HORAS_OS',
-      id: 'TOTAL_HORAS_OS',
-      header: () => (
-        <div className="text-center tracking-widest font-bold select-none text-white text-sm">
-          QTD. HORAS
-        </div>
-      ),
-      cell: ({ getValue }) => {
-        const value = getValue() as number | null;
+                return (
+                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                        {formatarDataParaBR(value)}
+                    </div>
+                );
+            },
+            enableColumnFilter: true,
+        },
 
-        return (
-          <div className="text-center font-semibold select-none tracking-widest text-sm text-gray-800">
-            {formatarHorasTotaisSufixo(value)}
-          </div>
-        );
-      },
-      enableColumnFilter: false,
-    },
-  ];
+        // Quantidade de horas
+        {
+            accessorKey: 'TOTAL_HORAS_OS',
+            id: 'TOTAL_HORAS_OS',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    QTD. HORAS
+                </div>
+            ),
+            cell: ({ getValue }) => {
+                const value = getValue() as number | null;
 
-  return allColumns;
+                return (
+                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                        {formatarHorasTotaisSufixo(value)}
+                    </div>
+                );
+            },
+            enableColumnFilter: false,
+        },
+    ];
+
+    return allColumns;
 };

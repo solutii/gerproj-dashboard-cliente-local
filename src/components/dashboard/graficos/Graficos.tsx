@@ -2,7 +2,6 @@ import { IsError } from '@/components/utils/IsError';
 import { IsLoading } from '@/components/utils/IsLoading';
 import { useAuth } from '@/context/AuthContext';
 import { formatarHorasArredondadas, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
-import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import {
     renderizarDoisPrimeirosNomes,
@@ -15,11 +14,10 @@ import {
     BarChart,
     CartesianGrid,
     Cell,
+    ComposedChart,
     Legend,
     Line,
     LineChart,
-    Pie,
-    PieChart,
     ResponsiveContainer,
     Tooltip,
     XAxis,
@@ -27,7 +25,18 @@ import {
 } from 'recharts';
 import { ContainerCardsMetricas } from '../metricas/Container_Cards_Metricas';
 
-// Cores para os gráficos
+// ================== Interfaces ===================
+interface FilterProps {
+    filters: {
+        ano: number;
+        mes: number;
+        cliente: string;
+        recurso: string;
+        status: string;
+    };
+}
+
+// ================== Cores Padrão ===================
 const COLORS = {
     primary: '#3b82f6',
     secondary: '#8b5cf6',
@@ -39,7 +48,7 @@ const COLORS = {
     pie: ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#ec4899', '#6366f1'],
 };
 
-// Componente de Tooltip customizado
+// =============== Componente Tooltip customizado ===============
 type CustomTooltipProps = {
     active?: boolean;
     payload?: Array<{ name?: string; value?: any; color?: string }>;
@@ -58,18 +67,18 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({
     if (!active || !payload || !payload.length) return null;
 
     return (
-        <div className="rounded-md border bg-white p-2 shadow-md shadow-black sm:p-3">
-            <p className="mb-1 text-xs font-semibold tracking-widest text-slate-800 select-none sm:mb-2 sm:text-sm">
+        <div className="rounded-md border bg-white px-4 py-2 shadow-xs shadow-black">
+            <p className="mb-1 text-sm font-semibold tracking-widest text-black select-none">
                 {labelFormatter ? labelFormatter(label) : label}
             </p>
             {payload.map((entry, index) => (
                 <p
                     key={index}
-                    className="text-[10px] tracking-widest select-none sm:text-xs"
+                    className="mb-1 text-sm font-semibold tracking-widest select-none"
                     style={{ color: entry?.color || undefined }}
                 >
                     {entry?.name}:{' '}
-                    <span className="font-bold tracking-widest select-none">
+                    <span className="mb-1 text-sm font-semibold tracking-widest select-none">
                         {valueFormatter ? valueFormatter(entry?.value) : entry?.value}
                     </span>
                 </p>
@@ -78,34 +87,33 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({
     );
 };
 
-// Componente de card para os gráficos
+// ============== Componente Card para Gráficos ===============
 type ChartCardProps = {
     title: string;
     children?: React.ReactNode;
-    variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info';
+    variant?: 'primary' | 'secondary' | 'tertiary' | 'quaternary' | 'quinary';
 };
 
 const borderColorClasses = {
-    primary: 'border-l-blue-600',
+    primary: 'border-l-orange-600',
     secondary: 'border-l-purple-600',
-    success: 'border-l-green-600',
-    warning: 'border-l-orange-600',
-    danger: 'border-l-red-600',
-    info: 'border-l-cyan-600',
+    tertiary: 'border-l-cyan-600',
+    quaternary: 'border-l-blue-600',
+    quinary: 'border-l-green-600',
 };
 
 const ChartCard: React.FC<ChartCardProps> = ({ title, children, variant = 'primary' }) => (
     <div
-        className={`rounded-lg border border-l-8 ${borderColorClasses[variant]} bg-white p-3 shadow-md shadow-black transition-all duration-300 hover:shadow-xl sm:rounded-xl sm:p-4 lg:p-6`}
+        className={`rounded-xl border border-l-8 ${borderColorClasses[variant]} bg-white p-4 shadow-md shadow-black`}
     >
-        <h3 className="mb-3 text-sm font-extrabold tracking-widest text-black uppercase select-none sm:mb-4 sm:text-base lg:text-lg">
+        <h3 className="mb-2 text-base font-semibold tracking-widest text-black uppercase select-none">
             {title}
         </h3>
         {children}
     </div>
 );
 
-// Componente de Erro
+// =============== Componente de mensagem de erro ===============
 type ErrorMessageProps = {
     message: string;
     onRetry?: () => void;
@@ -124,17 +132,6 @@ const ErrorMessage: React.FC<ErrorMessageProps> = ({ message, onRetry }) => (
         )}
     </div>
 );
-
-// Interface para os filtros recebidos via props
-interface FilterProps {
-    filters: {
-        ano: number;
-        mes: number;
-        cliente: string;
-        recurso: string;
-        status: string;
-    };
-}
 
 // Função para buscar os dados da API
 const fetchOrdensServico = async (
@@ -170,6 +167,33 @@ const fetchOrdensServico = async (
     return response.json();
 };
 
+// Função para buscar dados do histórico de saldo
+const fetchSaldoHistorico = async (
+    codCliente: string,
+    mes: number,
+    ano: number,
+    isAdmin: boolean
+) => {
+    const params = new URLSearchParams({
+        codCliente: codCliente,
+        mes: mes.toString(),
+        ano: ano.toString(),
+        mesesHistorico: '6',
+        isAdmin: isAdmin.toString(),
+    });
+
+    const response = await fetch(`/api/saldo-horas?${params.toString()}`);
+
+    if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+    }
+
+    return response.json();
+};
+
+// ================================================================================
+// COMPONENTE PRINCIPAL
+// ================================================================================
 export function Graficos({ filters }: FilterProps) {
     const { isAdmin, codCliente } = useAuth();
 
@@ -181,6 +205,23 @@ export function Graficos({ filters }: FilterProps) {
     } = useQuery({
         queryKey: ['graficos', filters, isAdmin, codCliente],
         queryFn: () => fetchOrdensServico(filters, isAdmin, codCliente),
+        staleTime: 1000 * 60 * 5,
+        retry: 1,
+    });
+
+    // Query para buscar dados do saldo histórico
+    const {
+        data: dadosSaldo,
+        isLoading: isLoadingSaldo,
+        error: errorSaldo,
+    } = useQuery({
+        queryKey: ['saldo-horas', filters.cliente, filters.mes, filters.ano, isAdmin],
+        queryFn: () => {
+            const clienteId = filters.cliente || codCliente;
+            if (!clienteId) return Promise.resolve(null);
+            return fetchSaldoHistorico(clienteId, filters.mes, filters.ano, isAdmin);
+        },
+        enabled: !!(filters.cliente || codCliente),
         staleTime: 1000 * 60 * 5,
         retry: 1,
     });
@@ -206,16 +247,12 @@ export function Graficos({ filters }: FilterProps) {
         );
     }
 
-    const {
-        horasPorDia,
-        topChamados,
-        horasPorStatus,
-        horasPorRecurso,
-        horasPorCliente,
-        horasPorMes,
-    } = dados.graficos;
+    const { horasPorDia, horasPorRecurso, horasPorCliente, horasPorMes } = dados.graficos;
     const { totalizadores } = dados;
 
+    // ================================================================================
+    // RENDERIZAÇÃO PRINCIPAL
+    // ================================================================================
     return (
         <div className="h-full overflow-y-auto border-b-slate-500 px-3 pb-4 sm:px-4 sm:pb-6">
             <div className="flex w-full flex-col gap-6 sm:gap-8 lg:gap-10">
@@ -225,10 +262,10 @@ export function Graficos({ filters }: FilterProps) {
 
                 {/* Grid de gráficos - área com scroll */}
                 <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 lg:gap-10">
-                    {/* Gráfico 1: Evolução Diária de Horas */}
-                    {horasPorDia && horasPorDia.length > 0 && (
+                    {/* Gráfico: Horas totais por Mês */}
+                    {horasPorMes && horasPorMes.length > 0 && (
                         <ChartCard
-                            title={`Evolução Diária de Horas - ${filters.mes}/${filters.ano}`}
+                            title={`Horas Totais por Mês - ${filters.ano}`}
                             variant="primary"
                         >
                             <ResponsiveContainer
@@ -236,16 +273,474 @@ export function Graficos({ filters }: FilterProps) {
                                 height={300}
                                 className="sm:h-[320px] lg:h-[350px]"
                             >
-                                <LineChart data={horasPorDia}>
+                                <BarChart
+                                    data={horasPorMes}
+                                    margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
+                                >
+                                    <XAxis
+                                        dataKey="mes"
+                                        stroke="#000000"
+                                        tickLine={false}
+                                        axisLine={{ stroke: '#000000', strokeWidth: 1 }}
+                                        tick={{
+                                            fill: '#000000',
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            letterSpacing: '0.2em',
+                                            textAnchor: 'middle',
+                                        }}
+                                        interval={0}
+                                        height={60}
+                                    />
+                                    <YAxis
+                                        stroke="#000000"
+                                        tickLine={false}
+                                        axisLine={{ stroke: '#000000', strokeWidth: 1 }}
+                                        tick={{
+                                            fill: '#000000',
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            letterSpacing: '0.2em',
+                                        }}
+                                    />
+                                    <Tooltip
+                                        content={
+                                            <CustomTooltip
+                                                labelFormatter={(label) => label}
+                                                valueFormatter={(value) =>
+                                                    `${formatarHorasTotaisSufixo(value)}`
+                                                }
+                                            />
+                                        }
+                                    />
+                                    <Legend
+                                        wrapperStyle={{
+                                            fontSize: '14px',
+                                            letterSpacing: '0.2em',
+                                            fontWeight: '800',
+                                        }}
+                                    />
+                                    <Bar
+                                        dataKey="horas"
+                                        fill={COLORS.gradient}
+                                        radius={[8, 8, 0, 0]}
+                                        name="Total de Horas"
+                                        label={{
+                                            position: 'top',
+                                            fill: '#000000',
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            letterSpacing: '0.2em',
+                                            formatter: (value: number) =>
+                                                formatarHorasArredondadas(value),
+                                        }}
+                                    >
+                                        {horasPorMes.map((entry: any, index: number) => (
+                                            <Cell
+                                                key={`cell-${index}`}
+                                                fill={
+                                                    entry.mesNum === filters.mes
+                                                        ? COLORS.danger
+                                                        : COLORS.gradient
+                                                }
+                                            />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                            <div className="mt-4 flex items-center justify-between rounded-md border bg-slate-100 px-4 py-2 text-base font-semibold tracking-widest text-black shadow-xs shadow-black select-none">
+                                <div>
+                                    <span className="font-semibold">Total anual:</span>{' '}
+                                    {formatarHorasTotaisSufixo(
+                                        horasPorMes.reduce(
+                                            (acc: number, m: { horas: number }) => acc + m.horas,
+                                            0
+                                        )
+                                    )}
+                                </div>
+                                <div>
+                                    <span className="font-semibold">Média mensal:</span>{' '}
+                                    {formatarHorasTotaisSufixo(
+                                        horasPorMes.reduce(
+                                            (acc: number, m: { horas: number }) => acc + m.horas,
+                                            0
+                                        ) / 12
+                                    )}
+                                </div>
+                            </div>
+                        </ChartCard>
+                    )}
+
+                    {/* Gráfico: Evolução de Saldo */}
+                    {dadosSaldo && dadosSaldo.historico && dadosSaldo.historico.length > 0 && (
+                        <ChartCard
+                            title={`Evolução de Saldo - ${dadosSaldo.nomeCliente}`}
+                            variant="secondary"
+                        >
+                            <ResponsiveContainer
+                                width="100%"
+                                height={300}
+                                className="sm:h-[320px] lg:h-[350px]"
+                            >
+                                <ComposedChart
+                                    data={dadosSaldo.historico}
+                                    margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
+                                >
+                                    <XAxis
+                                        dataKey="mes"
+                                        stroke="#000000"
+                                        tickLine={false}
+                                        axisLine={{ stroke: '#000000', strokeWidth: 1 }}
+                                        tick={{
+                                            fill: '#000000',
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            letterSpacing: '0.2em',
+                                        }}
+                                        tickFormatter={(value, index) => {
+                                            const item = dadosSaldo.historico[index];
+                                            return `${item.mes.toString().padStart(2, '0')}/${item.ano}`;
+                                        }}
+                                        angle={-35}
+                                        textAnchor="end"
+                                        height={80}
+                                    />
+                                    <YAxis
+                                        stroke="#000000"
+                                        tickLine={false}
+                                        axisLine={{ stroke: '#000000', strokeWidth: 1 }}
+                                        tick={{
+                                            fill: '#000000',
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            letterSpacing: '0.2em',
+                                        }}
+                                    />
+                                    <Tooltip
+                                        content={({ active, payload }) => {
+                                            if (!active || !payload || !payload.length) return null;
+
+                                            const data = payload[0].payload;
+
+                                            return (
+                                                <div className="rounded-md border bg-white px-4 py-2 shadow-md shadow-black">
+                                                    <p className="mb-1 text-sm font-semibold tracking-widest text-black select-none">
+                                                        {data.mes.toString().padStart(2, '0')}/
+                                                        {data.ano}
+                                                    </p>
+                                                    <p className="mb-1 text-sm font-semibold tracking-widest text-blue-600 select-none">
+                                                        Contratadas:{' '}
+                                                        <span>
+                                                            {formatarHorasTotaisSufixo(
+                                                                data.horasContratadas
+                                                            )}
+                                                        </span>
+                                                    </p>
+                                                    <p className="mb-1 text-sm font-semibold tracking-widest text-purple-600 select-none">
+                                                        Executadas:{' '}
+                                                        <span>
+                                                            {formatarHorasTotaisSufixo(
+                                                                data.horasExecutadas
+                                                            )}
+                                                        </span>
+                                                    </p>
+                                                    <p
+                                                        className={`mb-1 text-sm font-semibold tracking-widest select-none ${
+                                                            data.saldoLiquido > 0
+                                                                ? 'text-green-600'
+                                                                : data.saldoLiquido < 0
+                                                                  ? 'text-red-600'
+                                                                  : 'text-black'
+                                                        }`}
+                                                    >
+                                                        Saldo: {data.saldoLiquido > 0 ? '+' : ''}
+                                                        {formatarHorasTotaisSufixo(
+                                                            data.saldoLiquido
+                                                        )}
+                                                    </p>
+                                                    {data.compensacoes &&
+                                                        data.compensacoes.length > 0 && (
+                                                            <p className="mb-1 text-sm font-semibold tracking-widest text-orange-600 select-none">
+                                                                {data.compensacoes.length}{' '}
+                                                                {data.compensacoes.length === 1
+                                                                    ? 'Compensação'
+                                                                    : 'Compensações'}
+                                                            </p>
+                                                        )}
+                                                    <p
+                                                        className="text-sm font-semibold tracking-widest select-none"
+                                                        style={{
+                                                            color:
+                                                                data.status === 'disponivel'
+                                                                    ? '#10b981'
+                                                                    : data.status === 'negativo'
+                                                                      ? '#ef4444'
+                                                                      : data.status === 'compensado'
+                                                                        ? '#3b82f6'
+                                                                        : data.status === 'expirado'
+                                                                          ? '#9ca3af'
+                                                                          : '#6b7280',
+                                                        }}
+                                                    >
+                                                        {data.status === 'disponivel'
+                                                            ? '✓ Disponível'
+                                                            : data.status === 'negativo'
+                                                              ? '⚠ Débito'
+                                                              : data.status === 'compensado'
+                                                                ? '⇄ Compensado'
+                                                                : data.status === 'expirado'
+                                                                  ? '✗ Expirado'
+                                                                  : '○ Zerado'}
+                                                    </p>
+                                                </div>
+                                            );
+                                        }}
+                                    />
+                                    <Legend
+                                        wrapperStyle={{
+                                            fontSize: '14px',
+                                            letterSpacing: '0.2em',
+                                            fontWeight: '800',
+                                        }}
+                                        verticalAlign="top"
+                                        height={36}
+                                    />
+
+                                    {/* Barras */}
+                                    <Bar
+                                        dataKey="horasContratadas"
+                                        fill={COLORS.primary}
+                                        name="Contratadas"
+                                        radius={[8, 8, 0, 0]}
+                                        label={{
+                                            position: 'top',
+                                            fill: '#000000',
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            letterSpacing: '0.2em',
+                                            formatter: (value: number) =>
+                                                formatarHorasArredondadas(value),
+                                        }}
+                                    />
+                                    <Bar
+                                        dataKey="horasExecutadas"
+                                        fill={COLORS.secondary}
+                                        name="Executadas"
+                                        radius={[8, 8, 0, 0]}
+                                        label={{
+                                            position: 'top',
+                                            fill: '#000000',
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            letterSpacing: '0.2em',
+                                            formatter: (value: number) =>
+                                                formatarHorasArredondadas(value),
+                                        }}
+                                    />
+
+                                    {/* Linha de Saldo Líquido */}
+                                    <Line
+                                        type="monotone"
+                                        dataKey="saldoLiquido"
+                                        stroke={COLORS.danger}
+                                        strokeWidth={3}
+                                        dot={(props: any) => {
+                                            const { cx, cy, payload, index } = props; // Adicione 'index' aqui
+                                            const color =
+                                                payload.saldoLiquido > 0
+                                                    ? COLORS.success
+                                                    : payload.saldoLiquido < 0
+                                                      ? COLORS.danger
+                                                      : '#6b7280';
+                                            return (
+                                                <circle
+                                                    key={`dot-${index}`} // Adicione esta linha
+                                                    cx={cx}
+                                                    cy={cy}
+                                                    r={5}
+                                                    fill={color}
+                                                    stroke="#fff"
+                                                    strokeWidth={2}
+                                                />
+                                            );
+                                        }}
+                                        name="Saldo Líquido"
+                                    />
+                                </ComposedChart>
+                            </ResponsiveContainer>
+
+                            {/* Resumo abaixo do gráfico */}
+                            <div className="mt-4 grid grid-cols-4 gap-6">
+                                <div className="flex items-center gap-2 rounded-md border bg-green-100 px-4 py-2 shadow-xs shadow-black">
+                                    <p className="text-semibold tracking-widest text-green-800 select-none">
+                                        Crédito =
+                                    </p>
+                                    <p className="text-semibold tracking-widest text-green-800 select-none">
+                                        {formatarHorasTotaisSufixo(dadosSaldo.saldoTotalDisponivel)}
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 rounded-md border bg-red-100 px-4 py-2 shadow-xs shadow-black">
+                                    <p className="text-semibold tracking-widest text-red-800 select-none">
+                                        Débito Total =
+                                    </p>
+                                    <p className="text-semibold tracking-widest text-red-800 select-none">
+                                        {formatarHorasTotaisSufixo(dadosSaldo.debitoTotal)}
+                                    </p>
+                                </div>
+
+                                <div
+                                    className={`flex items-center gap-2 rounded-md border ${
+                                        dadosSaldo.resumo.saldoGeral > 0
+                                            ? 'bg-green-100 px-4 py-2 shadow-xs shadow-black'
+                                            : dadosSaldo.resumo.saldoGeral < 0
+                                              ? 'bg-red-100 px-4 py-2 shadow-xs shadow-black'
+                                              : 'bg-gray-100 px-4 py-2 shadow-xs shadow-black'
+                                    }`}
+                                >
+                                    <p
+                                        className={`text-semibold tracking-widest ${
+                                            dadosSaldo.resumo.saldoGeral > 0
+                                                ? 'text-green-700'
+                                                : dadosSaldo.resumo.saldoGeral < 0
+                                                  ? 'text-red-700'
+                                                  : 'text-gray-700'
+                                        } select-none`}
+                                    >
+                                        Saldo Geral
+                                    </p>
+                                    <p
+                                        className={`text-semibold tracking-widest ${
+                                            dadosSaldo.resumo.saldoGeral > 0
+                                                ? 'text-green-700'
+                                                : dadosSaldo.resumo.saldoGeral < 0
+                                                  ? 'text-red-700'
+                                                  : 'text-gray-700'
+                                        }`}
+                                    >
+                                        {dadosSaldo.resumo.saldoGeral > 0 ? '+' : ''}
+                                        {formatarHorasTotaisSufixo(dadosSaldo.resumo.saldoGeral)}
+                                    </p>
+                                </div>
+
+                                <div className="flex items-center gap-2 rounded-md border bg-yellow-100 px-4 py-2 shadow-xs shadow-black">
+                                    <p className="text-semibold tracking-widest text-yellow-800 select-none">
+                                        Compensações =
+                                    </p>
+                                    <p className="text-semibold tracking-widest text-yellow-800 select-none">
+                                        {dadosSaldo.resumo.mesesCompensados} meses
+                                    </p>
+                                </div>
+                            </div>
+                        </ChartCard>
+                    )}
+
+                    {/* Gráfico: Horas por Cliente */}
+                    {isAdmin &&
+                        !filters.cliente &&
+                        horasPorCliente &&
+                        horasPorCliente.length > 0 && (
+                            <ChartCard
+                                title={`Horas por Cliente - ${filters.mes}/${filters.ano}`}
+                                variant="tertiary"
+                            >
+                                <ResponsiveContainer
+                                    width="100%"
+                                    height={300}
+                                    className="sm:h-[320px] lg:h-[350px]"
+                                >
+                                    <BarChart
+                                        data={horasPorCliente.slice(0, 10)}
+                                        margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
+                                    >
+                                        <XAxis
+                                            dataKey="cliente"
+                                            stroke="#000000"
+                                            tickLine={false}
+                                            axisLine={{ stroke: '#000000', strokeWidth: 1 }}
+                                            tick={{
+                                                fill: '#000000',
+                                                fontSize: 12,
+                                                fontWeight: 800,
+                                                letterSpacing: '0.2em',
+                                            }}
+                                            tickFormatter={renderizarPrimeiroNome}
+                                            angle={-35}
+                                            textAnchor="end"
+                                            interval={0}
+                                            height={100}
+                                        />
+                                        <YAxis
+                                            stroke="#000000"
+                                            tickLine={false}
+                                            axisLine={{ stroke: '#000000', strokeWidth: 1 }}
+                                            tick={{
+                                                fill: '#000000',
+                                                fontSize: 12,
+                                                fontWeight: 800,
+                                                letterSpacing: '0.2em',
+                                            }}
+                                        />
+                                        <Tooltip
+                                            content={
+                                                <CustomTooltip
+                                                    valueFormatter={(value) =>
+                                                        `${formatarHorasTotaisSufixo(value)}`
+                                                    }
+                                                />
+                                            }
+                                        />
+                                        <Legend
+                                            wrapperStyle={{
+                                                fontSize: '14px',
+                                                letterSpacing: '0.2em',
+                                                fontWeight: 800,
+                                            }}
+                                        />
+                                        <Bar
+                                            dataKey="horas"
+                                            fill={COLORS.info}
+                                            radius={[8, 8, 0, 0]}
+                                            name="Horas"
+                                            label={{
+                                                position: 'top',
+                                                fill: '#000000',
+                                                fontSize: 12,
+                                                fontWeight: 800,
+                                                letterSpacing: '0.2em',
+                                                formatter: (value: number) =>
+                                                    formatarHorasArredondadas(value),
+                                            }}
+                                        />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </ChartCard>
+                        )}
+
+                    {/* Gráfico: Evolução Diária de Horas */}
+                    {horasPorDia && horasPorDia.length > 0 && (
+                        <ChartCard
+                            title={`Evolução Diária de Horas - ${filters.mes}/${filters.ano}`}
+                            variant="quaternary"
+                        >
+                            <ResponsiveContainer
+                                width="100%"
+                                height={300}
+                                className="sm:h-[320px] lg:h-[350px]"
+                            >
+                                <LineChart
+                                    data={horasPorDia}
+                                    margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
+                                >
                                     <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
                                     <XAxis
                                         dataKey="data"
-                                        stroke="#6b7280"
+                                        stroke="#000000"
                                         tickLine={false}
-                                        axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
+                                        axisLine={{ stroke: '#000000', strokeWidth: 1 }}
                                         tick={{
-                                            fill: '#111827',
-                                            fontSize: 11,
+                                            fill: '#000000',
+                                            fontSize: 12,
                                             fontWeight: 800,
                                             letterSpacing: '0.2em',
                                             textAnchor: 'middle',
@@ -256,12 +751,12 @@ export function Graficos({ filters }: FilterProps) {
                                         }}
                                     />
                                     <YAxis
-                                        stroke="#6b7280"
+                                        stroke="#000000"
                                         tickLine={false}
-                                        axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
+                                        axisLine={{ stroke: '#000000', strokeWidth: 1 }}
                                         tick={{
-                                            fill: '#111827',
-                                            fontSize: 11,
+                                            fill: '#000000',
+                                            fontSize: 12,
                                             fontWeight: 800,
                                             letterSpacing: '0.2em',
                                         }}
@@ -276,7 +771,13 @@ export function Graficos({ filters }: FilterProps) {
                                             />
                                         }
                                     />
-                                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                    <Legend
+                                        wrapperStyle={{
+                                            fontSize: '14px',
+                                            letterSpacing: '0.2em',
+                                            fontWeight: '800',
+                                        }}
+                                    />
                                     <Line
                                         type="monotone"
                                         dataKey="horas"
@@ -288,8 +789,8 @@ export function Graficos({ filters }: FilterProps) {
                                     />
                                 </LineChart>
                             </ResponsiveContainer>
-                            <div className="mt-3 rounded-md border bg-slate-100 p-2 shadow-xs shadow-black sm:mt-4 sm:p-3">
-                                <p className="text-xs font-extrabold tracking-widest text-black select-none sm:text-sm lg:text-base">
+                            <div className="mt-4 rounded-md border bg-slate-100 px-4 py-2 shadow-xs shadow-black">
+                                <p className="text-base font-semibold tracking-widest text-black select-none">
                                     <span>Total no período:</span>{' '}
                                     {formatarHorasTotaisSufixo(totalizadores?.TOTAL_HRS || 0)}
                                 </p>
@@ -297,11 +798,11 @@ export function Graficos({ filters }: FilterProps) {
                         </ChartCard>
                     )}
 
-                    {/* Gráfico 2: Top Chamados */}
-                    {topChamados && topChamados.length > 0 && (
+                    {/* Gráfico: Horas por Recurso */}
+                    {horasPorRecurso && horasPorRecurso.length > 0 && (
                         <ChartCard
-                            title={`Top 5 Chamados por Horas - ${filters.mes}/${filters.ano}`}
-                            variant="secondary"
+                            title={`Horas por Recurso - ${filters.mes}/${filters.ano}`}
+                            variant="quinary"
                         >
                             <ResponsiveContainer
                                 width="100%"
@@ -309,197 +810,18 @@ export function Graficos({ filters }: FilterProps) {
                                 className="sm:h-[320px] lg:h-[350px]"
                             >
                                 <BarChart
-                                    data={topChamados.slice(0, 5)}
+                                    data={horasPorRecurso}
+                                    layout="vertical"
                                     margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
                                 >
                                     <XAxis
-                                        dataKey="chamado"
-                                        stroke="#6b7280"
-                                        tickLine={false}
-                                        axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
-                                        tick={{
-                                            fill: '#111827',
-                                            fontSize: 11,
-                                            fontWeight: 800,
-                                            letterSpacing: '0.2em',
-                                            textAnchor: 'middle',
-                                        }}
-                                        tickFormatter={(value) => `#${formatarNumeros(value)}`}
-                                        textAnchor="end"
-                                        interval={0}
-                                        height={60}
-                                    />
-                                    <YAxis
-                                        stroke="#6b7280"
-                                        tickLine={false}
-                                        axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
-                                        tick={{
-                                            fill: '#111827',
-                                            fontSize: 11,
-                                            fontWeight: 800,
-                                            letterSpacing: '0.2em',
-                                        }}
-                                    />
-                                    <Tooltip
-                                        content={
-                                            <CustomTooltip
-                                                labelFormatter={(label) =>
-                                                    `Chamado - #${formatarNumeros(label)}`
-                                                }
-                                                valueFormatter={(value) =>
-                                                    `${formatarHorasTotaisSufixo(value)}`
-                                                }
-                                            />
-                                        }
-                                    />
-                                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                                    <Bar
-                                        dataKey="horas"
-                                        fill={COLORS.secondary}
-                                        radius={[8, 8, 0, 0]}
-                                        name="Horas Consumidas"
-                                        label={{
-                                            position: 'top',
-                                            fill: '#111827',
-                                            fontSize: 10,
-                                            fontWeight: 800,
-                                            letterSpacing: '0.2em',
-                                            formatter: (value: number) =>
-                                                formatarHorasArredondadas(value),
-                                        }}
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
-                            <div className="mt-3 space-y-1 sm:mt-4">
-                                {topChamados.slice(0, 3).map(
-                                    (
-                                        chamado: {
-                                            chamado: string | number;
-                                            cliente: string;
-                                            horas: number;
-                                        },
-                                        index: number
-                                    ) => (
-                                        <div
-                                            key={chamado.chamado}
-                                            className="flex items-center justify-between text-xs sm:text-sm"
-                                        >
-                                            <span className="font-extrabold tracking-widest text-black select-none">
-                                                {index + 1} - {chamado.cliente}
-                                            </span>
-                                            <span className="font-extrabold tracking-widest text-black select-none">
-                                                {formatarHorasTotaisSufixo(chamado.horas)}
-                                            </span>
-                                        </div>
-                                    )
-                                )}
-                            </div>
-                        </ChartCard>
-                    )}
-
-                    {/* Gráfico 3: Distribuição por Status */}
-                    {isAdmin && horasPorStatus && horasPorStatus.length > 0 && (
-                        <ChartCard
-                            title={`Distribuição de Horas por Status - ${filters.mes}/${filters.ano}`}
-                            variant="success"
-                        >
-                            <ResponsiveContainer
-                                width="100%"
-                                height={300}
-                                className="sm:h-[320px] lg:h-[350px]"
-                            >
-                                <PieChart>
-                                    <Pie
-                                        data={horasPorStatus}
-                                        cx="50%"
-                                        cy="50%"
-                                        labelLine={false}
-                                        label={(entry: { status?: string; percentual?: number }) =>
-                                            `${entry.status}: ${entry.percentual}%`
-                                        }
-                                        outerRadius={80}
-                                        fill="#8884d8"
-                                        dataKey="horas"
-                                    >
-                                        {horasPorStatus.map(
-                                            (
-                                                entry: {
-                                                    status: string;
-                                                    horas: number;
-                                                    percentual?: number;
-                                                },
-                                                index: number
-                                            ) => (
-                                                <Cell
-                                                    key={`cell-${index}`}
-                                                    fill={COLORS.pie[index % COLORS.pie.length]}
-                                                />
-                                            )
-                                        )}
-                                    </Pie>
-                                    <Tooltip
-                                        content={
-                                            <CustomTooltip
-                                                valueFormatter={(value) =>
-                                                    `${formatarHorasTotaisSufixo(value)}`
-                                                }
-                                            />
-                                        }
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4">
-                                {horasPorStatus.map(
-                                    (
-                                        status: {
-                                            status: string;
-                                            horas: number;
-                                            percentual?: number;
-                                        },
-                                        index: number
-                                    ) => (
-                                        <div
-                                            key={status.status}
-                                            className="flex items-center gap-2"
-                                        >
-                                            <div
-                                                className="h-2.5 w-2.5 rounded-full sm:h-3 sm:w-3"
-                                                style={{
-                                                    backgroundColor:
-                                                        COLORS.pie[index % COLORS.pie.length],
-                                                }}
-                                            />
-                                            <span className="text-[10px] font-semibold tracking-widest text-slate-800 select-none sm:text-xs lg:text-sm">
-                                                {status.status}
-                                            </span>
-                                        </div>
-                                    )
-                                )}
-                            </div>
-                        </ChartCard>
-                    )}
-
-                    {/* Gráfico 4: Horas por Recurso */}
-                    {horasPorRecurso && horasPorRecurso.length > 0 && (
-                        <ChartCard
-                            title={`Horas por Recurso - ${filters.mes}/${filters.ano}`}
-                            variant="info"
-                        >
-                            <ResponsiveContainer
-                                width="100%"
-                                height={300}
-                                className="sm:h-[320px] lg:h-[350px]"
-                            >
-                                <BarChart data={horasPorRecurso} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                    <XAxis
                                         type="number"
-                                        stroke="#6b7280"
+                                        stroke="#000000"
                                         tickLine={false}
-                                        axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
+                                        axisLine={{ stroke: '#000000', strokeWidth: 1 }}
                                         tick={{
-                                            fill: '#111827',
-                                            fontSize: 11,
+                                            fill: '#000000',
+                                            fontSize: 12,
                                             fontWeight: 800,
                                             letterSpacing: '0.2em',
                                             textAnchor: 'middle',
@@ -509,12 +831,12 @@ export function Graficos({ filters }: FilterProps) {
                                         dataKey="recurso"
                                         type="category"
                                         width={120}
-                                        stroke="#6b7280"
+                                        stroke="#000000"
                                         tickLine={false}
-                                        axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
+                                        axisLine={{ stroke: '#000000', strokeWidth: 1 }}
                                         tick={{
-                                            fill: '#111827',
-                                            fontSize: 11,
+                                            fill: '#000000',
+                                            fontSize: 12,
                                             fontWeight: 800,
                                             letterSpacing: '0.2em',
                                         }}
@@ -536,17 +858,32 @@ export function Graficos({ filters }: FilterProps) {
                                             />
                                         }
                                     />
-                                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                                    <Legend
+                                        wrapperStyle={{
+                                            fontSize: '14px',
+                                            letterSpacing: '0.2em',
+                                            fontWeight: 800,
+                                        }}
+                                    />
                                     <Bar
                                         dataKey="horas"
                                         fill={COLORS.success}
                                         radius={[0, 8, 8, 0]}
                                         name="Horas Trabalhadas"
+                                        label={{
+                                            position: 'right',
+                                            fill: '#000000',
+                                            fontSize: 12,
+                                            fontWeight: 800,
+                                            letterSpacing: '0.2em',
+                                            formatter: (value: number) =>
+                                                formatarHorasTotaisSufixo(value),
+                                        }}
                                     />
                                 </BarChart>
                             </ResponsiveContainer>
-                            <div className="mt-3 rounded-md border bg-slate-100 p-2 shadow-xs shadow-black sm:mt-4 sm:p-3">
-                                <p className="text-xs font-extrabold tracking-widest text-black select-none sm:text-sm lg:text-base">
+                            <div className="mt-4 rounded-md border bg-slate-100 px-4 py-2 shadow-xs shadow-black">
+                                <p className="text-base font-semibold tracking-widest text-black select-none">
                                     <span className="font-semibold">Média por recurso:</span>{' '}
                                     {formatarHorasTotaisSufixo(
                                         horasPorRecurso.reduce(
@@ -555,179 +892,6 @@ export function Graficos({ filters }: FilterProps) {
                                         ) / horasPorRecurso.length
                                     )}
                                 </p>
-                            </div>
-                        </ChartCard>
-                    )}
-
-                    {/* Gráfico 5: Horas por Cliente */}
-                    {isAdmin && horasPorCliente && horasPorCliente.length > 0 && (
-                        <ChartCard
-                            title={`Horas por Cliente - ${filters.mes}/${filters.ano}`}
-                            variant="warning"
-                        >
-                            <ResponsiveContainer
-                                width="100%"
-                                height={300}
-                                className="sm:h-[320px] lg:h-[350px]"
-                            >
-                                <BarChart
-                                    data={horasPorCliente.slice(0, 10)}
-                                    margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
-                                >
-                                    <XAxis
-                                        dataKey="cliente"
-                                        stroke="#6b7280"
-                                        tickLine={false}
-                                        axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
-                                        tick={{
-                                            fill: '#111827',
-                                            fontSize: 11,
-                                            fontWeight: 800,
-                                            letterSpacing: '0.2em',
-                                        }}
-                                        tickFormatter={renderizarPrimeiroNome}
-                                        angle={-35}
-                                        textAnchor="end"
-                                        interval={0}
-                                        height={100}
-                                    />
-                                    <YAxis
-                                        stroke="#6b7280"
-                                        tickLine={false}
-                                        axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
-                                        tick={{
-                                            fill: '#111827',
-                                            fontSize: 11,
-                                            fontWeight: 800,
-                                            letterSpacing: '0.2em',
-                                        }}
-                                    />
-                                    <Tooltip
-                                        content={
-                                            <CustomTooltip
-                                                valueFormatter={(value) =>
-                                                    `${formatarHorasTotaisSufixo(value)}`
-                                                }
-                                            />
-                                        }
-                                    />
-                                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                                    <Bar
-                                        dataKey="horas"
-                                        fill={COLORS.info}
-                                        radius={[8, 8, 0, 0]}
-                                        name="Horas"
-                                        label={{
-                                            position: 'top',
-                                            fill: '#111827',
-                                            fontSize: 10,
-                                            fontWeight: 800,
-                                            letterSpacing: '0.2em',
-                                            formatter: (value: number) =>
-                                                formatarHorasArredondadas(value),
-                                        }}
-                                    />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        </ChartCard>
-                    )}
-
-                    {/* Gráfico 6: Horas por Mês */}
-                    {horasPorMes && horasPorMes.length > 0 && (
-                        <ChartCard title={`Horas Totais por Mês - ${filters.ano}`} variant="danger">
-                            <ResponsiveContainer
-                                width="100%"
-                                height={300}
-                                className="sm:h-[320px] lg:h-[350px]"
-                            >
-                                <BarChart
-                                    data={horasPorMes}
-                                    margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
-                                >
-                                    <XAxis
-                                        dataKey="mes"
-                                        stroke="#6b7280"
-                                        tickLine={false}
-                                        axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
-                                        tick={{
-                                            fill: '#111827',
-                                            fontSize: 11,
-                                            fontWeight: 800,
-                                            letterSpacing: '0.2em',
-                                            textAnchor: 'middle',
-                                        }}
-                                        interval={0}
-                                        height={60}
-                                    />
-                                    <YAxis
-                                        stroke="#6b7280"
-                                        tickLine={false}
-                                        axisLine={{ stroke: '#d1d5db', strokeWidth: 1 }}
-                                        tick={{
-                                            fill: '#111827',
-                                            fontSize: 11,
-                                            fontWeight: 800,
-                                            letterSpacing: '0.2em',
-                                        }}
-                                    />
-                                    <Tooltip
-                                        content={
-                                            <CustomTooltip
-                                                labelFormatter={(label) => label}
-                                                valueFormatter={(value) =>
-                                                    `${formatarHorasTotaisSufixo(value)}`
-                                                }
-                                            />
-                                        }
-                                    />
-                                    <Legend wrapperStyle={{ fontSize: '12px' }} />
-                                    <Bar
-                                        dataKey="horas"
-                                        fill={COLORS.gradient}
-                                        radius={[8, 8, 0, 0]}
-                                        name="Total de Horas"
-                                        label={{
-                                            position: 'top',
-                                            fill: '#111827',
-                                            fontSize: 10,
-                                            fontWeight: 800,
-                                            letterSpacing: '0.2em',
-                                            formatter: (value: number) =>
-                                                formatarHorasArredondadas(value),
-                                        }}
-                                    >
-                                        {horasPorMes.map((entry: any, index: number) => (
-                                            <Cell
-                                                key={`cell-${index}`}
-                                                fill={
-                                                    entry.mesNum === filters.mes
-                                                        ? COLORS.danger
-                                                        : COLORS.gradient
-                                                }
-                                            />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
-                            <div className="mt-3 flex flex-col items-start justify-between gap-2 rounded-md border bg-slate-100 p-2 text-xs font-extrabold tracking-widest text-black shadow-xs shadow-black select-none sm:mt-4 sm:flex-row sm:items-center sm:gap-0 sm:p-3 sm:text-sm lg:text-base">
-                                <div>
-                                    <span className="font-semibold">Total anual:</span>{' '}
-                                    {formatarHorasTotaisSufixo(
-                                        horasPorMes.reduce(
-                                            (acc: number, m: { horas: number }) => acc + m.horas,
-                                            0
-                                        )
-                                    )}
-                                </div>
-                                <div>
-                                    <span className="font-semibold">Média mensal:</span>{' '}
-                                    {formatarHorasTotaisSufixo(
-                                        horasPorMes.reduce(
-                                            (acc: number, m: { horas: number }) => acc + m.horas,
-                                            0
-                                        ) / 12
-                                    )}
-                                </div>
                             </div>
                         </ChartCard>
                     )}
