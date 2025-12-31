@@ -6,6 +6,7 @@ import { FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 
+// ==================== INTERFACES ====================
 interface FilterProps {
     filters: {
         ano: number;
@@ -34,7 +35,7 @@ interface HorasBarProps {
     isOverLimit?: boolean;
 }
 
-// =================== CONSTANTES ====================
+// ==================== CONSTANTES ====================
 const COLORS = {
     contratadas: {
         gradient: 'bg-gradient-to-r from-blue-500 to-indigo-600',
@@ -54,7 +55,7 @@ const COLORS = {
     },
 };
 
-// =================== COMPONENTE CONTADOR ANIMADO ====================
+// ==================== COMPONENTE CONTADOR ANIMADO ====================
 const AnimatedCounter = ({ value, duration = 1000 }: { value: number; duration?: number }) => {
     const [count, setCount] = useState(0);
 
@@ -83,7 +84,7 @@ const AnimatedCounter = ({ value, duration = 1000 }: { value: number; duration?:
     return <>{formatarHorasTotaisSufixo(count)}</>;
 };
 
-// =================== COMPONENTE BARRA DE HORAS ====================
+// ==================== COMPONENTE BARRA DE HORAS ====================
 const HorasBar = ({
     label,
     value,
@@ -96,8 +97,9 @@ const HorasBar = ({
 }: HorasBarProps) => {
     return (
         <div className="group/bar w-full">
-            {/* Label e Valor */}
+            {/* === Label e Valor === */}
             <div className="mb-2 flex items-center justify-between">
+                {/* Label */}
                 <div className="flex items-center gap-4">
                     <div className={`${gradient} rounded-full border p-2 text-white`}>{icon}</div>
                     {statusIcon && <span className="text-sm">{statusIcon}</span>}
@@ -105,14 +107,13 @@ const HorasBar = ({
                         {label}
                     </span>
                 </div>
-                <span
-                    className={`text-base font-semibold tracking-widest select-none ${textColor}`}
-                >
+                {/* Valor */}
+                <span className={`text-lg font-semibold tracking-widest select-none ${textColor}`}>
                     <AnimatedCounter value={value} />
                 </span>
             </div>
 
-            {/* Barra de Progresso */}
+            {/* === Barra de Progresso === */}
             <div className="relative h-3 w-full overflow-hidden rounded-full bg-gray-200 shadow-xs shadow-black transition-all group-hover/bar:h-3.5 sm:h-3.5">
                 <div
                     className={`h-full rounded-full ${gradient} transition-all duration-1000 ease-out ${
@@ -128,7 +129,7 @@ const HorasBar = ({
     );
 };
 
-// =================== SKELETON LOADING ====================
+// ==================== SKELETON LOADING ====================
 const SkeletonLoadingCard = () => (
     <div className="flex h-32 flex-col overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20 shadow-lg sm:h-36 lg:h-40">
         <div className="flex h-full items-center justify-center">
@@ -294,17 +295,19 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FilterProps) {
     // ================================================================================
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* === Título do Card === */}
             <div className="mb-2 flex items-center justify-between">
-                <h1 className="text-base font-semibold tracking-widest text-black select-none">
+                <h1 className="text-base font-extrabold tracking-widest text-black select-none">
                     HORAS CONTRATADAS × EXECUTADAS
                 </h1>
             </div>
 
-            <div className="group relative flex h-70 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black">
-                {/* Gradient accent line */}
-                <div className="absolute top-0 right-0 left-0 h-1 bg-purple-500"></div>
+            {/* === Container === */}
+            <div className="group relative flex h-72 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black">
+                {/* Borda Superior */}
+                <div className="absolute top-0 right-0 left-0 h-1 bg-cyan-500"></div>
 
-                {/* Container Principal */}
+                {/* Body do Card */}
                 <div className="flex h-full flex-col justify-between gap-4 p-6">
                     {/* Barras de Horas */}
                     <div className="flex flex-col gap-10">
@@ -313,22 +316,26 @@ export function CardHorasContratadasHorasExecutadas({ filters }: FilterProps) {
                         ))}
                     </div>
 
-                    {/* Divider sutil */}
+                    {/* Linha Divisória */}
                     <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-gray-400 to-transparent"></div>
 
-                    {/* Percentual e Status */}
+                    {/* Label, Percentual e Diferença de Horas */}
                     <div className="flex items-center justify-between">
+                        {/* Label */}
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold tracking-widest text-black uppercase select-none">
                                 Utilização
                             </span>
                         </div>
+                        {/* Percentual e Diferença de Horas */}
                         <div className="flex items-center gap-2">
+                            {/* Percentual */}
                             <span
                                 className={`text-base font-semibold tracking-widest select-none ${executadasConfig.textColor}`}
                             >
                                 {percentual.toFixed(1)}%
                             </span>
+                            {/* Diferença de horas */}
                             {diferenca !== 0 && (
                                 <span
                                     className={`text-sm font-semibold tracking-widest select-none ${executadasConfig.textColor}`}

@@ -2,12 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import { useAuth } from '../../../context/AuthContext';
-
-// components
-import { Graficos } from '../../../components/dashboard/Graficos';
+import { ContainerDashboard } from '../../../components/dashboard/Container_Dashboard';
 import { LayoutDashboard } from '../../../components/dashboard/Layout_Dashboard';
 import { Filtros } from '../../../components/shared/Filtros';
+import { useAuth } from '../../../context/AuthContext';
 import { useFilters } from '../../../context/FiltersContext';
 
 export default function DashboardPage() {
@@ -15,14 +13,12 @@ export default function DashboardPage() {
     const { filters } = useFilters();
     const router = useRouter();
 
-    // Redireciona para a página de login se o usuário não estiver logado
     useEffect(() => {
         if (!isLoggedIn) {
             router.push('/paginas/login');
         }
     }, [isLoggedIn, router]);
 
-    // Se o usuário não estiver logado, não renderiza nada
     if (!isLoggedIn) return null;
 
     return (
@@ -33,9 +29,9 @@ export default function DashboardPage() {
                     <Filtros />
                 </div>
 
-                {/* Área com scroll - gráficos */}
+                {/* Área com scroll - cards e gráficos */}
                 <div className="min-h-0 flex-1">
-                    <Graficos
+                    <ContainerDashboard
                         filters={{
                             ano: filters.ano,
                             mes: filters.mes,

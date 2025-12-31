@@ -1,7 +1,7 @@
 // src/components/chamados/Tabela_Chamados.tsx
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     ColumnFiltersState,
     flexRender,
@@ -22,6 +22,7 @@ import { ExportaPDFChamadosButton } from './Button_PDF';
 import { ChamadoRowProps, getColunasChamados } from './Colunas_Tabela_Chamados';
 import { OSRowProps } from './Colunas_Tabela_OS';
 import { FiltroHeaderChamados, useFiltrosChamados } from './Filtro_Header_Tabela_Chamados';
+import { ModalAvaliacaoChamado } from './Modal_Avaliacao_Chamado';
 import { ModalOS } from './Modal_OS';
 import { ModalSolicitacaoChamado } from './Modal_Solicitacao_Chamado';
 import { ModalValidacaoOS } from './Modal_Validacao_OS';
@@ -110,6 +111,7 @@ export function TabelaChamados() {
     const { isAdmin, codCliente, isLoggedIn } = useAuth();
     const { filters } = useFilters();
     const { ano, mes, cliente, recurso, status } = filters;
+    const queryClient = useQueryClient();
 
     // Estados
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -120,6 +122,10 @@ export function TabelaChamados() {
 
     const [isModalSolicitacaoOpen, setIsModalSolicitacaoOpen] = useState(false);
     const [selectedChamadoSolicitacao, setSelectedChamadoSolicitacao] =
+        useState<ChamadoRowProps | null>(null);
+
+    const [isModalAvaliacaoOpen, setIsModalAvaliacaoOpen] = useState(false);
+    const [selectedChamadoAvaliacao, setSelectedChamadoAvaliacao] =
         useState<ChamadoRowProps | null>(null);
 
     const { columnFilterFn } = useFiltrosChamados();
@@ -226,10 +232,34 @@ export function TabelaChamados() {
         setSelectedChamadoSolicitacao(null);
     }, []);
 
+    // Função para abrir modal de avaliação
+    const handleOpenAvaliacao = useCallback((chamado: ChamadoRowProps) => {
+        setSelectedChamadoAvaliacao(chamado);
+        setIsModalAvaliacaoOpen(true);
+    }, []);
+
+    // Função para fechar modal de avaliação
+    const handleCloseAvaliacao = useCallback(() => {
+        setIsModalAvaliacaoOpen(false);
+        setSelectedChamadoAvaliacao(null);
+    }, []);
+
+    // Função para salvar avaliação
+    const handleSaveAvaliacao = useCallback(() => {
+        refetch(); // Recarrega os dados para mostrar a avaliação
+    }, [refetch]);
+
     // Colunas dinâmicas
     const columns = useMemo(
-        () => getColunasChamados(isAdmin, new Set(), columnWidths, handleOpenSolicitacao),
-        [isAdmin, columnWidths, handleOpenSolicitacao]
+        () =>
+            getColunasChamados(
+                isAdmin,
+                new Set(),
+                columnWidths,
+                handleOpenSolicitacao,
+                handleOpenAvaliacao // ✅ NOVO parâmetro
+            ),
+        [isAdmin, columnWidths, handleOpenSolicitacao, handleOpenAvaliacao]
     );
 
     // ==================== CALLBACKS ====================
@@ -425,6 +455,15 @@ export function TabelaChamados() {
                 codChamado={selectedChamadoSolicitacao?.COD_CHAMADO || 0}
                 dataChamado={selectedChamadoSolicitacao?.DATA_CHAMADO}
             />
+
+            {/* Modal Avaliação do Chamado */}
+            <ModalAvaliacaoChamado
+                isOpen={isModalAvaliacaoOpen}
+                onClose={handleCloseAvaliacao}
+                codChamado={selectedChamadoAvaliacao?.COD_CHAMADO || 0}
+                assuntoChamado={selectedChamadoAvaliacao?.ASSUNTO_CHAMADO || null}
+                onSave={handleSaveAvaliacao}
+            />
         </>
     );
 }
@@ -552,7 +591,7 @@ function Header({
                 />
 
                 {isAdmin && (
-                    <div className="flex flex-shrink-0 items-center gap-2 rounded-full bg-purple-900 px-3 py-1 shadow-md ring-2 shadow-black ring-emerald-600 lg:gap-3 lg:px-4 lg:py-1.5">
+                    <div className="flex flex-shrink-0 items-center gap-2 rounded-full bg-purple-900 px-3 py-1 ring-2 ring-emerald-600 lg:gap-3 lg:px-4 lg:py-1.5">
                         <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-600"></div>
                         <span className="text-base font-bold tracking-widest whitespace-nowrap text-emerald-300 select-none">
                             Administrador
@@ -575,9 +614,9 @@ function BadgeTotalizador({ label, valor, valorTotal }: BadgeTotalizadorProps) {
     return (
         <div className="group flex flex-shrink-0 items-center gap-2 rounded-md border bg-white px-6 py-2">
             <div className="h-2 w-2 animate-pulse rounded-full bg-purple-900"></div>
-            <span className="text-base font-semibold tracking-widest whitespace-nowrap text-black select-none">
+            <span className="text-base font-extrabold tracking-widest whitespace-nowrap text-black select-none">
                 {label}:{' '}
-                <span className="text-base font-semibold tracking-widest text-black select-none">
+                <span className="text-base font-extrabold tracking-widest text-black select-none">
                     {valor}
                     {valorTotal !== undefined && <span className="ml-1">/{valorTotal}</span>}
                 </span>

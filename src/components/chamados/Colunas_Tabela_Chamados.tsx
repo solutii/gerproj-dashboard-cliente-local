@@ -1,5 +1,5 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { ChevronRight, FileText } from 'lucide-react';
+import { ChevronRight, FileText, Star, StarOff } from 'lucide-react';
 import React from 'react';
 import { formatarDataHoraChamado, formatarDataParaBR } from '../../formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
@@ -12,17 +12,19 @@ export type ChamadoRowProps = {
     COD_CHAMADO: number;
     DATA_CHAMADO: string;
     HORA_CHAMADO: string;
+    SOLICITACAO_CHAMADO?: string | null;
     CONCLUSAO_CHAMADO: string | null;
     STATUS_CHAMADO: string;
     DTENVIO_CHAMADO: string | null;
     ASSUNTO_CHAMADO: string | null;
     EMAIL_CHAMADO: string | null;
     PRIOR_CHAMADO: number;
+    AVALIA_CHAMADO: number | null;
+
     NOME_RECURSO: string | null;
     NOME_CLASSIFICACAO: string | null;
     TOTAL_HORAS_OS: number;
     TEM_OS?: boolean;
-    SOLICITACAO_CHAMADO?: string | null;
 };
 
 // Função para obter as classes de estilo com base no status
@@ -48,13 +50,80 @@ const getStylesStatus = (status: string | undefined) => {
 };
 
 // Componente de Badge para Status
-const StatusBadge = ({ status }: { status: string }) => {
+// Componente de Badge para Status com Avaliação Integrada
+const StatusBadge = ({
+    status,
+    avaliacao,
+    onAvaliar,
+}: {
+    status: string;
+    avaliacao: number | null;
+    onAvaliar?: () => void;
+}) => {
     const styles = getStylesStatus(status);
+    const isFinalizado = status.toUpperCase() === 'FINALIZADO';
+
+    // Se avaliacao for null ou undefined, considera como 1 (não avaliado)
+    const avaliacaoValor = avaliacao ?? 1;
+    const podeAvaliar = avaliacaoValor === 1;
+    const foiAvaliado = avaliacaoValor >= 2 && avaliacaoValor <= 5;
+
+    // DEBUG - Remova depois de testar
+    console.log('StatusBadge Debug:', {
+        status,
+        avaliacao,
+        avaliacaoValor,
+        podeAvaliar,
+        foiAvaliado,
+        isFinalizado,
+    });
+
     return (
         <div
-            className={`inline-block w-full rounded px-6 py-1.5 text-sm font-extrabold tracking-widest select-none ${styles}`}
+            className={`relative flex items-center justify-between gap-2 rounded px-6 py-1.5 text-sm font-extrabold tracking-widest select-none ${styles}`}
         >
-            {status}
+            {/* Texto do Status */}
+            <span className="flex-1">{status}</span>
+
+            {/* Área de Avaliação (só aparece se finalizado) */}
+            {isFinalizado && (
+                <div className="flex items-center">
+                    {podeAvaliar ? (
+                        // Botão para avaliar (AVALIA_CHAMADO = 1)
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onAvaliar) {
+                                    onAvaliar();
+                                }
+                            }}
+                            className="flex items-center gap-1 rounded bg-yellow-500 px-2 py-1 text-xs font-bold text-white shadow-md transition-all hover:scale-105 hover:bg-yellow-600 active:scale-95"
+                            title="Avaliar atendimento"
+                        >
+                            <StarOff size={12} />
+                            <span>Avaliar</span>
+                        </button>
+                    ) : foiAvaliado ? (
+                        // Mostrar estrelas da avaliação (AVALIA_CHAMADO > 1)
+                        <div
+                            className="flex gap-0.5"
+                            title={`Avaliação: ${avaliacaoValor} estrelas`}
+                        >
+                            {Array.from({ length: 5 }).map((_, i) => (
+                                <Star
+                                    key={i}
+                                    size={14}
+                                    className={
+                                        i < avaliacaoValor
+                                            ? 'fill-yellow-400 text-yellow-400'
+                                            : 'fill-white/30 text-white/30'
+                                    }
+                                />
+                            ))}
+                        </div>
+                    ) : null}
+                </div>
+            )}
         </div>
     );
 };
@@ -111,7 +180,8 @@ export const getColunasChamados = (
     isAdmin: boolean,
     expandedRows: Set<number>,
     columnWidths?: Record<string, number>,
-    onOpenSolicitacao?: (chamado: ChamadoRowProps) => void
+    onOpenSolicitacao?: (chamado: ChamadoRowProps) => void,
+    onOpenAvaliacao?: (chamado: ChamadoRowProps) => void // ✅ NOVO parâmetro
 ): ColumnDef<ChamadoRowProps>[] => {
     const allColumns: ColumnDef<ChamadoRowProps>[] = [
         // CÓDIGO DO CHAMADO COM ÍCONE
@@ -313,7 +383,7 @@ export const getColunasChamados = (
                 }
 
                 return (
-                    <div className="text-left text-sm font-semibold tracking-widest text-black select-none">
+                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
                         {value}
                     </div>
                 );
@@ -367,12 +437,20 @@ export const getColunasChamados = (
                     STATUS
                 </div>
             ),
-            cell: ({ getValue }) => {
+            cell: ({ getValue, row }) => {
                 const value = getValue() as string;
+                const avaliacao = row.original.AVALIA_CHAMADO;
+
                 return (
-                    <div className="w-full text-center text-sm font-semibold tracking-widest select-none">
-                        <StatusBadge status={value} />
-                    </div>
+                    <StatusBadge
+                        status={value}
+                        avaliacao={avaliacao}
+                        onAvaliar={() => {
+                            if (onOpenAvaliacao) {
+                                onOpenAvaliacao(row.original);
+                            }
+                        }}
+                    />
                 );
             },
             enableColumnFilter: true,

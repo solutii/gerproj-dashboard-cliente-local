@@ -12,6 +12,7 @@ import {
 } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 
+// ==================== INTERFACES ====================
 interface FilterProps {
     filters: {
         ano: number;
@@ -44,7 +45,7 @@ interface StatusCardProps {
     isHighlight?: boolean;
 }
 
-// =================== CONSTANTES ====================
+// ==================== CONSTANTES ====================
 const COLORS = {
     finalizado: {
         gradient: 'bg-gradient-to-r from-green-600 to-emerald-600',
@@ -78,7 +79,7 @@ const COLORS = {
     },
 };
 
-// =================== COMPONENTE CONTADOR ANIMADO ====================
+// ==================== COMPONENTE CONTADOR ANIMADO ====================
 const AnimatedCounter = ({ value, duration = 1000 }: { value: number; duration?: number }) => {
     const [count, setCount] = useState(0);
 
@@ -107,7 +108,7 @@ const AnimatedCounter = ({ value, duration = 1000 }: { value: number; duration?:
     return <>{count}</>;
 };
 
-// =================== COMPONENTE STATUS CARD ====================
+// ==================== COMPONENTE STATUS CARD ====================
 const StatusCard = ({
     label,
     value,
@@ -119,21 +120,22 @@ const StatusCard = ({
 }: StatusCardProps) => {
     return (
         <div className="flex w-full flex-col items-center gap-1 rounded-xl p-2">
-            {/* Ícone e Label */}
-            <div className="flex items-center gap-4">
-                <div className={`text-xs ${gradient} rounded-full border p-2 text-white`}>
-                    {icon}
-                </div>
+            {/* === Ícone e Label === */}
+            <div className="flex items-center justify-center gap-4">
+                {/* Ícone */}
+                <div className={`${gradient} rounded-full border p-2 text-white`}>{icon}</div>
+                {/* Label */}
                 <span className="text-sm font-semibold tracking-widest text-black uppercase select-none">
                     {label}
                 </span>
             </div>
 
-            {/* Valor com contador animado */}
+            {/* === Valor e Porcentagem === */}
             <div className="flex flex-col items-center gap-1">
+                {/* Valor */}
                 <span
-                    className={`text-lg font-extrabold tracking-widest select-none ${textGradient} ${
-                        isHighlight ? 'text-2xl sm:text-3xl' : ''
+                    className={`text-xl font-extrabold tracking-widest select-none ${textGradient} ${
+                        isHighlight ? 'text-2xl sm:text-4xl' : ''
                     }`}
                 >
                     <AnimatedCounter value={value} />
@@ -147,7 +149,7 @@ const StatusCard = ({
                 )}
             </div>
 
-            {/* Barra de progresso sutil */}
+            {/* === Barra de progresso === */}
             {percentage !== undefined && percentage > 0 && (
                 <div className="h-1 w-full overflow-hidden rounded-full bg-gray-200 shadow-xs shadow-black">
                     <div
@@ -160,7 +162,7 @@ const StatusCard = ({
     );
 };
 
-// =================== SKELETON LOADING ====================
+// ==================== SKELETON LOADING ====================
 const SkeletonLoadingCard = () => (
     <div className="flex h-32 flex-col overflow-hidden rounded-xl border border-purple-200 bg-gradient-to-br from-white via-purple-50/30 to-purple-100/20 shadow-lg sm:h-36 lg:h-40">
         <div className="flex h-full items-center justify-center">
@@ -315,7 +317,7 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
             onClick: onStatusClick ? () => onStatusClick('AGUARDANDO_VALIDACAO') : undefined,
         },
         {
-            label: 'Atribuído',
+            label: 'Atribuídos',
             value: data.CHAMADOS_ATRIBUIDO ?? 0,
             gradient: COLORS.atribuido.gradient,
             textGradient: COLORS.atribuido.text,
@@ -330,17 +332,19 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
     // ================================================================================
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* === Título do Card  === */}
             <div className="mb-2 flex items-center justify-between">
-                <h1 className="text-base font-semibold tracking-widest text-black select-none">
+                <h1 className="text-base font-extrabold tracking-widest text-black select-none">
                     TOTAL DE CHAMADOS POR STATUS
                 </h1>
             </div>
 
+            {/* === Container === */}
             <div className="group relative flex h-72 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black">
-                {/* Gradient accent line */}
-                <div className="absolute top-0 right-0 left-0 h-1 bg-purple-500"></div>
+                {/* Borda Superior */}
+                <div className="absolute top-0 right-0 left-0 h-1 bg-lime-500"></div>
 
-                {/* Container Principal */}
+                {/* Body do Card */}
                 <div className="flex h-full flex-col justify-between gap-3 p-4">
                     {/* Linha Superior: Finalizados | Total Chamados | Em Atendimento */}
                     <div className="grid grid-cols-3 gap-2">
@@ -349,7 +353,7 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
                         ))}
                     </div>
 
-                    {/* Divider sutil */}
+                    {/* Linha Divisória */}
                     <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-gray-400 to-transparent"></div>
 
                     {/* Linha Inferior: Standby | Aguard. Validação | Atribuído */}

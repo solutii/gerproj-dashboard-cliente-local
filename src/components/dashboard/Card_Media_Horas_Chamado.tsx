@@ -6,6 +6,7 @@ import { FaExclamationTriangle, FaTasks, FaTicketAlt } from 'react-icons/fa';
 import { useAuth } from '../../context/AuthContext';
 import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 
+// ==================== INTERFACES ====================
 interface FilterProps {
     filters: {
         ano: number;
@@ -33,7 +34,7 @@ interface MediaCardProps {
     totalLabel: string;
 }
 
-// =================== CONSTANTES ====================
+// ==================== CONSTANTES ====================
 const COLORS = {
     chamado: {
         gradient: 'bg-gradient-to-r from-cyan-500 to-blue-500',
@@ -47,7 +48,7 @@ const COLORS = {
     },
 };
 
-// =================== COMPONENTE CONTADOR ANIMADO ====================
+// ==================== COMPONENTE CONTADOR ANIMADO ====================
 const AnimatedCounter = ({ value, duration = 1000 }: { value: number; duration?: number }) => {
     const [count, setCount] = useState(0);
 
@@ -76,45 +77,8 @@ const AnimatedCounter = ({ value, duration = 1000 }: { value: number; duration?:
     return <>{formatarHorasTotaisSufixo(count)}</>;
 };
 
-// =================== COMPONENTE NÚMERO ANIMADO ====================
-const AnimatedNumber = ({ value, duration = 1000 }: { value: number; duration?: number }) => {
-    const [count, setCount] = useState(0);
-
-    useEffect(() => {
-        let startTime: number | null = null;
-        let animationFrame: number;
-
-        const animate = (currentTime: number) => {
-            if (!startTime) startTime = currentTime;
-            const progress = Math.min((currentTime - startTime) / duration, 1);
-
-            const easeOutQuart = 1 - Math.pow(1 - progress, 4);
-            setCount(Math.floor(easeOutQuart * value));
-
-            if (progress < 1) {
-                animationFrame = requestAnimationFrame(animate);
-            } else {
-                setCount(value);
-            }
-        };
-
-        animationFrame = requestAnimationFrame(animate);
-        return () => cancelAnimationFrame(animationFrame);
-    }, [value, duration]);
-
-    return <>{count}</>;
-};
-
-// =================== COMPONENTE CARD DE MÉDIA ====================
-const MediaCard = ({
-    label,
-    value,
-    icon,
-    gradient,
-    textGradient,
-    total,
-    totalLabel,
-}: MediaCardProps) => {
+// ==================== COMPONENTE CARD DE MÉDIA ====================
+const MediaCard = ({ label, value, icon, gradient, textGradient }: MediaCardProps) => {
     return (
         <div className="flex w-full flex-col items-center gap-2">
             {/* Ícone e Label */}
@@ -141,7 +105,7 @@ const MediaCard = ({
     );
 };
 
-// =================== SKELETON LOADING ====================
+// ==================== SKELETON LOADING ====================
 const SkeletonLoadingCard = () => (
     <div className="flex h-32 flex-col overflow-hidden rounded-xl border border-cyan-200 bg-gradient-to-br from-white via-cyan-50/30 to-cyan-100/20 shadow-lg sm:h-36 lg:h-40">
         <div className="flex h-full items-center justify-center">
@@ -273,17 +237,19 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
     // ================================================================================
     return (
         <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* === Título do Card === */}
             <div className="mb-2 flex items-center justify-between">
-                <h1 className="text-base font-semibold tracking-widest text-black select-none">
+                <h1 className="text-base font-extrabold tracking-widest text-black select-none">
                     MÉDIA DE HORAS
                 </h1>
             </div>
 
-            <div className="group relative flex h-70 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black">
-                {/* Gradient accent line */}
-                <div className="absolute top-0 right-0 left-0 h-1 bg-purple-500"></div>
+            {/* === Container === */}
+            <div className="group relative flex h-72 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black">
+                {/* Borda Superior */}
+                <div className="absolute top-0 right-0 left-0 h-1 bg-pink-500"></div>
 
-                {/* Container Principal */}
+                {/* Body do Card */}
                 <div className="flex h-full items-center justify-center gap-4 p-4">
                     {/* Grid com duas colunas */}
                     <div className="grid w-full grid-cols-2 gap-4">
@@ -294,7 +260,7 @@ export function CardMediaHorasChamado({ filters }: FilterProps) {
                         ))}
                     </div>
 
-                    {/* Divider vertical no meio */}
+                    {/* Linha Divisória */}
                     <div className="absolute top-4 bottom-4 left-1/2 w-[2px] -translate-x-1/2 bg-gradient-to-b from-transparent via-gray-400 to-transparent"></div>
                 </div>
             </div>

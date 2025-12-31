@@ -504,7 +504,7 @@ export function ExportaPDFChamadosButton({
                           : 'Gerando PDF...'
                       : 'Exportar para PDF'
             }
-            className={`group cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 p-3 shadow-md shadow-black transition-all hover:scale-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:scale-100 ${className}`}
+            className={`group cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 p-3 shadow-md shadow-black transition-all duration-300 hover:scale-115 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
         >
             {isExporting ? (
                 <div className="flex flex-col items-center gap-1">
