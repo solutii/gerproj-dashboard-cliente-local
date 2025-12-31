@@ -14,19 +14,19 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
-import { IsError } from '../../../components/shared/IsError';
-import { IsLoading } from '../../../components/shared/IsLoading';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import {
     formatarHorasArredondadas,
     formatarHorasTotaisSufixo,
-} from '../../../formatters/formatar-hora';
-import { corrigirTextoCorrompido } from '../../../formatters/formatar-texto-corrompido';
+} from '../../formatters/formatar-hora';
+import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 import {
     renderizarDoisPrimeirosNomes,
     renderizarPrimeiroNome,
-} from '../../../formatters/remover-acentuacao';
-import { ContainerCardsMetricas } from '../metricas/Container_Cards_Metricas';
+} from '../../formatters/remover-acentuacao';
+import { IsError } from '../shared/IsError';
+import { IsLoading } from '../shared/IsLoading';
+import { ContainerCardsMetricas } from './Container_Cards_Metricas';
 
 // ================== Interfaces ===================
 interface FilterProps {

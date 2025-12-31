@@ -3,8 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
-import { useAuth } from '../../../context/AuthContext';
-import { formatarHorasTotaisSufixo } from '../../../formatters/formatar-hora';
+import { useAuth } from '../../context/AuthContext';
+import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 
 interface FilterProps {
     filters: {

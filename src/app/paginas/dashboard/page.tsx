@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 
 // components
-import { Graficos } from '../../../components/dashboard/graficos/Graficos';
+import { Graficos } from '../../../components/dashboard/Graficos';
 import { LayoutDashboard } from '../../../components/dashboard/Layout_Dashboard';
 import { Filtros } from '../../../components/shared/Filtros';
 import { useFilters } from '../../../context/FiltersContext';
