@@ -1,6 +1,6 @@
-import { CardHorasContratadasHorasExecutadas } from './Card_Horas_Contratadas_Horas_Executadas';
-import { CardMediaHorasChamado } from './Card_Media_Horas_Chamado';
+import { CardHrsContratadasHrsExecutadas } from './Card_Hrs_Contratadas_Hrs_Executadas';
 import { CardTotalChamadosOS } from './Card_Total_Chamados_OS';
+import { CardMediaHrsChamadoTarefa } from './CardMediaHrsChamadoTarefa';
 import { Graficos } from './Graficos';
 
 interface FilterProps {
@@ -21,8 +21,8 @@ export function ContainerDashboard({ filters }: FilterProps) {
                 <div className="flex flex-col gap-2">
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-10">
                         <CardTotalChamadosOS filters={filters} />
-                        <CardHorasContratadasHorasExecutadas filters={filters} />
-                        <CardMediaHorasChamado filters={filters} />
+                        <CardHrsContratadasHrsExecutadas filters={filters} />
+                        <CardMediaHrsChamadoTarefa filters={filters} />
                     </div>
                 </div>
 

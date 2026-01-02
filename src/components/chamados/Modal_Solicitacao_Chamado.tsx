@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { FiCheck, FiCopy } from 'react-icons/fi';
 import { IoCall, IoClose } from 'react-icons/io5';
 import { formatarDataParaBR } from '../../formatters/formatar-data';
@@ -11,9 +11,11 @@ interface ModalSolicitacaoChamadoProps {
     isOpen: boolean;
     onClose: () => void;
     solicitacao: string;
+    assunto: string;
     codChamado: number;
     dataChamado?: string;
 }
+
 // ================================================================================
 // COMPONENTE PRINCIPAL
 // ================================================================================
@@ -21,23 +23,20 @@ export function ModalSolicitacaoChamado({
     isOpen,
     onClose,
     solicitacao,
+    assunto,
     codChamado,
     dataChamado,
 }: ModalSolicitacaoChamadoProps) {
     const [copied, setCopied] = useState(false);
 
     const solicitacaoCorrigida = corrigirTextoCorrompido(solicitacao);
+    const assuntoCorrigido = corrigirTextoCorrompido(assunto);
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(solicitacaoCorrigida);
+        const textToCopy = `ASSUNTO:\n${assuntoCorrigido}\n\nSOLICITAÇÃO:\n${solicitacaoCorrigida}`;
+        navigator.clipboard.writeText(textToCopy);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
-    };
-
-    const handleBackdropClick = (e: React.MouseEvent) => {
-        if (e.target === e.currentTarget) {
-            onClose();
-        }
     };
 
     if (!isOpen) return null;
@@ -46,24 +45,19 @@ export function ModalSolicitacaoChamado({
     // RENDERIZAÇÃO PRINCIPAL
     // ================================================================================
     return (
-        <div
-            onClick={handleBackdropClick}
-            className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-300 ease-out"
-        >
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out">
             {/* Overlay */}
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
             {/* Modal Container */}
-            <div className="animate-in slide-in-from-bottom-4 relative z-10 w-full max-w-4xl overflow-hidden rounded-xl bg-white transition-all duration-300 ease-out">
+            <div className="animate-in slide-in-from-bottom-4 relative z-10 w-full max-w-4xl overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
                 {/* Header */}
                 <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
                         <IoCall className="flex-shrink-0 text-white" size={60} />
-                        <div className="flex flex-col">
-                            <h1 className="text-2xl font-extrabold tracking-widest text-white select-none">
-                                SOLICITAÇÃO DO CHAMADO
-                            </h1>
-                            <p className="text-base font-semibold tracking-widest text-white select-none">
+                        <div className="flex flex-col gap-1 tracking-widest text-white select-none">
+                            <h1 className="text-2xl font-extrabold">DETALHES DO CHAMADO</h1>
+                            <p className="text-base font-semibold">
                                 Chamado #{formatarNumeros(codChamado)}
                                 {formatarDataParaBR(dataChamado) &&
                                     ` - ${formatarDataParaBR(dataChamado)}`}
@@ -73,28 +67,38 @@ export function ModalSolicitacaoChamado({
 
                     <button
                         onClick={onClose}
-                        className="group flex-shrink-0 cursor-pointer rounded-full bg-white/20 p-3 shadow-md shadow-black transition-all duration-200 hover:scale-103 hover:bg-red-500 hover:shadow-xl hover:shadow-black active:scale-95"
+                        className="group flex-shrink-0 cursor-pointer rounded-full border border-red-700 bg-red-500 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:shadow-xl hover:shadow-black active:scale-95"
                         aria-label="Fechar modal"
                     >
-                        <IoClose className="text-white" size={20} />
+                        <IoClose
+                            className="text-white group-hover:scale-125 group-active:scale-95"
+                            size={20}
+                        />
                     </button>
                 </header>
 
                 {/* Body */}
-                <div className="flex flex-col gap-10 px-4 py-12">
-                    {/* Área de texto com scroll */}
-                    <div className="scrollbar-thin scrollbar-track-gray-200 scrollbar-thumb-purple-500 max-h-[60vh] overflow-y-auto rounded-xl border bg-gray-100 p-6 shadow-xs shadow-black">
-                        <p className="text-base leading-relaxed font-semibold tracking-widest whitespace-pre-wrap text-black select-none">
-                            {solicitacaoCorrigida}
-                        </p>
+                <div className="flex flex-col gap-6 px-6 py-6 pb-10">
+                    <div className="mb-10 flex flex-col gap-6">
+                        <div className="flex flex-col gap-2 rounded-md border bg-gray-200 p-4 text-justify text-base tracking-widest text-black shadow-sm shadow-black select-none">
+                            <p className="font-bold">Assunto:</p>
+                            <p className="ml-4 text-sm font-semibold">
+                                {assuntoCorrigido || 'Sem assunto'}
+                            </p>
+                        </div>
+                        <div className="flex flex-col gap-2 rounded-md border bg-gray-200 p-4 text-justify text-base tracking-widest text-black shadow-sm shadow-black select-none">
+                            <p className="font-bold">Solicitação:</p>
+                            <p className="ml-4 text-sm font-semibold">
+                                {solicitacaoCorrigida || 'Sem solicitação'}
+                            </p>
+                        </div>
                     </div>
 
-                    {/* Footer com estatísticas e ações */}
+                    {/* Footer com botão de copiar */}
                     <div className="flex items-center justify-end">
-                        {/* Botão Copiar */}
                         <button
                             onClick={handleCopy}
-                            className="flex items-center gap-4 rounded-md bg-blue-600 px-6 py-2 shadow-md shadow-black transition-all duration-200 hover:scale-103 hover:bg-blue-800 hover:shadow-xl hover:shadow-black active:scale-95"
+                            className="flex w-[200px] cursor-pointer items-center justify-center gap-4 rounded-md border border-blue-900 bg-blue-700 px-4 py-2 text-base font-extrabold text-white shadow-md shadow-black transition-all duration-200 hover:scale-103 hover:bg-blue-900 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {copied ? (
                                 <>
@@ -107,7 +111,7 @@ export function ModalSolicitacaoChamado({
                                 <>
                                     <FiCopy className="text-white" size={20} />
                                     <span className="text-base font-semibold tracking-widest text-white select-none">
-                                        Copiar Texto
+                                        Copiar Tudo
                                     </span>
                                 </>
                             )}

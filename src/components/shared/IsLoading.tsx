@@ -11,7 +11,7 @@ export function IsLoading({ isLoading, title, icon }: LoadingOverlayProps) {
     if (!isLoading) return null;
 
     return (
-        <div className="animate-in fade-in fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm duration-300">
+        <div className="animate-in fade-in fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm duration-200">
             <div className="flex flex-col items-center justify-center gap-6">
                 <div className="relative">
                     <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-200 via-blue-400 to-blue-600 opacity-20 blur-xl"></div>

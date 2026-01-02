@@ -228,7 +228,7 @@ const saveValidationApi = async ({
 // ===================
 
 // ==================== COMPONENTE PRINCIPAL ====================
-export function ModalValidacaoOS({ isOpen, selectedRow, onClose, onSave }: ModalValidacaoOSProps) {
+export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalValidacaoOSProps) {
     const { isAdmin } = useAuth();
     const queryClient = useQueryClient();
 
@@ -243,7 +243,7 @@ export function ModalValidacaoOS({ isOpen, selectedRow, onClose, onSave }: Modal
     // Mutação para salvar a validação
     const saveValidationMutation = useMutation({
         mutationFn: saveValidationApi,
-        onSuccess: async (data, variables) => {
+        onSuccess: async (variables) => {
             if (selectedRow) {
                 const updatedRow: OSRowProps = {
                     ...selectedRow,

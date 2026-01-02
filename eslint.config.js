@@ -23,6 +23,15 @@ const eslintConfig = [
             'react/react-in-jsx-scope': 'off',
             'tailwindcss/classnames-order': 'off',
             'prettier/prettier': ['error'],
+            // Detecta variáveis, funções e imports não utilizados
+            '@typescript-eslint/no-unused-vars': [
+                'warn',
+                {
+                    argsIgnorePattern: '^_',
+                    varsIgnorePattern: '^_',
+                    caughtErrorsIgnorePattern: '^_',
+                },
+            ],
         },
     }),
 ];

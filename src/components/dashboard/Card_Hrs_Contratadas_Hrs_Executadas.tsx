@@ -167,7 +167,7 @@ const SkeletonLoadingCard = () => (
 // ================================================================================
 // COMPONENTE PRINCIPAL
 // ================================================================================
-export function CardHorasContratadasHorasExecutadas({ filters }: FilterProps) {
+export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
     const { isAdmin, codCliente } = useAuth();
 
     const fetchData = async (): Promise<ApiResponse> => {

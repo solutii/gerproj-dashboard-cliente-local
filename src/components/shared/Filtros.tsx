@@ -428,7 +428,7 @@ export function Filtros() {
                 <select
                     value={ano}
                     onChange={(e) => setAno(Number(e.target.value))}
-                    className={`w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-300 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none ${
+                    className={`w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none ${
                         isAnoAtivo ? 'ring-4 ring-purple-600' : ''
                     }`}
                 >
@@ -447,7 +447,7 @@ export function Filtros() {
                 <select
                     value={mes}
                     onChange={(e) => setMes(Number(e.target.value))}
-                    className={`w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-300 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none ${
+                    className={`w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none ${
                         isMesAtivo ? 'ring-4 ring-purple-600' : ''
                     }`}
                 >
@@ -472,7 +472,7 @@ export function Filtros() {
                     placeholder={clientesLoading ? 'Carregando...' : 'Selecione o cliente'}
                     showClear={!codCliente}
                     isActive={isClienteAtivo}
-                    className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-300 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+                    className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30"
                 />
 
                 {/* Recurso */}
@@ -484,7 +484,7 @@ export function Filtros() {
                     options={recursosData.map((r) => ({ value: r.cod, label: r.nome }))}
                     placeholder={isLoading ? 'Carregando...' : 'Selecione o recurso'}
                     isActive={isRecursoAtivo}
-                    className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-300 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                    className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
                 />
 
                 {/* Status */}
@@ -496,7 +496,7 @@ export function Filtros() {
                     options={statusData.map((s) => ({ value: s, label: s }))}
                     placeholder={isLoading ? 'Carregando...' : 'Selecione o status'}
                     isActive={isStatusAtivo}
-                    className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-300 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                    className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
                 />
             </div>
         </div>

@@ -133,11 +133,6 @@ async function salvarAvaliacao(
     observacao: string | null
 ): Promise<NextResponse> {
     try {
-        console.log(`[API AVALIACAO] Salvando avaliação para chamado ${codChamado}:`, {
-            avaliacao,
-            observacao,
-        });
-
         const sql = `
             UPDATE CHAMADO
             SET AVALIA_CHAMADO = ?,
@@ -147,13 +142,8 @@ async function salvarAvaliacao(
 
         const params = [avaliacao, observacao || null, codChamado];
 
-        console.log('[API AVALIACAO] Executando SQL:', sql);
-        console.log('[API AVALIACAO] Parâmetros:', params);
-
         // ✅ MUDANÇA CRÍTICA: usar firebirdExecute ao invés de firebirdQuery
         await firebirdExecute(sql, params);
-
-        console.log(`[API AVALIACAO] ✅ Avaliação salva com sucesso para chamado ${codChamado}`);
 
         return NextResponse.json(
             {
@@ -187,8 +177,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
         const { codChamado } = await params;
 
-        console.log(`[API AVALIACAO] Recebida requisição para avaliar chamado ${codChamado}`);
-
         // Validar código do chamado
         const codChamadoValidado = validarCodChamado(codChamado);
         if (codChamadoValidado instanceof NextResponse) {
@@ -197,7 +185,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         // Validar corpo da requisição
         const body = await request.json();
-        console.log('[API AVALIACAO] Body recebido:', body);
 
         const validacao = validarAvaliacao(body);
         if (validacao instanceof NextResponse) {
@@ -207,12 +194,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const { avaliacao, observacao } = validacao;
 
         // Verificar se o chamado pode ser avaliado
-        console.log(
-            `[API AVALIACAO] Verificando se chamado ${codChamadoValidado} pode ser avaliado`
-        );
         const verificacao = await verificarChamado(codChamadoValidado);
         if (verificacao.error) {
-            console.log('[API AVALIACAO] Verificação falhou:', verificacao.error);
             return verificacao.error;
         }
 

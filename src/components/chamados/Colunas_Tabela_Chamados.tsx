@@ -1,11 +1,9 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { ChevronRight, FileText, Star, StarOff } from 'lucide-react';
-import React from 'react';
+import { MdAssessment, MdChevronRight, MdInsertDriveFile, MdOutlineStar } from 'react-icons/md';
 import { formatarDataHoraChamado, formatarDataParaBR } from '../../formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 import { formatarNumeros, formatarPrioridade } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { TooltipTabela } from '../shared/Tooltip';
 
 // ==================== TIPOS ====================
 export type ChamadoRowProps = {
@@ -31,25 +29,24 @@ export type ChamadoRowProps = {
 const getStylesStatus = (status: string | undefined) => {
     switch (status?.toUpperCase()) {
         case 'NAO FINALIZADO':
-            return 'bg-red-600 border border-red-700 text-white italic';
+            return 'bg-red-600 border border-red-800 text-white shadow-sm shadow-black';
         case 'EM ATENDIMENTO':
-            return 'bg-blue-600 border border-blue-700 text-white italic';
+            return 'bg-blue-600 border border-blue-800 text-white shadow-sm shadow-black';
         case 'FINALIZADO':
-            return 'bg-green-600 border border-green-700 text-white italic';
+            return 'bg-green-600 border border-green-800 text-white shadow-sm shadow-black';
         case 'NAO INICIADO':
-            return 'bg-yellow-600 border border-yellow-700 text-white italic';
+            return 'bg-red-500 border border-red-700 text-white shadow-sm shadow-black';
         case 'STANDBY':
-            return 'bg-orange-600 border border-orange-700 text-white italic';
+            return 'bg-orange-500 border border-orange-700 text-black shadow-sm shadow-black';
         case 'ATRIBUIDO':
-            return 'bg-teal-600 border border-teal-700 text-white italic';
+            return 'bg-cyan-500 border border-cyan-700 text-black shadow-sm shadow-black';
         case 'AGUARDANDO VALIDACAO':
-            return 'bg-purple-600 border border-purple-700 text-white italic';
+            return 'bg-yellow-500 border border-yellow-700 text-black shadow-sm shadow-black';
         default:
-            return 'bg-gray-500 border border-gray-600 text-black italic';
+            return 'bg-gray-600 border border-gray-800 text-black shadow-sm shadow-black';
     }
 };
 
-// Componente de Badge para Status
 // Componente de Badge para Status com Avaliação Integrada
 const StatusBadge = ({
     status,
@@ -67,16 +64,6 @@ const StatusBadge = ({
     const avaliacaoValor = avaliacao ?? 1;
     const podeAvaliar = avaliacaoValor === 1;
     const foiAvaliado = avaliacaoValor >= 2 && avaliacaoValor <= 5;
-
-    // DEBUG - Remova depois de testar
-    console.log('StatusBadge Debug:', {
-        status,
-        avaliacao,
-        avaliacaoValor,
-        podeAvaliar,
-        foiAvaliado,
-        isFinalizado,
-    });
 
     return (
         <div
@@ -97,11 +84,10 @@ const StatusBadge = ({
                                     onAvaliar();
                                 }
                             }}
-                            className="flex items-center gap-1 rounded bg-yellow-500 px-2 py-1 text-xs font-bold text-white shadow-md transition-all hover:scale-105 hover:bg-yellow-600 active:scale-95"
+                            className="flex-shrink-0 cursor-pointer rounded-md bg-purple-600 p-2 shadow-xs shadow-black transition-all duration-200 hover:scale-110 hover:bg-purple-800 hover:shadow-md hover:shadow-black active:scale-95"
                             title="Avaliar atendimento"
                         >
-                            <StarOff size={12} />
-                            <span>Avaliar</span>
+                            <MdAssessment className="text-white" size={18} />
                         </button>
                     ) : foiAvaliado ? (
                         // Mostrar estrelas da avaliação (AVALIA_CHAMADO > 1)
@@ -110,13 +96,13 @@ const StatusBadge = ({
                             title={`Avaliação: ${avaliacaoValor} estrelas`}
                         >
                             {Array.from({ length: 5 }).map((_, i) => (
-                                <Star
+                                <MdOutlineStar
                                     key={i}
                                     size={14}
                                     className={
                                         i < avaliacaoValor
-                                            ? 'fill-yellow-400 text-yellow-400'
-                                            : 'fill-white/30 text-white/30'
+                                            ? 'fill-yellow-300 text-yellow-300'
+                                            : 'fill-white/50 text-white/50'
                                     }
                                 />
                             ))}
@@ -128,60 +114,15 @@ const StatusBadge = ({
     );
 };
 
-// Componente auxiliar para células com tooltip condicional
-const CellWithConditionalTooltip = ({
-    content,
-    className,
-    maxWidth = '400px',
-}: {
-    content: string;
-    className: string;
-    maxWidth?: string;
-}) => {
-    const cellRef = React.useRef<HTMLDivElement>(null);
-    const [isTruncated, setIsTruncated] = React.useState(false);
-
-    React.useEffect(() => {
-        const checkTruncation = () => {
-            if (cellRef.current) {
-                setIsTruncated(cellRef.current.scrollWidth > cellRef.current.clientWidth);
-            }
-        };
-
-        checkTruncation();
-
-        const resizeObserver = new ResizeObserver(checkTruncation);
-        if (cellRef.current) {
-            resizeObserver.observe(cellRef.current);
-        }
-
-        return () => {
-            resizeObserver.disconnect();
-        };
-    }, [content]);
-
-    const cellContent = (
-        <div ref={cellRef} className={className}>
-            {content}
-        </div>
-    );
-
-    return isTruncated ? (
-        <TooltipTabela content={content} maxWidth={maxWidth}>
-            {cellContent}
-        </TooltipTabela>
-    ) : (
-        cellContent
-    );
-};
-
-// ==================== COLUNAS ====================
+// ================================================================================
+// COMPONENTE PRINCIPAL
+// ================================================================================
 export const getColunasChamados = (
     isAdmin: boolean,
     expandedRows: Set<number>,
     columnWidths?: Record<string, number>,
     onOpenSolicitacao?: (chamado: ChamadoRowProps) => void,
-    onOpenAvaliacao?: (chamado: ChamadoRowProps) => void // ✅ NOVO parâmetro
+    onOpenAvaliacao?: (chamado: ChamadoRowProps) => void
 ): ColumnDef<ChamadoRowProps>[] => {
     const allColumns: ColumnDef<ChamadoRowProps>[] = [
         // CÓDIGO DO CHAMADO COM ÍCONE
@@ -202,7 +143,7 @@ export const getColunasChamados = (
                         {/* Ícone indicando que há OS's */}
                         <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
                             {temOS ? (
-                                <ChevronRight
+                                <MdChevronRight
                                     className="text-black transition-transform group-hover:scale-125"
                                     size={24}
                                 />
@@ -272,31 +213,30 @@ export const getColunasChamados = (
             ),
             cell: ({ getValue, row }) => {
                 const value = getValue() as string | null;
-                const textValue = corrigirTextoCorrompido(value);
-                const hasSolicitacao = row.original.SOLICITACAO_CHAMADO;
+                const correctedTextValue = corrigirTextoCorrompido(value);
 
                 return (
                     <div className="flex w-full items-center gap-4">
-                        {/* Botão para abrir modal */}
-                        {hasSolicitacao && onOpenSolicitacao && (
+                        {onOpenSolicitacao && (
                             <button
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     onOpenSolicitacao(row.original);
                                 }}
                                 className="flex-shrink-0 cursor-pointer rounded-md bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-110 hover:bg-purple-800 hover:shadow-xl hover:shadow-black active:scale-95"
-                                title="Ver solicitação completa"
+                                title="Visualizar detalhes do chamado"
                             >
-                                <FileText className="text-white" size={18} />
+                                <MdInsertDriveFile className="text-white" size={18} />
                             </button>
                         )}
 
                         {/* Texto do assunto */}
-                        <CellWithConditionalTooltip
-                            content={textValue}
-                            className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                            maxWidth="400px"
-                        />
+                        <div
+                            className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                            title={correctedTextValue}
+                        >
+                            {correctedTextValue}
+                        </div>
                     </div>
                 );
             },
@@ -326,11 +266,12 @@ export const getColunasChamados = (
                 }
 
                 return (
-                    <CellWithConditionalTooltip
-                        content={value}
-                        className="truncate overflow-hidden text-left text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        maxWidth="300px"
-                    />
+                    <div
+                        className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                        title={value}
+                    >
+                        {value}
+                    </div>
                 );
             },
             enableColumnFilter: true,
@@ -347,14 +288,15 @@ export const getColunasChamados = (
             ),
             cell: ({ getValue }) => {
                 const value = getValue() as string | null;
-                const textValue = corrigirTextoCorrompido(value);
+                const correctedTextValue = corrigirTextoCorrompido(value);
 
                 return (
-                    <CellWithConditionalTooltip
-                        content={textValue}
-                        className="truncate overflow-hidden text-left text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        maxWidth="300px"
-                    />
+                    <div
+                        className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                        title={correctedTextValue}
+                    >
+                        {correctedTextValue}
+                    </div>
                 );
             },
             enableColumnFilter: true,
@@ -413,16 +355,17 @@ export const getColunasChamados = (
                     );
                 }
 
-                const parts = value.trim().split(/\s+/).filter(Boolean);
+                const correctedTextValue = corrigirTextoCorrompido(value);
+                const parts = correctedTextValue.trim().split(/\s+/).filter(Boolean);
                 const display = parts.length <= 2 ? parts.join(' ') : parts.slice(0, 2).join(' ');
-                const textValue = corrigirTextoCorrompido(display);
 
                 return (
-                    <CellWithConditionalTooltip
-                        content={textValue}
-                        className="truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        maxWidth="250px"
-                    />
+                    <div
+                        className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                        title={correctedTextValue}
+                    >
+                        {display}
+                    </div>
                 );
             },
             enableColumnFilter: true,

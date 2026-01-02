@@ -143,7 +143,7 @@ const SkeletonLoadingCard = () => (
 // ================================================================================
 // COMPONENTE PRINCIPAL
 // ================================================================================
-export function CardMediaHorasChamado({ filters }: FilterProps) {
+export function CardMediaHrsChamadoTarefa({ filters }: FilterProps) {
     const { isAdmin, codCliente } = useAuth();
 
     const fetchData = async (): Promise<MediasResponse> => {

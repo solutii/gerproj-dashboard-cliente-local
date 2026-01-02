@@ -98,7 +98,7 @@ async function fetchRecursos(params: {
 }
 // ===============
 
-// ✅ Função para buscar status - ATUALIZADA para lidar com strings ou objetos
+// Função para buscar status - ATUALIZADA para lidar com strings ou objetos
 async function fetchStatus(params: {
     ano: number;
     mes: number;
@@ -130,7 +130,7 @@ async function fetchStatus(params: {
 
     const data = await response.json();
 
-    // ✅ Normalizar o retorno: se vier array de strings, converter para objetos
+    //  Normalizar o retorno: se vier array de strings, converter para objetos
     if (Array.isArray(data) && data.length > 0) {
         if (typeof data[0] === 'string') {
             // Se for array de strings, converter para objetos
@@ -423,7 +423,7 @@ const DropdownWithFilter = memo(({ value, onChange, columnId }: DropdownFilterPr
                             </div>
                         ) : (
                             filteredOptions.map((option) => {
-                                // ✅ Formata o nome exibido e corrige texto
+                                //  Formata o nome exibido e corrige texto
                                 const optionDisplayName = formatDisplayName(option.nome);
                                 const tituloCorrigido = corrigirTextoCorrompido(option.nome);
 
@@ -935,12 +935,12 @@ export const FiltroHeaderChamados = memo(({ value, onChange, columnId }: InputFi
         );
     }
 
-    // ✅ COD_CHAMADO usa input com separador de milhares
+    //  COD_CHAMADO usa input com separador de milhares
     if (columnId === 'COD_CHAMADO') {
         return <InputFilterNumber value={value} onChange={onChange} />;
     }
 
-    // ✅ PRIOR_CHAMADO usa input com formatação P-
+    //  PRIOR_CHAMADO usa input com formatação P-
     if (columnId === 'PRIOR_CHAMADO') {
         return <InputFilterPriority value={value} onChange={onChange} />;
     }
@@ -1015,7 +1015,7 @@ function formatarPrioridade(value: string): string {
 }
 // =====
 
-// ✅ Função para remover formatação de prioridade
+//  Função para remover formatação de prioridade
 function removerFormatacaoPrioridade(value: string): string {
     return value.replace(/\D/g, '');
 }

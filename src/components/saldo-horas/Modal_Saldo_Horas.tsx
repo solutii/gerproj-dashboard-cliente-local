@@ -9,6 +9,8 @@ import { SaldoRowProps } from '../../components/saldo-horas/Colunas_Tabela_Saldo
 import { TabelaSaldoHoras } from '../../components/saldo-horas/Tabela_Saldo_Horas';
 import { useAuth } from '../../context/AuthContext';
 import { useFilters } from '../../context/FiltersContext';
+import { IsError } from '../shared/IsError';
+import { IsLoading } from '../shared/IsLoading';
 
 interface ApiResponse {
     mesAtual: number;
@@ -87,28 +89,40 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
         enabled: isOpen && ((isAdmin && !!filters.cliente) || (!isAdmin && !!codCliente)),
     });
 
+    if (isLoading) {
+        return <IsLoading isLoading={isLoading} title="Carregando dados de saldo de horas..." />;
+    }
+
+    if (error) {
+        return (
+            <IsError
+                isError={!!error}
+                error={error as Error}
+                title="Erro ao carregar dados de saldo de horas"
+            />
+        );
+    }
+
     if (!isOpen) return null;
 
     // ================================================================================
     // RENDERIZAÇÃO PRINCIPAL
     // ================================================================================
     return (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-300 ease-out">
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out">
             {/* Overlay */}
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-            {/* Modal Content */}
-            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex h-[1040px] w-[1800px] flex-col overflow-hidden rounded-xl bg-white transition-all duration-300 ease-out">
+            {/* Modal Container */}
+            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[2200px] flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
                 {/* Header */}
                 <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
                         <PiTimerFill className="flex-shrink-0 text-white" size={60} />
-                        <div>
-                            <h2 className="text-xl font-extrabold tracking-widest text-white sm:text-2xl">
-                                SALDO DE HORAS
-                            </h2>
+                        <div className="flex flex-col gap-1 tracking-widest text-white select-none">
+                            <h1 className="text-2xl font-extrabold">SALDO DE HORAS</h1>
                             {isAdmin && data && (
-                                <p className="mt-1 text-xs font-semibold tracking-widest text-white sm:text-base">
+                                <p className="text-base font-semibold">
                                     {data.nomeCliente} • {data.mesAtual.toString().padStart(2, '0')}
                                     /{data.anoAtual}
                                 </p>
@@ -118,43 +132,25 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
 
                     <button
                         onClick={onClose}
-                        className="group flex-shrink-0 cursor-pointer rounded-full bg-white/20 p-4 shadow-md shadow-black transition-all hover:scale-115 hover:bg-red-500 active:scale-95"
+                        className="group flex-shrink-0 cursor-pointer rounded-full border border-red-700 bg-red-500 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:shadow-xl hover:shadow-black active:scale-95"
                         aria-label="Fechar modal"
                     >
                         <IoClose
-                            className="text-white group-hover:scale-115 group-active:scale-95"
+                            className="text-white group-hover:scale-125 group-active:scale-95"
                             size={20}
                         />
                     </button>
                 </header>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-                    {isLoading && (
-                        <div className="flex flex-col items-center justify-center gap-4 py-20">
-                            <div className="h-16 w-16 animate-spin rounded-full border-4 border-purple-200 border-t-purple-600"></div>
-                            <span className="text-lg font-bold text-slate-600">
-                                Carregando saldo de horas...
-                            </span>
-                        </div>
-                    )}
-
-                    {isError && (
-                        <div className="flex flex-col items-center justify-center gap-4 py-20">
-                            <FaExclamationTriangle className="text-red-500" size={48} />
-                            <span className="text-lg font-bold text-slate-600">
-                                {error instanceof Error ? error.message : 'Erro ao carregar dados'}
-                            </span>
-                        </div>
-                    )}
-
+                <div className="flex flex-col gap-6 px-6 py-6 pb-10">
                     {data && !isLoading && !isError && (
-                        <div className="flex flex-col gap-4 sm:gap-6">
+                        <div className="flex flex-col gap-4">
                             {/* Tabela */}
                             <TabelaSaldoHoras historico={data.historico} />
 
                             {/* Info sobre compensações */}
-                            <div className="flex items-start gap-3 rounded-lg border-t border-blue-300 bg-blue-100 p-4 shadow-md shadow-black">
+                            <div className="flex items-start gap-3 rounded-md border-t border-blue-300 bg-blue-100 p-4 shadow-sm shadow-black">
                                 <FaInfoCircle className="flex-shrink-0 text-blue-600" size={28} />
                                 <div className="text-black">
                                     <p className="mb-2 text-base font-extrabold tracking-widest select-none">
@@ -187,7 +183,7 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
                             </div>
 
                             {/* Info sobre expiração */}
-                            <div className="flex items-start gap-3 rounded-lg border-t border-yellow-300 bg-amber-100 p-4 shadow-md shadow-black">
+                            <div className="flex items-start gap-3 rounded-md border-t border-yellow-300 bg-amber-100 p-4 shadow-sm shadow-black">
                                 <FaExclamationTriangle
                                     className="flex-shrink-0 text-red-600"
                                     size={28}

@@ -107,14 +107,14 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
             accessorKey: 'periodo',
             id: 'periodo',
             header: () => (
-                <div className="text-center text-xs font-extrabold tracking-widest text-white select-none sm:text-sm">
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
                     PERÍODO
                 </div>
             ),
             cell: ({ row }) => {
                 const { mes, ano } = row.original;
                 return (
-                    <div className="text-center text-xs font-bold tracking-widest text-black select-none sm:text-sm">
+                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
                         {mes.toString().padStart(2, '0')}/{ano}
                     </div>
                 );
@@ -125,14 +125,14 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
             accessorKey: 'horasContratadas',
             id: 'horasContratadas',
             header: () => (
-                <div className="text-center text-xs font-extrabold tracking-widest text-white select-none sm:text-sm">
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
                     CONTRATADAS
                 </div>
             ),
             cell: ({ getValue }) => {
                 const value = getValue() as number;
                 return (
-                    <div className="text-center text-xs font-semibold tracking-widest text-black select-none sm:text-sm">
+                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
                         {formatarHorasTotaisSufixo(value)}
                     </div>
                 );
@@ -143,14 +143,14 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
             accessorKey: 'horasExecutadas',
             id: 'horasExecutadas',
             header: () => (
-                <div className="text-center text-xs font-extrabold tracking-widest text-white select-none sm:text-sm">
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
                     EXECUTADAS
                 </div>
             ),
             cell: ({ getValue }) => {
                 const value = getValue() as number;
                 return (
-                    <div className="text-center text-xs font-semibold tracking-widest text-black select-none sm:text-sm">
+                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
                         {formatarHorasTotaisSufixo(value)}
                     </div>
                 );
@@ -161,7 +161,7 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
             accessorKey: 'saldoBruto',
             id: 'saldoBruto',
             header: () => (
-                <div className="text-center text-xs font-extrabold tracking-widest text-white select-none sm:text-sm">
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
                     SALDO BRUTO
                 </div>
             ),
@@ -174,7 +174,7 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
 
                 return (
                     <div
-                        className={`text-center text-xs font-bold tracking-widest select-none sm:text-sm ${color}`}
+                        className={`text-center text-sm font-bold tracking-widest select-none ${color}`}
                     >
                         {value < 0 && '-'}
                         {value > 0 && '+'}
@@ -188,7 +188,7 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
             accessorKey: 'saldoLiquido',
             id: 'saldoLiquido',
             header: () => (
-                <div className="text-center text-xs font-extrabold tracking-widest text-white select-none sm:text-sm">
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
                     SALDO LÍQUIDO
                 </div>
             ),
@@ -202,9 +202,7 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
 
                 return (
                     <div className="text-center">
-                        <div
-                            className={`text-xs font-bold tracking-widest select-none sm:text-sm ${color}`}
-                        >
+                        <div className={`text-sm font-bold tracking-widest select-none ${color}`}>
                             {value < 0 && '-'}
                             {value > 0 && '+'}
                             {valorFormatado}
@@ -219,7 +217,7 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
             accessorKey: 'validoAte',
             id: 'validoAte',
             header: () => (
-                <div className="text-center text-xs font-extrabold tracking-widest text-white select-none sm:text-sm">
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
                     VÁLIDO ATÉ
                 </div>
             ),
@@ -229,7 +227,7 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
 
                 if (status === 'expirado') {
                     return (
-                        <div className="text-center text-xs font-semibold tracking-widest text-red-600 select-none sm:text-sm">
+                        <div className="text-center text-sm font-semibold tracking-widest text-red-600 select-none">
                             Expirado
                         </div>
                     );
@@ -237,7 +235,7 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
 
                 if (status === 'zerado' || status === 'compensado') {
                     return (
-                        <div className="text-center text-xs font-semibold tracking-widest text-black select-none sm:text-sm">
+                        <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
                             -
                         </div>
                     );
@@ -245,14 +243,14 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
 
                 if (status === 'negativo') {
                     return (
-                        <div className="text-center text-xs font-bold tracking-widest text-red-600 select-none sm:text-sm">
+                        <div className="text-center text-sm font-bold tracking-widest text-red-600 select-none">
                             -
                         </div>
                     );
                 }
 
                 return (
-                    <div className="text-center text-xs font-semibold tracking-widest text-green-600 select-none sm:text-sm">
+                    <div className="text-center text-sm font-semibold tracking-widest text-green-600 select-none">
                         {value}
                     </div>
                 );
@@ -263,7 +261,7 @@ export const getColunasSaldo = (): ColumnDef<SaldoRowProps>[] => {
             accessorKey: 'status',
             id: 'status',
             header: () => (
-                <div className="text-center text-xs font-extrabold tracking-widest text-white select-none sm:text-sm">
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
                     STATUS
                 </div>
             ),

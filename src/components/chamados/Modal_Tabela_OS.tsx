@@ -18,6 +18,14 @@ import { getColunasOS, OSRowProps } from './Colunas_Tabela_OS';
 import { ModalObservacaoOS } from './Modal_Observacao_OS';
 import { RedimensionarColunas } from './Redimensionar_Colunas';
 
+// ===== CONFIGURAÇÃO DE ALTURA DA TABELA =====
+const ZOOM_LEVEL = 0.67;
+const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL;
+const HEADER_HEIGHT = 293;
+const BASE_MIN_HEIGHT = 400;
+const MAX_HEIGHT = `calc(${ZOOM_COMPENSATION}vh - ${HEADER_HEIGHT}px)`;
+const MIN_HEIGHT = `${(BASE_MIN_HEIGHT * ZOOM_COMPENSATION) / 100}px`;
+
 // ==================== INTERFACES ====================
 interface ApiResponseOS {
     success: boolean;
@@ -86,7 +94,7 @@ const fetchOSByChamado = async ({
 };
 
 // ==================== COMPONENTE PRINCIPAL ====================
-export function ModalOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProps) {
+export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProps) {
     const { isAdmin, codCliente } = useAuth();
     const { filters } = useFilters();
     const { mes, ano } = filters;
@@ -151,15 +159,13 @@ export function ModalOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProp
         },
     });
 
-    const handleClose = () => {
-        onClose();
-    };
+    if (isLoading) {
+        return <IsLoading isLoading={isLoading} title="Carregando OS's do chamado..." />;
+    }
 
-    const handleBackdropClick = (e: React.MouseEvent) => {
-        if (e.target === e.currentTarget) {
-            handleClose();
-        }
-    };
+    if (error) {
+        return <IsError isError={!!error} error={error as Error} title="Erro ao Carregar OS's" />;
+    }
 
     if (!isOpen || codChamado === null) return null;
 
@@ -167,87 +173,64 @@ export function ModalOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProp
     // RENDERIZAÇÃO PRINCIPAL
     // ================================================================================
     return (
-        <div
-            onClick={handleBackdropClick}
-            className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-300 ease-out"
-        >
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out">
             {/* Overlay */}
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
             {/* Modal Container */}
-            <div className="animate-in slide-in-from-bottom-4 relative z-10 w-[2200px] overflow-hidden rounded-xl bg-white transition-all duration-300 ease-out">
+            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[2200px] flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
                 {/* Header */}
                 <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
                         <TbFileInvoice className="flex-shrink-0 text-white" size={60} />
-                        <div className="flex flex-col">
-                            <h1 className="text-2xl font-extrabold tracking-widest text-white select-none">
-                                ORDENS DE SERVIÇO
-                            </h1>
-                            <p className="text-base font-semibold tracking-widest text-white select-none">
+                        <div className="flex flex-col gap-1 tracking-widest text-white select-none">
+                            <h1 className="text-2xl font-extrabold">ORDENS DE SERVIÇO</h1>
+                            <p className="text-base font-semibold">
                                 Chamado #{formatarNumeros(codChamado)} - {dataChamado}
                             </p>
                         </div>
                     </div>
                     <button
                         onClick={onClose}
-                        className="group flex-shrink-0 cursor-pointer rounded-full bg-white/20 p-3 shadow-md shadow-black transition-all duration-200 hover:scale-103 hover:bg-red-500 hover:shadow-xl hover:shadow-black active:scale-95"
+                        className="group flex-shrink-0 cursor-pointer rounded-full border border-red-700 bg-red-500 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:shadow-xl hover:shadow-black active:scale-95"
                         aria-label="Fechar modal"
                     >
-                        <IoClose className="text-white" size={20} />
+                        <IoClose
+                            className="text-white group-hover:scale-125 group-active:scale-95"
+                            size={20}
+                        />
                     </button>
                 </header>
                 {/* ==================== */}
 
                 {/* Body */}
-                <div
-                    className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-6"
-                    style={{ maxHeight: 'calc(100vh - 80px)', minHeight: '300px' }}
-                >
-                    {isLoading && (
-                        <IsLoading isLoading={isLoading} title="Carregando OS's do chamado..." />
-                    )}
-
-                    {error && (
-                        <IsError
-                            isError={!!error}
-                            error={error as Error}
-                            title="Erro ao Carregar OS's"
-                        />
-                    )}
-
-                    {!isLoading && !error && osData.length === 0 && (
-                        <div className="px-4 py-10 text-center sm:py-20">
-                            <p className="text-base font-bold tracking-widest text-slate-600 select-none sm:text-lg lg:text-xl">
-                                Nenhuma OS encontrada para este chamado no período {mes}/{ano}
-                            </p>
-                        </div>
-                    )}
-
+                <div className="flex flex-col gap-6 px-6 py-6 pb-10">
                     {!isLoading && !error && osData.length > 0 && (
                         <>
                             {/* Tabela de OS's com altura fixa */}
-                            <div className="overflow-hidden rounded-lg border border-teal-800 shadow-lg">
+                            <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
                                 <div
-                                    className="scrollbar-thin scrollbar-track-teal-100 scrollbar-thumb-teal-600 hover:scrollbar-thumb-teal-800 overflow-x-auto overflow-y-auto"
+                                    className="scrollbar-thin scrollbar-track-purple-100 scrollbar-thumb-purple-600 hover:scrollbar-thumb-purple-800 flex-1 overflow-x-auto overflow-y-auto"
                                     style={{
-                                        height: 'calc(100vh - 200px)',
-                                        maxHeight: '75vh',
-                                        minHeight: '300px',
+                                        maxHeight: MAX_HEIGHT,
+                                        minHeight: MIN_HEIGHT,
                                     }}
                                 >
                                     <table
                                         className="w-full border-separate border-spacing-0"
-                                        style={{ tableLayout: 'fixed', minWidth: '1000px' }}
+                                        style={{
+                                            tableLayout: 'fixed',
+                                            minWidth: '1400px',
+                                        }}
                                     >
                                         {/* Thead com ResizeHandle */}
-                                        <thead className="sticky top-0 z-10">
+                                        <thead className="sticky top-0 z-20">
                                             {table.getHeaderGroups().map((headerGroup) => (
                                                 <tr key={headerGroup.id}>
                                                     {headerGroup.headers.map((header, idx) => (
                                                         <th
                                                             key={header.id}
-                                                            className="relative bg-purple-700 p-3 text-xs font-extrabold tracking-widest text-white shadow-md shadow-black select-none"
+                                                            className="relative bg-purple-700 p-4 shadow-md shadow-black"
                                                             style={{
                                                                 width: `${columnWidths[header.id]}px`,
                                                             }}
@@ -284,22 +267,28 @@ export function ModalOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProp
                                                     onClick={() => onSelectOS(row.original)}
                                                     className={`cursor-pointer transition-all ${
                                                         idx % 2 === 0 ? 'bg-white' : 'bg-white'
-                                                    } hover:bg-teal-100`}
+                                                    } hover:bg-teal-200`}
                                                 >
-                                                    {row.getVisibleCells().map((cell) => (
-                                                        <td
-                                                            key={cell.id}
-                                                            className="border-b border-gray-300 p-2"
-                                                            style={{
-                                                                width: `${columnWidths[cell.column.id]}px`,
-                                                            }}
-                                                        >
-                                                            {flexRender(
-                                                                cell.column.columnDef.cell,
-                                                                cell.getContext()
-                                                            )}
-                                                        </td>
-                                                    ))}
+                                                    {row
+                                                        .getVisibleCells()
+                                                        .map((cell: any, cellIndex: number) => (
+                                                            <td
+                                                                key={cell.id}
+                                                                style={{
+                                                                    width: `${columnWidths[cell.column.id]}px`,
+                                                                }}
+                                                                className={`border-b border-gray-500 p-2 transition-all ${
+                                                                    cellIndex === 0
+                                                                        ? 'pl-2 lg:pl-3'
+                                                                        : ''
+                                                                } ${cellIndex === row.getVisibleCells().length - 1 ? 'pr-2 lg:pr-4' : ''}`}
+                                                            >
+                                                                {flexRender(
+                                                                    cell.column.columnDef.cell,
+                                                                    cell.getContext()
+                                                                )}
+                                                            </td>
+                                                        ))}
                                                 </tr>
                                             ))}
                                         </tbody>

@@ -1,12 +1,10 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { FileText } from 'lucide-react';
-import React from 'react';
-import { FaCheckCircle, FaTimesCircle } from 'react-icons/fa';
+import { FaTimesCircle } from 'react-icons/fa';
+import { MdCheckCircle, MdInsertDriveFile } from 'react-icons/md';
 import { formatarDataParaBR } from '../../formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 import { formatarNumeros } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { TooltipTabela } from '../shared/Tooltip';
 
 declare module '@tanstack/react-table' {
     interface TableMeta<TData> {
@@ -36,8 +34,8 @@ const ValidacaoBadge = ({ status }: { status?: string | null }) => {
 
     if (statusNormalized === 'SIM') {
         return (
-            <div className="inline-flex items-center gap-2 rounded border border-emerald-400 bg-emerald-300 px-3 py-1.5 text-sm font-extrabold tracking-widest text-emerald-700 italic select-none">
-                <FaCheckCircle className="text-emerald-700" size={16} />
+            <div className="inline-flex items-center gap-2 rounded border border-green-800 bg-green-600 px-3 py-1.5 text-sm font-extrabold tracking-widest text-white select-none">
+                <MdCheckCircle className="text-white" size={16} />
                 Aprovado
             </div>
         );
@@ -45,8 +43,8 @@ const ValidacaoBadge = ({ status }: { status?: string | null }) => {
 
     if (statusNormalized === 'NAO') {
         return (
-            <div className="inline-flex items-center gap-2 rounded border border-red-400 bg-red-300 px-3 py-1.5 text-sm font-extrabold tracking-widest text-red-700 italic select-none">
-                <FaTimesCircle className="text-red-700" size={16} />
+            <div className="inline-flex items-center gap-2 rounded border border-red-800 bg-red-600 px-3 py-1.5 text-sm font-extrabold tracking-widest text-white select-none">
+                <FaTimesCircle className="text-white" size={16} />
                 Recusado
             </div>
         );
@@ -59,54 +57,9 @@ const ValidacaoBadge = ({ status }: { status?: string | null }) => {
     );
 };
 
-// Componente auxiliar para células com tooltip condicional
-const CellWithConditionalTooltip = ({
-    content,
-    className,
-    maxWidth = '400px',
-}: {
-    content: string;
-    className: string;
-    maxWidth?: string;
-}) => {
-    const cellRef = React.useRef<HTMLDivElement>(null);
-    const [isTruncated, setIsTruncated] = React.useState(false);
-
-    React.useEffect(() => {
-        const checkTruncation = () => {
-            if (cellRef.current) {
-                setIsTruncated(cellRef.current.scrollWidth > cellRef.current.clientWidth);
-            }
-        };
-
-        checkTruncation();
-
-        const resizeObserver = new ResizeObserver(checkTruncation);
-        if (cellRef.current) {
-            resizeObserver.observe(cellRef.current);
-        }
-
-        return () => {
-            resizeObserver.disconnect();
-        };
-    }, [content]);
-
-    const cellContent = (
-        <div ref={cellRef} className={className}>
-            {content}
-        </div>
-    );
-
-    return isTruncated ? (
-        <TooltipTabela content={content} maxWidth={maxWidth}>
-            {cellContent}
-        </TooltipTabela>
-    ) : (
-        cellContent
-    );
-};
-
-// ==================== COLUNAS ====================
+// ================================================================================
+// COMPONENTE PRINCIPAL
+// ================================================================================
 export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
     return [
         // Número da OS
@@ -204,7 +157,7 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
             },
         },
 
-        // ✅ OBSERVAÇÃO - IGUAL À COLUNA ASSUNTO_CHAMADO
+        // OBSERVAÇÃO
         {
             accessorKey: 'OBS',
             id: 'OBS',
@@ -215,7 +168,7 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
             ),
             cell: ({ getValue, row, table }) => {
                 const value = getValue() as string | null;
-                const textValue = corrigirTextoCorrompido(value);
+                const correctedTextValue = corrigirTextoCorrompido(value);
                 const hasObservacao = value && value !== '---------------';
 
                 // Pega a função do meta para abrir o modal
@@ -231,18 +184,19 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                                     handleOpenModalObs(row.original);
                                 }}
                                 className="flex-shrink-0 cursor-pointer rounded-md bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-110 hover:bg-purple-800 hover:shadow-xl hover:shadow-black active:scale-95"
-                                title="Ver observação completa"
+                                title="Visualizar observação completa"
                             >
-                                <FileText className="text-white" size={18} />
+                                <MdInsertDriveFile className="text-white" size={18} />
                             </button>
                         )}
 
-                        {/* Texto da observação */}
-                        <CellWithConditionalTooltip
-                            content={textValue}
-                            className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                            maxWidth="400px"
-                        />
+                        {/* Texto da observação - com tooltip nativo */}
+                        <div
+                            className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                            title={correctedTextValue}
+                        >
+                            {correctedTextValue}
+                        </div>
                     </div>
                 );
             },
@@ -269,16 +223,17 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                     );
                 }
 
-                const corrected = corrigirTextoCorrompido(value);
-                const parts = corrected.trim().split(/\s+/).filter(Boolean);
+                const correctedTextValue = corrigirTextoCorrompido(value);
+                const parts = correctedTextValue.trim().split(/\s+/).filter(Boolean);
                 const display = parts.length <= 2 ? parts.join(' ') : parts.slice(0, 2).join(' ');
 
                 return (
-                    <CellWithConditionalTooltip
-                        content={display}
-                        className="truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        maxWidth="250px"
-                    />
+                    <div
+                        className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                        title={correctedTextValue}
+                    >
+                        {display}
+                    </div>
                 );
             },
         },
@@ -304,12 +259,15 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                     );
                 }
 
+                const correctedTextValue = corrigirTextoCorrompido(value);
+
                 return (
-                    <CellWithConditionalTooltip
-                        content={corrigirTextoCorrompido(value)}
-                        className="truncate overflow-hidden text-left text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        maxWidth="300px"
-                    />
+                    <div
+                        className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
+                        title={correctedTextValue}
+                    >
+                        {correctedTextValue}
+                    </div>
                 );
             },
         },

@@ -23,9 +23,9 @@ export default function EmailField({ value, onChange }: Props) {
                     onChange={(e) => onChange(e.target.value)}
                     placeholder="seu@email.com"
                     required
-                    className="block w-full rounded-xl border border-white/20 bg-white/10 py-3 pr-3 pl-10 text-sm text-white placeholder-white/60 backdrop-blur-sm transition-all duration-300 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none sm:rounded-2xl sm:py-4 sm:pr-4 sm:pl-12 sm:text-base"
+                    className="block w-full rounded-xl border border-white/20 bg-white/10 py-3 pr-3 pl-10 text-sm text-white placeholder-white/60 backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none sm:rounded-2xl sm:py-4 sm:pr-4 sm:pl-12 sm:text-base"
                 />
-                <div className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 blur-sm transition-opacity duration-300 group-focus-within:opacity-100 sm:rounded-2xl"></div>
+                <div className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 blur-sm transition-opacity duration-200 group-focus-within:opacity-100 sm:rounded-2xl"></div>
             </div>
         </div>
     );

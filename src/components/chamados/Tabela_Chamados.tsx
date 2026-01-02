@@ -1,7 +1,7 @@
-// src/components/chamados/Tabela_Chamados.tsx
+// src/components/chamados/Tabela_Chamados.tsx - PARTE 1
 'use client';
 
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
     ColumnFiltersState,
     flexRender,
@@ -11,9 +11,9 @@ import {
 import React, { useCallback, useMemo, useState } from 'react';
 import { FaEraser } from 'react-icons/fa';
 import { IoCall } from 'react-icons/io5';
+import { MdNavigateBefore, MdNavigateNext } from 'react-icons/md';
 import { useAuth } from '../../context/AuthContext';
 import { useFilters } from '../../context/FiltersContext';
-import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 import { useRedimensionarColunas } from '../../hooks/useRedimensionarColunas';
 import { IsError } from '../shared/IsError';
 import { IsLoading } from '../shared/IsLoading';
@@ -22,19 +22,17 @@ import { ExportaPDFChamadosButton } from './Button_PDF';
 import { ChamadoRowProps, getColunasChamados } from './Colunas_Tabela_Chamados';
 import { OSRowProps } from './Colunas_Tabela_OS';
 import { FiltroHeaderChamados, useFiltrosChamados } from './Filtro_Header_Tabela_Chamados';
-import { ModalAvaliacaoChamado } from './Modal_Avaliacao_Chamado';
-import { ModalOS } from './Modal_OS';
+import { ModalAvaliarChamado } from './Modal_Avaliar_Chamado';
 import { ModalSolicitacaoChamado } from './Modal_Solicitacao_Chamado';
-import { ModalValidacaoOS } from './Modal_Validacao_OS';
+import { ModalTabelaOS } from './Modal_Tabela_OS';
+import { ModalValidarOS } from './Modal_Validar_OS';
 import { RedimensionarColunas } from './Redimensionar_Colunas';
 
 // ===== CONFIGURAÇÃO DE ALTURA DA TABELA =====
-const ZOOM_LEVEL = 0.67; // Deve ser o mesmo valor do LayoutDashboard
-const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL; // Compensa automaticamente (ex: 100 / 0.67 = 149.25)
-const HEADER_HEIGHT = 293; // Altura do header em pixels (ajuste conforme necessário)
-const BASE_MIN_HEIGHT = 400; // Altura mínima base em pixels
-
-// Cálculos automáticos
+const ZOOM_LEVEL = 0.67;
+const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL;
+const HEADER_HEIGHT = 293;
+const BASE_MIN_HEIGHT = 400;
 const MAX_HEIGHT = `calc(${ZOOM_COMPENSATION}vh - ${HEADER_HEIGHT}px)`;
 const MIN_HEIGHT = `${(BASE_MIN_HEIGHT * ZOOM_COMPENSATION) / 100}px`;
 // ============================================
@@ -45,6 +43,13 @@ interface ApiResponseChamados {
     totalChamados: number;
     totalOS: number;
     totalHorasOS: number;
+    pagination: {
+        page: number;
+        limit: number;
+        totalPages: number;
+        hasNextPage: boolean;
+        hasPreviousPage: boolean;
+    };
     data: ChamadoRowProps[];
 }
 
@@ -72,6 +77,8 @@ const fetchChamados = async ({
     cliente,
     recurso,
     status,
+    page,
+    limit,
 }: {
     ano: string;
     mes: string;
@@ -80,11 +87,15 @@ const fetchChamados = async ({
     cliente?: string;
     recurso?: string;
     status?: string;
+    page: number;
+    limit: number;
 }): Promise<ApiResponseChamados> => {
     const params = new URLSearchParams({
         ano,
         mes,
         isAdmin: String(isAdmin),
+        page: String(page),
+        limit: String(limit),
         ...(cliente && { codClienteFilter: cliente }),
         ...(recurso && { codRecursoFilter: recurso }),
         ...(status && { statusFilter: status }),
@@ -111,9 +122,10 @@ export function TabelaChamados() {
     const { isAdmin, codCliente, isLoggedIn } = useAuth();
     const { filters } = useFilters();
     const { ano, mes, cliente, recurso, status } = filters;
-    const queryClient = useQueryClient();
 
     // Estados
+    const [page, setPage] = useState(1);
+    const [limit] = useState(50); // Pode tornar configurável depois
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [isModalListaOSOpen, setIsModalListaOSOpen] = useState(false);
     const [isModalOSOpen, setIsModalOSOpen] = useState(false);
@@ -163,6 +175,8 @@ export function TabelaChamados() {
             status ?? '',
             isAdmin,
             codCliente ?? '',
+            page,
+            limit,
         ],
         queryFn: () =>
             fetchChamados({
@@ -173,6 +187,8 @@ export function TabelaChamados() {
                 cliente: cliente ?? '',
                 recurso: recurso ?? '',
                 status: status ?? '',
+                page,
+                limit,
             }),
         enabled: isLoggedIn && !!ano && !!mes,
         staleTime: 1000 * 60 * 5,
@@ -185,6 +201,27 @@ export function TabelaChamados() {
     }, [apiData?.data]);
 
     const totalOS = useMemo(() => apiData?.totalOS ?? 0, [apiData?.totalOS]);
+    const pagination = useMemo(() => apiData?.pagination, [apiData?.pagination]);
+
+    // Funções de paginação
+    const handleNextPage = useCallback(() => {
+        if (pagination?.hasNextPage) {
+            setPage((prev) => prev + 1);
+            setColumnFilters([]);
+        }
+    }, [pagination?.hasNextPage]);
+
+    const handlePreviousPage = useCallback(() => {
+        if (pagination?.hasPreviousPage) {
+            setPage((prev) => prev - 1);
+            setColumnFilters([]);
+        }
+    }, [pagination?.hasPreviousPage]);
+
+    const handleGoToPage = useCallback((pageNumber: number) => {
+        setPage(pageNumber);
+        setColumnFilters([]);
+    }, []);
 
     // Função para abrir modal de lista de OS's
     const handleChamadoClick = useCallback((codChamado: number, temOS: boolean) => {
@@ -246,7 +283,7 @@ export function TabelaChamados() {
 
     // Função para salvar avaliação
     const handleSaveAvaliacao = useCallback(() => {
-        refetch(); // Recarrega os dados para mostrar a avaliação
+        refetch();
     }, [refetch]);
 
     // Colunas dinâmicas
@@ -257,7 +294,7 @@ export function TabelaChamados() {
                 new Set(),
                 columnWidths,
                 handleOpenSolicitacao,
-                handleOpenAvaliacao // ✅ NOVO parâmetro
+                handleOpenAvaliacao
             ),
         [isAdmin, columnWidths, handleOpenSolicitacao, handleOpenAvaliacao]
     );
@@ -333,11 +370,11 @@ export function TabelaChamados() {
         },
     });
 
-    const totalChamados = useMemo(() => data.length, [data]);
+    const totalChamados = useMemo(() => apiData?.totalChamados ?? 0, [apiData?.totalChamados]);
     const totalChamadosFiltrados = useMemo(() => dadosFiltrados.length, [dadosFiltrados]);
     const chamadosExibidos = useMemo(() => {
-        return hasActiveFilters ? totalChamadosFiltrados : totalChamados;
-    }, [hasActiveFilters, totalChamadosFiltrados, totalChamados]);
+        return hasActiveFilters ? totalChamadosFiltrados : data.length;
+    }, [hasActiveFilters, totalChamadosFiltrados, data.length]);
 
     const totalOSFiltrados = useMemo(() => {
         if (!hasActiveFilters) {
@@ -390,6 +427,7 @@ export function TabelaChamados() {
                     codCliente={codCliente}
                     onRefresh={() => {
                         clearAllFilters();
+                        setPage(1);
                         setTimeout(() => {
                             if (typeof window !== 'undefined') window.location.reload();
                         }, 100);
@@ -429,10 +467,25 @@ export function TabelaChamados() {
                         </table>
                     </div>
                 </div>
+
+                {/* Controles de Paginação */}
+                {pagination && pagination.totalPages > 1 && (
+                    <PaginationControls
+                        currentPage={pagination.page}
+                        totalPages={pagination.totalPages}
+                        hasNextPage={pagination.hasNextPage}
+                        hasPreviousPage={pagination.hasPreviousPage}
+                        onNextPage={handleNextPage}
+                        onPreviousPage={handlePreviousPage}
+                        onGoToPage={handleGoToPage}
+                        totalChamados={totalChamados}
+                        limit={limit}
+                    />
+                )}
             </div>
 
             {/* Modal Lista de OS's */}
-            <ModalOS
+            <ModalTabelaOS
                 isOpen={isModalListaOSOpen}
                 codChamado={selectedChamado}
                 onClose={handleCloseModalListaOS}
@@ -440,7 +493,7 @@ export function TabelaChamados() {
             />
 
             {/* Modal Detalhes da OS */}
-            <ModalValidacaoOS
+            <ModalValidarOS
                 isOpen={isModalOSOpen}
                 selectedRow={selectedOS}
                 onClose={handleCloseModalOS}
@@ -452,16 +505,18 @@ export function TabelaChamados() {
                 isOpen={isModalSolicitacaoOpen}
                 onClose={handleCloseSolicitacao}
                 solicitacao={selectedChamadoSolicitacao?.SOLICITACAO_CHAMADO || ''}
+                assunto={selectedChamadoSolicitacao?.ASSUNTO_CHAMADO || ''}
                 codChamado={selectedChamadoSolicitacao?.COD_CHAMADO || 0}
                 dataChamado={selectedChamadoSolicitacao?.DATA_CHAMADO}
             />
 
             {/* Modal Avaliação do Chamado */}
-            <ModalAvaliacaoChamado
+            <ModalAvaliarChamado
                 isOpen={isModalAvaliacaoOpen}
                 onClose={handleCloseAvaliacao}
                 codChamado={selectedChamadoAvaliacao?.COD_CHAMADO || 0}
                 assuntoChamado={selectedChamadoAvaliacao?.ASSUNTO_CHAMADO || null}
+                solicitacaoChamado={selectedChamadoAvaliacao?.SOLICITACAO_CHAMADO || null}
                 onSave={handleSaveAvaliacao}
             />
         </>
@@ -471,6 +526,173 @@ export function TabelaChamados() {
 // ============================================================
 // ========== SUB-COMPONENTES =================================
 // ============================================================
+
+// ==================== PAGINATION CONTROLS ====================
+interface PaginationControlsProps {
+    currentPage: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+    onNextPage: () => void;
+    onPreviousPage: () => void;
+    onGoToPage: (page: number) => void;
+    totalChamados: number;
+    limit: number;
+}
+
+function PaginationControls({
+    currentPage,
+    totalPages,
+    hasNextPage,
+    hasPreviousPage,
+    onNextPage,
+    onPreviousPage,
+    onGoToPage,
+    totalChamados,
+    limit,
+}: PaginationControlsProps) {
+    // Calcular range de registros exibidos
+    const startRecord = (currentPage - 1) * limit + 1;
+    const endRecord = Math.min(currentPage * limit, totalChamados);
+
+    // Gerar números de páginas para exibir
+    const getPageNumbers = () => {
+        const pages: (number | string)[] = [];
+        const maxPagesToShow = 7; // Número máximo de botões de página
+
+        if (totalPages <= maxPagesToShow) {
+            // Mostrar todas as páginas
+            for (let i = 1; i <= totalPages; i++) {
+                pages.push(i);
+            }
+        } else {
+            // Lógica para mostrar páginas com reticências
+            if (currentPage <= 4) {
+                // Início: 1 2 3 4 5 ... 10
+                for (let i = 1; i <= 5; i++) {
+                    pages.push(i);
+                }
+                pages.push('...');
+                pages.push(totalPages);
+            } else if (currentPage >= totalPages - 3) {
+                // Final: 1 ... 6 7 8 9 10
+                pages.push(1);
+                pages.push('...');
+                for (let i = totalPages - 4; i <= totalPages; i++) {
+                    pages.push(i);
+                }
+            } else {
+                // Meio: 1 ... 4 5 6 ... 10
+                pages.push(1);
+                pages.push('...');
+                for (let i = currentPage - 1; i <= currentPage + 1; i++) {
+                    pages.push(i);
+                }
+                pages.push('...');
+                pages.push(totalPages);
+            }
+        }
+
+        return pages;
+    };
+
+    return (
+        <div className="flex items-center justify-between border-t border-b border-black bg-gray-200 px-10 py-2 shadow-inner">
+            {/* Informações de registros */}
+            <div className="flex items-center gap-2">
+                <span className="text-base font-semibold tracking-widest text-black select-none">
+                    Exibindo do{' '}
+                    <span className="text-xl font-extrabold">
+                        {startRecord} <span className="text-base font-semibold">ao</span>{' '}
+                        {endRecord}
+                    </span>
+                    {', '}
+                    de um total de <span className="text-xl font-extrabold">
+                        {totalChamados}
+                    </span>{' '}
+                    chamados
+                </span>
+            </div>
+
+            {/* Controles de navegação */}
+            <div className="flex items-center gap-4">
+                {/* Botão Anterior */}
+                <button
+                    onClick={onPreviousPage}
+                    disabled={!hasPreviousPage}
+                    className={`flex items-center gap-2 rounded-md px-4 py-1 text-base font-semibold tracking-widest transition-all duration-200 select-none ${
+                        hasPreviousPage
+                            ? 'cursor-pointer border border-purple-900 bg-purple-600 text-white shadow-md shadow-black hover:scale-105 hover:shadow-xl hover:shadow-black active:scale-95'
+                            : 'cursor-not-allowed border border-gray-400 bg-gray-300 text-gray-600'
+                    }`}
+                    title={hasPreviousPage ? 'Página anterior' : 'Primeira página'}
+                >
+                    <MdNavigateBefore size={20} />
+                    Anterior
+                </button>
+
+                {/* Números das páginas */}
+                <div className="flex items-center gap-4">
+                    {getPageNumbers().map((pageNum, idx) => {
+                        if (pageNum === '...') {
+                            return (
+                                <span
+                                    key={`ellipsis-${idx}`}
+                                    className="px-2 text-gray-500 select-none"
+                                >
+                                    ...
+                                </span>
+                            );
+                        }
+
+                        const isCurrentPage = pageNum === currentPage;
+
+                        return (
+                            <button
+                                key={pageNum}
+                                onClick={() => onGoToPage(pageNum as number)}
+                                className={`min-w-[40px] cursor-pointer rounded-md px-4 py-1 text-base font-semibold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:scale-105 hover:shadow-xl hover:shadow-black active:scale-9 ${
+                                    isCurrentPage
+                                        ? 'border border-purple-900 bg-purple-600 text-white'
+                                        : 'border border-gray-400 bg-gray-200 text-gray-700'
+                                }`}
+                                title={`Ir para página ${pageNum}`}
+                            >
+                                {pageNum}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Botão Próximo */}
+                <button
+                    onClick={onNextPage}
+                    disabled={!hasNextPage}
+                    className={`flex items-center gap-2 rounded-md px-4 py-1 text-base font-semibold tracking-widest transition-all duration-200 select-none ${
+                        hasNextPage
+                            ? 'cursor-pointer border border-purple-900 bg-purple-600 text-white shadow-md shadow-black hover:scale-105 hover:shadow-xl hover:shadow-black active:scale-95'
+                            : 'cursor-not-allowed border border-gray-400 bg-gray-300 text-gray-600'
+                    }`}
+                    title={hasNextPage ? 'Próxima página' : 'Última página'}
+                >
+                    Próximo
+                    <MdNavigateNext size={20} />
+                </button>
+            </div>
+
+            {/* Info da página atual */}
+            <div className="flex items-center gap-2">
+                <span className="text-base font-semibold tracking-widest text-black select-none">
+                    Página{' '}
+                    <span className="text-xl font-extrabold">
+                        {currentPage} <span className="text-base font-semibold">de</span>{' '}
+                        {totalPages}
+                    </span>
+                </span>
+            </div>
+        </div>
+    );
+}
 
 // ==================== HEADER ====================
 interface HeaderProps {
@@ -492,11 +714,8 @@ interface HeaderProps {
 
 function Header({
     isAdmin,
-    totalChamados,
     totalChamadosFiltrados,
-    totalOS,
     totalOSFiltrados,
-    totalHorasOS,
     totalHorasFiltradas,
     hasActiveFilters,
     clearAllFilters,
@@ -504,7 +723,6 @@ function Header({
     mes,
     ano,
     codCliente,
-    onRefresh,
 }: HeaderProps) {
     const { cliente, recurso, status } = useFilters().filters;
 
@@ -518,30 +736,7 @@ function Header({
                 </h2>
             </div>
 
-            {/* Centro: Badges de Totalizadores */}
-            <div className="flex flex-1 items-center justify-center gap-6">
-                <BadgeTotalizador
-                    label={totalChamadosFiltrados === 1 ? 'Chamado' : 'Chamados'}
-                    valor={totalChamadosFiltrados}
-                    valorTotal={hasActiveFilters ? totalChamados : undefined}
-                />
-
-                <BadgeTotalizador
-                    label={totalOSFiltrados === 1 ? 'OS' : "OS's"}
-                    valor={totalOSFiltrados}
-                    valorTotal={hasActiveFilters ? totalOS : undefined}
-                />
-
-                <BadgeTotalizador
-                    label="Horas"
-                    valor={formatarHorasTotaisSufixo(totalHorasFiltradas)}
-                    valorTotal={
-                        hasActiveFilters ? formatarHorasTotaisSufixo(totalHorasOS) : undefined
-                    }
-                />
-            </div>
-
-            {/* Direita: Ações (Limpar Filtros, Export e Admin Badge) */}
+            {/* Direita: Ações */}
             <div className="flex items-center gap-6">
                 {hasActiveFilters && (
                     <button
@@ -603,29 +798,6 @@ function Header({
     );
 }
 
-// ==================== BADGE TOTALIZADOR ====================
-interface BadgeTotalizadorProps {
-    label: string;
-    valor: string | number;
-    valorTotal?: string | number;
-}
-
-function BadgeTotalizador({ label, valor, valorTotal }: BadgeTotalizadorProps) {
-    return (
-        <div className="group flex flex-shrink-0 items-center gap-2 rounded-md border bg-white px-6 py-2">
-            <div className="h-2 w-2 animate-pulse rounded-full bg-purple-900"></div>
-            <span className="text-base font-extrabold tracking-widest whitespace-nowrap text-black select-none">
-                {label}:{' '}
-                <span className="text-base font-extrabold tracking-widest text-black select-none">
-                    {valor}
-                    {valorTotal !== undefined && <span className="ml-1">/{valorTotal}</span>}
-                </span>
-            </span>
-        </div>
-    );
-}
-// ====================
-
 // ==================== TABLE HEADER ====================
 function TableHeader({
     table,
@@ -641,7 +813,6 @@ function TableHeader({
     handleDoubleClick: (columnId: string) => void;
     resizingColumn: string | null;
 }) {
-    // ✅ Verificar se algum filtro tem valor
     const hasAnyFilter = table.getAllColumns().some((column: any) => {
         const value = column.getFilterValue();
         return value !== '' && value != null;
@@ -654,7 +825,7 @@ function TableHeader({
                     {headerGroup.headers.map((header: any, idx: number) => (
                         <th
                             key={header.id}
-                            className="relative bg-teal-700 p-4 shadow-md shadow-black lg:p-5"
+                            className="relative bg-teal-700 p-4 shadow-md shadow-black"
                             style={{ width: `${columnWidths[header.id]}px` }}
                         >
                             {header.isPlaceholder
@@ -674,7 +845,7 @@ function TableHeader({
                 </tr>
             ))}
             <tr
-                className={`bg-teal-700 shadow-sm shadow-black transition-all duration-300 ease-in-out ${
+                className={`bg-teal-700 shadow-sm shadow-black transition-all duration-200 ease-in-out ${
                     hasAnyFilter
                         ? 'opacity-100'
                         : 'h-0 overflow-hidden opacity-0 group-hover/header:h-auto group-hover/header:opacity-100'
@@ -683,7 +854,7 @@ function TableHeader({
                 {table.getAllColumns().map((column: any, idx: number) => (
                     <th
                         key={column.id}
-                        className={`relative transition-all duration-300 ${
+                        className={`relative transition-all duration-200 ${
                             hasAnyFilter
                                 ? 'p-1 lg:p-2'
                                 : 'h-0 p-0 group-hover/header:h-auto group-hover/header:p-1 group-hover/header:lg:p-3'
@@ -691,7 +862,7 @@ function TableHeader({
                         style={{ width: `${columnWidths[column.id]}px` }}
                     >
                         <div
-                            className={`transition-all duration-300 ${
+                            className={`transition-all duration-200 ${
                                 hasAnyFilter
                                     ? 'scale-100 opacity-100'
                                     : 'h-0 scale-95 opacity-0 group-hover/header:h-auto group-hover/header:scale-100 group-hover/header:opacity-100'
@@ -776,7 +947,7 @@ function TableBody({ table, columns, isAdmin, clearAllFilters, columnWidths }: T
                                 style={{
                                     width: `${columnWidths[cell.column.id]}px`,
                                 }}
-                                className={`border-b border-gray-500 p-1.5 transition-all lg:p-2 ${
+                                className={`border-b border-gray-500 p-2 transition-all ${
                                     cellIndex === 0 ? 'pl-2 lg:pl-3' : ''
                                 } ${cellIndex === row.getVisibleCells().length - 1 ? 'pr-2 lg:pr-4' : ''}`}
                             >
