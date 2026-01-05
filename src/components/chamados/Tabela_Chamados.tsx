@@ -139,6 +139,9 @@ export function TabelaChamados() {
     const [isModalAvaliacaoOpen, setIsModalAvaliacaoOpen] = useState(false);
     const [selectedChamadoAvaliacao, setSelectedChamadoAvaliacao] =
         useState<ChamadoRowProps | null>(null);
+    const [observacaoChamadoAvaliacao, setObservacaoChamadoAvaliacao] = useState<string | null>(
+        null
+    );
 
     const { columnFilterFn } = useFiltrosChamados();
 
@@ -191,7 +194,9 @@ export function TabelaChamados() {
                 limit,
             }),
         enabled: isLoggedIn && !!ano && !!mes,
-        staleTime: 1000 * 60 * 5,
+        staleTime: 0, // MUDANÇA: Reduzir para 0 ou remover
+        gcTime: 5 * 60 * 1000, // Manter dados em cache por 5 minutos
+        refetchOnMount: true, // ADICIONADO
         retry: 2,
     });
 
@@ -203,24 +208,51 @@ export function TabelaChamados() {
     const totalOS = useMemo(() => apiData?.totalOS ?? 0, [apiData?.totalOS]);
     const pagination = useMemo(() => apiData?.pagination, [apiData?.pagination]);
 
+    React.useEffect(() => {
+        console.log('Estado de page atualizado para:', page);
+    }, [page]);
+
+    React.useEffect(() => {
+        console.log('Dados da API atualizados:', {
+            currentPage: pagination?.page,
+            totalPages: pagination?.totalPages,
+            hasData: !!apiData,
+        });
+    }, [apiData, pagination]);
+
     // Funções de paginação
     const handleNextPage = useCallback(() => {
         if (pagination?.hasNextPage) {
-            setPage((prev) => prev + 1);
+            setPage((prev) => {
+                const newPage = prev + 1;
+                console.log('Indo para página:', newPage); // Debug
+                return newPage;
+            });
             setColumnFilters([]);
         }
     }, [pagination?.hasNextPage]);
 
     const handlePreviousPage = useCallback(() => {
         if (pagination?.hasPreviousPage) {
-            setPage((prev) => prev - 1);
+            setPage((prev) => {
+                const newPage = Math.max(1, prev - 1);
+                console.log('Indo para página:', newPage); // Debug
+                return newPage;
+            });
             setColumnFilters([]);
         }
     }, [pagination?.hasPreviousPage]);
 
     const handleGoToPage = useCallback((pageNumber: number) => {
+        console.log('Tentando ir para página:', pageNumber); // Debug
         setPage(pageNumber);
         setColumnFilters([]);
+
+        // Força scroll para o topo
+        const tableContainer = document.querySelector('.scrollbar-thin');
+        if (tableContainer) {
+            tableContainer.scrollTop = 0;
+        }
     }, []);
 
     // Função para abrir modal de lista de OS's
@@ -517,6 +549,7 @@ export function TabelaChamados() {
                 codChamado={selectedChamadoAvaliacao?.COD_CHAMADO || 0}
                 assuntoChamado={selectedChamadoAvaliacao?.ASSUNTO_CHAMADO || null}
                 solicitacaoChamado={selectedChamadoAvaliacao?.SOLICITACAO_CHAMADO || null}
+                observacaoChamado={selectedChamadoAvaliacao?.OBSAVAL_CHAMADO || null}
                 onSave={handleSaveAvaliacao}
             />
         </>
@@ -650,11 +683,17 @@ function PaginationControls({
                         return (
                             <button
                                 key={pageNum}
-                                onClick={() => onGoToPage(pageNum as number)}
-                                className={`min-w-[40px] cursor-pointer rounded-md px-4 py-1 text-base font-semibold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:scale-105 hover:shadow-xl hover:shadow-black active:scale-9 ${
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    console.log('Clicou no botão da página:', pageNum);
+                                    onGoToPage(pageNum as number);
+                                }}
+                                disabled={pageNum === currentPage}
+                                className={`min-w-[40px] rounded-md px-4 py-1 text-base font-semibold tracking-widest shadow-md shadow-black transition-all duration-200 select-none ${
                                     isCurrentPage
-                                        ? 'border border-purple-900 bg-purple-600 text-white'
-                                        : 'border border-gray-400 bg-gray-200 text-gray-700'
+                                        ? 'cursor-default border border-purple-900 bg-purple-600 text-white'
+                                        : 'cursor-pointer border border-gray-400 bg-gray-200 text-gray-700 hover:scale-105 hover:shadow-xl hover:shadow-black active:scale-95'
                                 }`}
                                 title={`Ir para página ${pageNum}`}
                             >

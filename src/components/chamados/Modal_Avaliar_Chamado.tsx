@@ -2,7 +2,7 @@
 'use client';
 
 import { Star } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { IoClose } from 'react-icons/io5';
 import { MdMiscellaneousServices, MdSend } from 'react-icons/md';
@@ -13,6 +13,7 @@ interface ModalAvaliacaoChamadoProps {
     codChamado: number;
     assuntoChamado: string | null;
     solicitacaoChamado: string | null;
+    observacaoChamado?: string | null;
     onSave: () => void;
 }
 
@@ -27,19 +28,29 @@ const capitalizarPrimeiraLetra = (texto: string): string => {
     return texto.charAt(0).toUpperCase() + texto.slice(1);
 };
 
+// ================================================================================
+// COMPONENTE PRINCIPAL
+// ================================================================================
 export function ModalAvaliarChamado({
     isOpen,
     onClose,
     codChamado,
     assuntoChamado,
     solicitacaoChamado,
+    observacaoChamado,
     onSave,
 }: ModalAvaliacaoChamadoProps) {
     const [nota, setNota] = useState(0);
     const [hoveredStar, setHoveredStar] = useState(0);
-    const [observacao, setObservacao] = useState('');
+    const [observacao, setObservacao] = useState(observacaoChamado || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (isOpen && observacaoChamado) {
+            setObservacao(capitalizarPrimeiraLetra(observacaoChamado));
+        }
+    }, [isOpen, observacaoChamado]);
 
     const handleSubmit = async () => {
         if (nota === 0) {
@@ -156,13 +167,13 @@ export function ModalAvaliarChamado({
                 <div className="flex flex-col gap-6 px-6 py-6 pb-10">
                     {/* Informações do Chamado */}
                     <div className="mb-10 flex flex-col gap-6">
-                        <div className="flex flex-col gap-2 rounded-md border bg-gray-200 p-4 text-justify text-base tracking-widest text-black shadow-sm shadow-black select-none">
+                        <div className="flex max-h-32 flex-col gap-2 overflow-y-auto rounded-md border bg-gray-200 p-4 text-justify text-base tracking-widest text-black shadow-sm shadow-black select-none">
                             <p className="font-bold">Assunto:</p>
                             <p className="ml-4 text-sm font-semibold">
                                 {assuntoChamado || 'Sem assunto'}
                             </p>
                         </div>
-                        <div className="flex flex-col gap-2 rounded-md border bg-gray-200 p-4 text-justify text-base tracking-widest text-black shadow-sm shadow-black select-none">
+                        <div className="flex max-h-32 flex-col gap-2 overflow-y-auto rounded-md border bg-gray-200 p-4 text-justify text-base tracking-widest text-black shadow-sm shadow-black select-none">
                             <p className="font-bold">Solicitação:</p>
                             <p className="ml-4 text-sm font-semibold">
                                 {solicitacaoChamado || 'Sem solicitação'}
@@ -220,7 +231,7 @@ export function ModalAvaliarChamado({
                             onChange={handleObservacaoChange}
                             placeholder="Deixe um comentário sobre o atendimento..."
                             disabled={isSubmitting}
-                            className="w-full resize-none rounded-md border border-gray-400 px-4 py-2 text-justify text-sm font-semibold tracking-widest text-black select-none focus:ring-4 focus:ring-purple-900 focus:outline-none"
+                            className="max-h-32 w-full resize-none overflow-y-auto rounded-md border border-gray-400 px-4 py-2 text-justify text-sm font-semibold tracking-widest text-black select-none focus:ring-4 focus:ring-purple-900 focus:outline-none"
                             rows={4}
                             maxLength={200}
                         />

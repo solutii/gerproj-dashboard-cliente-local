@@ -1,5 +1,6 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { MdAssessment, MdChevronRight, MdInsertDriveFile, MdOutlineStar } from 'react-icons/md';
+import { BiSolidLike } from 'react-icons/bi';
+import { MdChevronRight, MdInsertDriveFile, MdOutlineStar } from 'react-icons/md';
 import { formatarDataHoraChamado, formatarDataParaBR } from '../../formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 import { formatarNumeros, formatarPrioridade } from '../../formatters/formatar-numeros';
@@ -18,6 +19,7 @@ export type ChamadoRowProps = {
     EMAIL_CHAMADO: string | null;
     PRIOR_CHAMADO: number;
     AVALIA_CHAMADO: number | null;
+    OBSAVAL_CHAMADO: string | null;
 
     NOME_RECURSO: string | null;
     NOME_CLASSIFICACAO: string | null;
@@ -51,10 +53,12 @@ const getStylesStatus = (status: string | undefined) => {
 const StatusBadge = ({
     status,
     avaliacao,
+    obsAvaliacao,
     onAvaliar,
 }: {
     status: string;
     avaliacao: number | null;
+    obsAvaliacao?: string | null;
     onAvaliar?: () => void;
 }) => {
     const styles = getStylesStatus(status);
@@ -62,35 +66,21 @@ const StatusBadge = ({
 
     // Se avaliacao for null ou undefined, considera como 1 (não avaliado)
     const avaliacaoValor = avaliacao ?? 1;
-    const podeAvaliar = avaliacaoValor === 1;
     const foiAvaliado = avaliacaoValor >= 2 && avaliacaoValor <= 5;
 
     return (
-        <div
-            className={`relative flex items-center justify-between gap-2 rounded px-6 py-1.5 text-sm font-extrabold tracking-widest select-none ${styles}`}
-        >
-            {/* Texto do Status */}
-            <span className="flex-1">{status}</span>
+        <div className="flex w-full items-center gap-2">
+            {/* Badge do Status */}
+            <div
+                className={`flex items-center gap-2 rounded px-4 py-1.5 text-sm font-extrabold tracking-widest select-none ${styles} ${isFinalizado ? 'flex-1' : 'w-full'}`}
+            >
+                {/* Texto do Status */}
+                <span className="flex-1">{status}</span>
 
-            {/* Área de Avaliação (só aparece se finalizado) */}
-            {isFinalizado && (
-                <div className="flex items-center">
-                    {podeAvaliar ? (
-                        // Botão para avaliar (AVALIA_CHAMADO = 1)
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                if (onAvaliar) {
-                                    onAvaliar();
-                                }
-                            }}
-                            className="flex-shrink-0 cursor-pointer rounded-md bg-purple-600 p-2 shadow-xs shadow-black transition-all duration-200 hover:scale-110 hover:bg-purple-800 hover:shadow-md hover:shadow-black active:scale-95"
-                            title="Avaliar atendimento"
-                        >
-                            <MdAssessment className="text-white" size={18} />
-                        </button>
-                    ) : foiAvaliado ? (
-                        // Mostrar estrelas da avaliação (AVALIA_CHAMADO > 1)
+                {/* Área de Avaliação (só aparece se finalizado) */}
+                {isFinalizado && foiAvaliado && (
+                    <div className="flex items-center gap-5">
+                        {/* Mostrar estrelas da avaliação (AVALIA_CHAMADO > 1) */}
                         <div
                             className="flex gap-0.5"
                             title={`Avaliação: ${avaliacaoValor} estrelas`}
@@ -107,8 +97,24 @@ const StatusBadge = ({
                                 />
                             ))}
                         </div>
-                    ) : null}
-                </div>
+                    </div>
+                )}
+            </div>
+
+            {/* Botão de Avaliar (fora da badge, ao lado) */}
+            {isFinalizado && (
+                <button
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        if (onAvaliar) {
+                            onAvaliar();
+                        }
+                    }}
+                    className="flex-shrink-0 cursor-pointer rounded-md bg-purple-600 p-2 shadow-xs shadow-black transition-all duration-200 hover:scale-110 hover:bg-purple-800 hover:shadow-md hover:shadow-black active:scale-95"
+                    title={foiAvaliado ? 'Reavaliar chamado' : 'Avaliar chamado'}
+                >
+                    <BiSolidLike className="text-white" size={18} />
+                </button>
             )}
         </div>
     );
