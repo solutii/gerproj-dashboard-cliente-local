@@ -100,5 +100,11 @@
     "password": "$2b$10$StBABj/iGeLYMNrD5GrxO.BWjXUlmHaFopu0i.GIkAabW0w6VeweW",
     "cod_cliente": "169",
     "isAdmin": false
+  },
+  {
+    "email": "miriane.rodrigues@lemi.com.br",
+    "password": "$2b$10$wDtDWsf/BITOj2n4CBnrouDnYmPcXKJ54zDvyH/Js4SxxRU/NpGj.",
+    "cod_cliente": "169",
+    "isAdmin": false
   }
 ]
