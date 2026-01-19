@@ -6,11 +6,11 @@ import { ContainerDashboard } from '../../../components/dashboard/Container_Dash
 import { LayoutDashboard } from '../../../components/dashboard/Layout_Dashboard';
 import { Filtros } from '../../../components/shared/Filtros';
 import { useAuth } from '../../../context/AuthContext';
-import { useFilters } from '../../../context/FiltersContext';
+import { useFiltersStore } from '../../../store/useFiltersStore';
 
 export default function DashboardPage() {
     const { isLoggedIn } = useAuth();
-    const { filters } = useFilters();
+    const filters = useFiltersStore((state) => state.filters);
     const router = useRouter();
 
     useEffect(() => {

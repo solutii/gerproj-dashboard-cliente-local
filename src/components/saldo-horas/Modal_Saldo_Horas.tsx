@@ -8,7 +8,7 @@ import { PiTimerFill } from 'react-icons/pi';
 import { SaldoRowProps } from '../../components/saldo-horas/Colunas_Tabela_Saldo';
 import { TabelaSaldoHoras } from '../../components/saldo-horas/Tabela_Saldo_Horas';
 import { useAuth } from '../../context/AuthContext';
-import { useFilters } from '../../context/FiltersContext';
+import { useFiltersStore } from '../../store/useFiltersStore';
 import { IsError } from '../shared/IsError';
 import { IsLoading } from '../shared/IsLoading';
 
@@ -38,7 +38,10 @@ interface ModalSaldoHorasProps {
 
 export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
     const { isAdmin, codCliente } = useAuth();
-    const { filters } = useFilters();
+
+    const mes = useFiltersStore((state) => state.filters.mes);
+    const ano = useFiltersStore((state) => state.filters.ano);
+    const cliente = useFiltersStore((state) => state.filters.cliente);
 
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
@@ -62,7 +65,7 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
     }, [isOpen]);
 
     const fetchData = async (): Promise<ApiResponse> => {
-        const clienteParam = !isAdmin && codCliente ? codCliente : filters.cliente;
+        const clienteParam = !isAdmin && codCliente ? codCliente : cliente;
 
         if (!clienteParam) {
             throw new Error('Cliente não selecionado');
@@ -70,8 +73,8 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
 
         const params = new URLSearchParams({
             codCliente: clienteParam,
-            mes: (filters.mes || new Date().getMonth() + 1).toString(),
-            ano: (filters.ano || new Date().getFullYear()).toString(),
+            mes: (mes || new Date().getMonth() + 1).toString(),
+            ano: (ano || new Date().getFullYear()).toString(),
             isAdmin: isAdmin.toString(),
             mesesHistorico: '6',
         });
@@ -84,9 +87,9 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
     };
 
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['saldoHoras', filters, isAdmin, codCliente],
+        queryKey: ['saldoHoras', mes, ano, cliente, isAdmin, codCliente],
         queryFn: fetchData,
-        enabled: isOpen && ((isAdmin && !!filters.cliente) || (!isAdmin && !!codCliente)),
+        enabled: isOpen && ((isAdmin && !!cliente) || (!isAdmin && !!codCliente)),
     });
 
     if (isLoading) {

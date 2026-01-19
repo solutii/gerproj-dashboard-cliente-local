@@ -13,8 +13,8 @@ import { FaEraser } from 'react-icons/fa';
 import { IoCall } from 'react-icons/io5';
 import { MdNavigateBefore, MdNavigateNext } from 'react-icons/md';
 import { useAuth } from '../../context/AuthContext';
-import { useFilters } from '../../context/FiltersContext';
 import { useRedimensionarColunas } from '../../hooks/useRedimensionarColunas';
+import { useFiltersStore } from '../../store/useFiltersStore';
 import { IsError } from '../shared/IsError';
 import { IsLoading } from '../shared/IsLoading';
 import { ExportaExcelChamadosButton } from './Button_Excel';
@@ -133,8 +133,12 @@ const fetchChamados = async ({
 // ==================== COMPONENTE PRINCIPAL ====================
 export function TabelaChamados() {
     const { isAdmin, codCliente, isLoggedIn } = useAuth();
-    const { filters } = useFilters();
-    const { ano, mes, cliente, recurso, status } = filters;
+
+    const ano = useFiltersStore((state) => state.filters.ano);
+    const mes = useFiltersStore((state) => state.filters.mes);
+    const cliente = useFiltersStore((state) => state.filters.cliente);
+    const recurso = useFiltersStore((state) => state.filters.recurso);
+    const status = useFiltersStore((state) => state.filters.status);
 
     // Estados
     const [page, setPage] = useState(1);
@@ -766,7 +770,9 @@ function Header({
     ano,
     codCliente,
 }: HeaderProps) {
-    const { cliente, recurso, status } = useFilters().filters;
+    const cliente = useFiltersStore((state) => state.filters.cliente);
+    const recurso = useFiltersStore((state) => state.filters.recurso);
+    const status = useFiltersStore((state) => state.filters.status);
 
     return (
         <header className="flex items-center justify-between gap-4 bg-purple-900 p-6">

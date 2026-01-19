@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { IoCall, IoClose, IoHome, IoLogOut, IoMenu } from 'react-icons/io5';
 import { PiTimerFill } from 'react-icons/pi';
 import { useAuth } from '../../context/AuthContext';
-import { useFilters } from '../../context/FiltersContext';
+import { useFiltersStore } from '../../store/useFiltersStore';
 import { ModalSaldoHoras } from '../saldo-horas/Modal_Saldo_Horas';
 
 // ================================================================================
@@ -22,10 +22,12 @@ export function Sidebar() {
     const [loadingProgress, setLoadingProgress] = useState(0);
 
     const { logout } = useAuth();
-    const { clearFilters, filters } = useFilters();
+
+    const clearFilters = useFiltersStore((state) => state.clearFilters);
+    const cliente = useFiltersStore((state) => state.filters.cliente);
 
     // Verifica se há cliente selecionado
-    const hasClienteSelecionado = filters.cliente && filters.cliente.trim() !== '';
+    const hasClienteSelecionado = cliente && cliente.trim() !== '';
 
     useEffect(() => {
         setIsNavigating(false);

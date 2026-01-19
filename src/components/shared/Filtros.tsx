@@ -4,8 +4,8 @@ import { IoClose } from 'react-icons/io5';
 import { MdCalendarMonth, MdFilterAlt } from 'react-icons/md';
 import { useDebounce } from 'use-debounce';
 import { useAuth } from '../../context/AuthContext';
-import { useFilters } from '../../context/FiltersContext';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
+import { useFiltersStore } from '../../store/useFiltersStore';
 import { Relogio } from './Relogio';
 
 // ==================== INTERFACES ====================
@@ -149,7 +149,9 @@ export function Filtros() {
     const anoAtual = hoje.getFullYear();
     const mesAtual = hoje.getMonth() + 1;
 
-    const { filters, setFilters } = useFilters();
+    const filters = useFiltersStore((state) => state.filters);
+    const setFilters = useFiltersStore((state) => state.setFilters);
+
     const { isAdmin, codCliente } = useAuth();
 
     const [ano, setAno] = useState(filters.ano);

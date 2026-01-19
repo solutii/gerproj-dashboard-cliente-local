@@ -6,9 +6,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiSearch } from 'react-icons/fi';
 import { IoIosArrowDown } from 'react-icons/io';
 import { IoClose } from 'react-icons/io5';
-import { useFilters } from '../../context/FiltersContext';
 import { formatarDataParaBR } from '../../formatters/formatar-data';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
+import { useFiltersStore } from '../../store/useFiltersStore';
 
 // ================================================================================
 // INTERFACES
@@ -166,8 +166,9 @@ const DropdownWithFilter = memo(({ value, onChange, columnId }: DropdownFilterPr
     const dropdownRef = useRef<HTMLDivElement>(null);
     const searchInputRef = useRef<HTMLInputElement>(null);
 
-    const { filters } = useFilters();
-    const { ano, mes, cliente } = filters;
+    const ano = useFiltersStore((state) => state.filters.ano);
+    const mes = useFiltersStore((state) => state.filters.mes);
+    const cliente = useFiltersStore((state) => state.filters.cliente);
 
     const isAdmin = localStorage.getItem('isAdmin') === 'true';
     const codCliente = localStorage.getItem('codCliente') || undefined;

@@ -7,11 +7,11 @@ import { useCallback, useMemo, useState } from 'react';
 import { IoClose } from 'react-icons/io5';
 import { TbFileInvoice } from 'react-icons/tb';
 import { useAuth } from '../../context/AuthContext';
-import { useFilters } from '../../context/FiltersContext';
 import { formatarDataParaBR } from '../../formatters/formatar-data';
 import { formatarNumeros } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 import { useRedimensionarColunas } from '../../hooks/useRedimensionarColunas';
+import { useFiltersStore } from '../../store/useFiltersStore';
 import { IsError } from '../shared/IsError';
 import { IsLoading } from '../shared/IsLoading';
 import { getColunasOS, OSRowProps } from './Colunas_Tabela_OS';
@@ -96,8 +96,9 @@ const fetchOSByChamado = async ({
 // ==================== COMPONENTE PRINCIPAL ====================
 export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProps) {
     const { isAdmin, codCliente } = useAuth();
-    const { filters } = useFilters();
-    const { mes, ano } = filters;
+
+    const mes = useFiltersStore((state) => state.filters.mes);
+    const ano = useFiltersStore((state) => state.filters.ano);
 
     const [isModalObsOpen, setIsModalObsOpen] = useState(false);
     const [selectedOSForObs, setSelectedOSForObs] = useState<OSRowProps | null>(null);
