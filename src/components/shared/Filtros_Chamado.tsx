@@ -163,11 +163,12 @@ const fetchStatus = async ({
 // COMPONENTE PRINCIPAL
 // ================================================================================
 export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoProps) {
-    const hoje = new Date();
-    const anoAtual = hoje.getFullYear();
-    const mesAtual = hoje.getMonth() + 1;
-
     const { isAdmin, codCliente } = useAuth();
+
+    // ✅ Memoizar valores que não mudam durante a sessão
+    const hoje = useMemo(() => new Date(), []);
+    const anoAtual = useMemo(() => hoje.getFullYear(), [hoje]);
+    const mesAtual = useMemo(() => hoje.getMonth() + 1, [hoje]);
 
     const valoresPadrao = {
         ano: isAdmin ? anoAtual : undefined,
@@ -269,16 +270,11 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
     }, [anoTemp, mesTemp, mesesDisponiveis]);
 
     useEffect(() => {
-        if (!isAdmin && statusTemp && statusTemp !== 'FINALIZADO') {
-            if (anoTemp || mesTemp) {
-                console.log(
-                    '🧹 Não-admin selecionou status diferente de FINALIZADO, limpando ano/mês'
-                );
-                setAnoTemp(undefined);
-                setMesTemp(undefined);
-            }
+        if (!isAdmin && statusTemp === 'FINALIZADO') {
+            if (!anoTemp) setAnoTemp(anoAtual);
+            if (!mesTemp) setMesTemp(mesAtual);
         }
-    }, [statusTemp, isAdmin, anoTemp, mesTemp]);
+    }, [statusTemp, isAdmin, anoTemp, mesTemp, anoAtual, mesAtual]);
 
     // ==================== QUERIES ====================
     const { data: clientesData = [], isLoading: clientesLoading } = useQuery({
@@ -346,28 +342,23 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
     }, [dadosChamados]);
 
     const recursosFinais = useMemo(() => {
-        if (statusEhFinalizado) {
-            console.log('🌐 Usando recursos da API (status FINALIZADO):', recursosData.length);
-            return recursosData;
-        }
-        console.log(
-            '💾 Usando recursos locais (status diferente de FINALIZADO):',
-            recursosLocais.length
-        );
+        // ✅ SEMPRE usa recursos locais extraídos dos chamados carregados
+        console.log('💾 Usando recursos locais:', recursosLocais.length);
         return recursosLocais;
-    }, [statusEhFinalizado, recursosData, recursosLocais]);
+    }, [recursosLocais]);
 
     useEffect(() => {
-        if (!statusEhFinalizado && recursoTemp) {
+        // ✅ Sempre valida se o recurso ainda existe nos recursos locais
+        if (recursoTemp) {
             const recursoExiste = recursosLocais.some((r) => r.cod === recursoTemp);
             if (!recursoExiste) {
                 console.log('⚠️ Recurso selecionado não existe mais, limpando...');
                 setRecursoTemp('');
             }
         }
-    }, [recursosLocais, statusEhFinalizado, recursoTemp]);
+    }, [recursosLocais, recursoTemp]);
 
-    const isLoadingRecursos = statusEhFinalizado && recursosLoading;
+    const isLoadingRecursos = recursosLocais.length === 0 && dadosChamados.length > 0;
 
     const { data: statusData = [], isLoading: statusLoading } = useQuery({
         queryKey: ['status', mes, ano, isAdmin, codCliente, clienteSelecionado, recursoSelecionado],
@@ -402,23 +393,33 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
     ].filter(Boolean).length;
 
     const temMudancas = mudancasCount > 0;
-    const temFiltrosAtivos =
-        (isAdmin && clienteSelecionado) ||
-        recursoSelecionado ||
-        statusSelecionado ||
-        filtrosForamAlterados;
+    const temFiltrosAtivos = useMemo(() => {
+        const temAnoMesDiferente = isAdmin
+            ? ano !== valoresPadrao.ano || mes !== valoresPadrao.mes
+            : ano !== undefined || mes !== undefined;
 
-    const recursoDesabilitadoPorStatus =
-        statusTemp === 'FINALIZADO' && statusSelecionado !== 'FINALIZADO';
+        const temCliente = isAdmin && clienteSelecionado;
+        const temRecurso = recursoSelecionado;
+        const temStatus = statusSelecionado;
+
+        return temAnoMesDiferente || temCliente || temRecurso || temStatus;
+    }, [
+        ano,
+        mes,
+        clienteSelecionado,
+        recursoSelecionado,
+        statusSelecionado,
+        isAdmin,
+        valoresPadrao,
+    ]);
+
+    const recursoDesabilitadoPorStatus = statusTemp !== statusSelecionado && statusTemp !== '';
 
     const recursoDesabilitado = useMemo(() => {
         if (recursoDesabilitadoPorStatus) return true;
-        if (statusEhFinalizado && recursosLoading) return true;
-        if (!statusEhFinalizado) {
-            return false;
-        }
+        if (isLoadingRecursos) return true;
         return !recursosFinais.length;
-    }, [recursoDesabilitadoPorStatus, statusEhFinalizado, recursosLoading, recursosFinais.length]);
+    }, [recursoDesabilitadoPorStatus, isLoadingRecursos, recursosFinais.length]);
 
     const aplicarFiltros = () => {
         console.log('🎯 Aplicando filtros:', {
@@ -485,6 +486,12 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                 setRecursoSelecionado('');
                 break;
             case 'status':
+                // ✅ Se está limpando status FINALIZADO, limpa recurso também
+                if (statusSelecionado === 'FINALIZADO') {
+                    console.log('🧹 Limpando recurso junto com status FINALIZADO');
+                    setRecursoTemp('');
+                    setRecursoSelecionado('');
+                }
                 setStatusTemp('');
                 setStatusSelecionado('');
                 if (!isAdmin) {
@@ -495,6 +502,44 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                     setMes(undefined);
                 }
                 break;
+        }
+
+        const verificarFiltrosRestantes = () => {
+            if (campo === 'status') {
+                // Após limpar status (e recurso se FINALIZADO)
+                const temAnoMes =
+                    (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
+                    (!isAdmin && (ano !== undefined || mes !== undefined));
+                const temCliente = isAdmin && clienteSelecionado;
+                return temAnoMes || temCliente;
+            }
+            if (campo === 'cliente') {
+                const temAnoMes =
+                    (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
+                    (!isAdmin && (ano !== undefined || mes !== undefined));
+                const temRecurso = recursoSelecionado;
+                const temStatus = statusSelecionado;
+                return temAnoMes || temRecurso || temStatus;
+            }
+            if (campo === 'recurso') {
+                const temAnoMes =
+                    (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
+                    (!isAdmin && (ano !== undefined || mes !== undefined));
+                const temCliente = isAdmin && clienteSelecionado;
+                const temStatus = statusSelecionado;
+                return temAnoMes || temCliente || temStatus;
+            }
+            if (campo === 'ano' || campo === 'mes') {
+                const temCliente = isAdmin && clienteSelecionado;
+                const temRecurso = recursoSelecionado;
+                const temStatus = statusSelecionado;
+                return temCliente || temRecurso || temStatus;
+            }
+            return false;
+        };
+
+        if (!verificarFiltrosRestantes()) {
+            setFiltrosForamAlterados(false);
         }
     };
 
@@ -702,7 +747,7 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                         placeholder={
                             recursoDesabilitadoPorStatus
                                 ? 'Aplique o filtro primeiro'
-                                : statusEhFinalizado && recursosLoading
+                                : isLoadingRecursos
                                   ? 'Carregando...'
                                   : recursosFinais.length === 0
                                     ? 'Nenhum recurso disponível'

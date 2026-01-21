@@ -84,7 +84,6 @@ const fetchChamados = async ({
     isAdmin,
     codCliente,
     cliente,
-    recurso,
     status,
     page,
     limit,
@@ -95,7 +94,6 @@ const fetchChamados = async ({
     isAdmin: boolean;
     codCliente: string | null;
     cliente?: string;
-    recurso?: string;
     status?: string;
     page: number;
     limit: number;
@@ -110,16 +108,11 @@ const fetchChamados = async ({
     // ✅ Adiciona cliente se existir
     if (cliente) params.append('codClienteFilter', cliente);
 
-    // ✅ MUDANÇA PRINCIPAL: Só envia recurso para API se status for FINALIZADO
-    const statusUpper = status?.trim().toUpperCase();
-    const statusEhFinalizado = statusUpper === 'FINALIZADO';
-
-    if (statusEhFinalizado && recurso) {
-        params.append('codRecursoFilter', recurso);
-    }
+    // ✅ RECURSO REMOVIDO: Sempre filtra localmente, nunca envia para API
 
     // Status FINALIZADO vai para API
-    if (statusEhFinalizado) {
+    const statusUpper = status?.trim().toUpperCase();
+    if (statusUpper === 'FINALIZADO') {
         params.append('statusFilter', status!);
     }
 
@@ -202,11 +195,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         return statusUpper === 'FINALIZADO' ? status : '';
     }, [status]);
 
-    const recursoParaQuery = useMemo(() => {
-        const statusUpper = status?.trim().toUpperCase();
-        return statusUpper === 'FINALIZADO' ? (recurso ?? '') : '';
-    }, [status, recurso]);
-
     const columnFiltersKey = useMemo(() => serializeColumnFilters(columnFilters), [columnFilters]);
 
     const queryEnabled = useMemo(() => {
@@ -225,7 +213,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             ano,
             mes,
             cliente ?? '',
-            recursoParaQuery, // ✅ Vazio se status não for FINALIZADO
+            // recurso REMOVIDO - sempre filtra localmente
             statusParaQuery,
             isAdmin,
             codCliente ?? '',
@@ -240,7 +228,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 isAdmin,
                 codCliente,
                 cliente: cliente ?? '',
-                recurso: recursoParaQuery, // ✅ Só envia se status for FINALIZADO
+                // recurso REMOVIDO - nunca envia para API
                 status: status ?? '',
                 page,
                 limit,
@@ -274,15 +262,12 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     }, [apiData?.data, status]);
 
     const dadosFiltradosPorRecurso = useMemo(() => {
-        const statusUpper = status?.trim().toUpperCase();
-        const statusEhFinalizado = statusUpper === 'FINALIZADO';
-
-        // Se status for FINALIZADO, recurso já vem filtrado da API
-        if (statusEhFinalizado || !recurso) {
+        // Se não tiver recurso selecionado, retorna tudo
+        if (!recurso) {
             return dadosFiltradosPorStatus;
         }
 
-        // Filtragem local por recurso
+        // Filtragem local por recurso (funciona para QUALQUER status)
         console.log('🔍 Filtrando localmente por recurso:', recurso);
 
         return dadosFiltradosPorStatus.filter((chamado) => {
@@ -292,7 +277,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             // Compara tanto COD_RECURSO quanto NOME_RECURSO
             return codRecurso === recurso || nomeRecurso === recurso;
         });
-    }, [dadosFiltradosPorStatus, recurso, status]);
+    }, [dadosFiltradosPorStatus, recurso]);
 
     useEffect(() => {
         if (onDataChange) {
