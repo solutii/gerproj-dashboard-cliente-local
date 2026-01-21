@@ -1,4 +1,4 @@
-// src/components/chamados/Tabela_Chamados.tsx - ATUALIZADO COM NOVA LÓGICA
+// src/components/chamados/Tabela_Chamados.tsx - VERSÃO OTIMIZADA
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
@@ -15,30 +15,28 @@ import { MdNavigateBefore, MdNavigateNext } from 'react-icons/md';
 import { useAuth } from '../../context/AuthContext';
 import { useRedimensionarColunas } from '../../hooks/useRedimensionarColunas';
 import { useFiltrosChamado } from '../shared/Filtros_Chamado';
-// import { IsError } from '../shared/IsError';
 import { IsError } from '../shared/IsError';
 import { IsLoading } from '../shared/IsLoading';
 import { ExportaExcelChamadosButton } from './Button_Excel';
 import { ExportaPDFChamadosButton } from './Button_PDF';
 import { ChamadoRowProps, getColunasChamados } from './Colunas_Tabela_Chamados';
 import { OSRowProps } from './Colunas_Tabela_OS';
-import { FiltroHeaderChamados, useFiltrosChamados } from './Filtro_Header_Tabela_Chamados';
+import { FiltroHeaderChamados } from './Filtro_Header_Tabela_Chamados';
 import { ModalAvaliarChamado } from './Modal_Avaliar_Chamado';
 import { ModalSolicitacaoChamado } from './Modal_Solicitacao_Chamado';
 import { ModalTabelaOS } from './Modal_Tabela_OS';
 import { ModalValidarOS } from './Modal_Validar_OS';
 import { RedimensionarColunas } from './Redimensionar_Colunas';
 
-// ===== CONFIGURAÇÃO DE ALTURA DA TABELA =====
+// ===== CONFIGURAÇÃO =====
 const ZOOM_LEVEL = 0.67;
 const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL;
 const HEADER_HEIGHT = 293;
 const BASE_MIN_HEIGHT = 400;
 const MAX_HEIGHT = `calc(${ZOOM_COMPENSATION}vh - ${HEADER_HEIGHT}px)`;
 const MIN_HEIGHT = `${(BASE_MIN_HEIGHT * ZOOM_COMPENSATION) / 100}px`;
-// ============================================
 
-// ==================== INTERFACE ====================
+// ===== INTERFACES =====
 interface ApiResponseChamados {
     success: boolean;
     totalChamados: number;
@@ -60,7 +58,7 @@ declare module '@tanstack/react-table' {
     }
 }
 
-// ==================== UTILITÁRIOS ====================
+// ===== UTILITÁRIOS =====
 const createAuthHeaders = () => ({
     'Content-Type': 'application/json',
     'x-is-logged-in': localStorage.getItem('isLoggedIn') || 'false',
@@ -69,7 +67,17 @@ const createAuthHeaders = () => ({
     'x-cod-cliente': localStorage.getItem('codCliente') || '',
 });
 
-// ==================== FUNÇÕES DE FETCH ====================
+// ✅ FUNÇÃO DE SERIALIZAÇÃO ESTÁVEL PARA QUERY KEY
+const serializeColumnFilters = (filters: ColumnFiltersState): string => {
+    return JSON.stringify(
+        filters
+            .filter((f) => f.id !== 'STATUS_CHAMADO' && f.value && String(f.value).trim() !== '')
+            .map((f) => ({ id: f.id, value: f.value }))
+            .sort((a, b) => a.id.localeCompare(b.id))
+    );
+};
+
+// ===== FETCH FUNCTION =====
 const fetchChamados = async ({
     ano,
     mes,
@@ -77,7 +85,7 @@ const fetchChamados = async ({
     codCliente,
     cliente,
     recurso,
-    status, // ← JÁ EXISTE no parâmetro, mas não é usado!
+    status,
     page,
     limit,
     columnFilters,
@@ -88,7 +96,7 @@ const fetchChamados = async ({
     codCliente: string | null;
     cliente?: string;
     recurso?: string;
-    status?: string; // ← ADICIONE ESTE TIPO
+    status?: string;
     page: number;
     limit: number;
     columnFilters?: ColumnFiltersState;
@@ -97,32 +105,42 @@ const fetchChamados = async ({
         isAdmin: String(isAdmin),
         page: String(page),
         limit: String(limit),
-        ...(cliente && { codClienteFilter: cliente }),
-        ...(recurso && { codRecursoFilter: recurso }),
-        ...(status && { statusFilter: status }), // ← ADICIONE ESTA LINHA!
     });
 
+    // ✅ Adiciona cliente se existir
+    if (cliente) params.append('codClienteFilter', cliente);
+
+    // ✅ MUDANÇA PRINCIPAL: Só envia recurso para API se status for FINALIZADO
+    const statusUpper = status?.trim().toUpperCase();
+    const statusEhFinalizado = statusUpper === 'FINALIZADO';
+
+    if (statusEhFinalizado && recurso) {
+        params.append('codRecursoFilter', recurso);
+    }
+
+    // Status FINALIZADO vai para API
+    if (statusEhFinalizado) {
+        params.append('statusFilter', status!);
+    }
+
+    // Ano e Mês
     if (isAdmin) {
         params.append('ano', ano || String(new Date().getFullYear()));
         params.append('mes', mes || String(new Date().getMonth() + 1));
-    } else if (!isAdmin && codCliente) {
+    } else if (codCliente) {
         params.append('codCliente', codCliente);
         if (ano) params.append('ano', ano);
         if (mes) params.append('mes', mes);
     }
 
     // Filtros de coluna (exceto status)
-    if (columnFilters && columnFilters.length > 0) {
-        columnFilters.forEach((filter) => {
-            if (filter.id === 'STATUS_CHAMADO') return;
-            if (filter.value && String(filter.value).trim() !== '') {
-                const paramName = `filter_${filter.id}`;
-                params.append(paramName, String(filter.value));
-            }
-        });
-    }
+    columnFilters?.forEach((filter) => {
+        if (filter.id !== 'STATUS_CHAMADO' && filter.value && String(filter.value).trim()) {
+            params.append(`filter_${filter.id}`, String(filter.value));
+        }
+    });
 
-    console.log('🔍 Parâmetros da requisição:', params.toString());
+    console.log('🔍 Requisição API:', params.toString());
 
     const response = await fetch(`/api/chamados?${params.toString()}`, {
         headers: createAuthHeaders(),
@@ -135,9 +153,12 @@ const fetchChamados = async ({
 
     return response.json();
 };
+interface TabelaChamadosProps {
+    onDataChange?: (data: ChamadoRowProps[]) => void;
+}
 
-// ==================== COMPONENTE PRINCIPAL ====================
-export function TabelaChamados() {
+// ===== COMPONENTE PRINCIPAL =====
+export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const { isAdmin, codCliente, isLoggedIn } = useAuth();
     const filtros = useFiltrosChamado();
     const { ano, mes, cliente, recurso, status } = filtros;
@@ -150,19 +171,12 @@ export function TabelaChamados() {
     const [isModalOSOpen, setIsModalOSOpen] = useState(false);
     const [selectedChamado, setSelectedChamado] = useState<number | null>(null);
     const [selectedOS, setSelectedOS] = useState<OSRowProps | null>(null);
-
     const [isModalSolicitacaoOpen, setIsModalSolicitacaoOpen] = useState(false);
     const [selectedChamadoSolicitacao, setSelectedChamadoSolicitacao] =
         useState<ChamadoRowProps | null>(null);
-
     const [isModalAvaliacaoOpen, setIsModalAvaliacaoOpen] = useState(false);
     const [selectedChamadoAvaliacao, setSelectedChamadoAvaliacao] =
         useState<ChamadoRowProps | null>(null);
-    const [observacaoChamadoAvaliacao, setObservacaoChamadoAvaliacao] = useState<string | null>(
-        null
-    );
-
-    const { columnFilterFn } = useFiltrosChamados();
 
     const initialColumnWidths = {
         COD_CHAMADO: 110,
@@ -181,9 +195,25 @@ export function TabelaChamados() {
     const { columnWidths, handleMouseDown, handleDoubleClick, resizingColumn } =
         useRedimensionarColunas(initialColumnWidths);
 
-    const queryEnabled = isLoggedIn && (isAdmin ? !!ano && !!mes : true);
+    // ✅ Query Key Estável
 
-    // Query de Chamados
+    const statusParaQuery = useMemo(() => {
+        const statusUpper = status?.trim().toUpperCase();
+        return statusUpper === 'FINALIZADO' ? status : '';
+    }, [status]);
+
+    const recursoParaQuery = useMemo(() => {
+        const statusUpper = status?.trim().toUpperCase();
+        return statusUpper === 'FINALIZADO' ? (recurso ?? '') : '';
+    }, [status, recurso]);
+
+    const columnFiltersKey = useMemo(() => serializeColumnFilters(columnFilters), [columnFilters]);
+
+    const queryEnabled = useMemo(() => {
+        return isLoggedIn && (isAdmin ? !!ano && !!mes : true);
+    }, [isLoggedIn, isAdmin, ano, mes]);
+
+    // ✅ React Query com Key Estável
     const {
         data: apiData,
         isLoading,
@@ -195,13 +225,13 @@ export function TabelaChamados() {
             ano,
             mes,
             cliente ?? '',
-            recurso ?? '',
-            status ?? '', // ← Já está correto na queryKey
+            recursoParaQuery, // ✅ Vazio se status não for FINALIZADO
+            statusParaQuery,
             isAdmin,
             codCliente ?? '',
             page,
             limit,
-            columnFilters.filter((f) => f.id !== 'STATUS_CHAMADO'),
+            columnFiltersKey,
         ],
         queryFn: () =>
             fetchChamados({
@@ -210,8 +240,8 @@ export function TabelaChamados() {
                 isAdmin,
                 codCliente,
                 cliente: cliente ?? '',
-                recurso: recurso ?? '',
-                status: status ?? '', // ← ADICIONE ESTA LINHA!
+                recurso: recursoParaQuery, // ✅ Só envia se status for FINALIZADO
+                status: status ?? '',
                 page,
                 limit,
                 columnFilters,
@@ -220,76 +250,101 @@ export function TabelaChamados() {
         staleTime: 5 * 60 * 1000,
         gcTime: 10 * 60 * 1000,
         refetchOnMount: false,
+        refetchOnWindowFocus: false,
         retry: 2,
     });
 
-    // ✅ FILTRO DE STATUS NO FRONTEND
+    // ✅ Filtro de Status Otimizado
     const dadosFiltradosPorStatus = useMemo(() => {
         const chamados = apiData?.data ?? [];
 
-        // Se não há filtro de status, retorna tudo
         if (!status || status.trim() === '') {
             return chamados;
         }
 
-        // Filtra por status (case-insensitive)
+        const statusUpper = status.trim().toUpperCase();
+
+        if (statusUpper === 'FINALIZADO') {
+            return chamados; // Já vem filtrado da API
+        }
+
         return chamados.filter((chamado) =>
-            chamado.STATUS_CHAMADO?.toUpperCase().includes(status.toUpperCase())
+            chamado.STATUS_CHAMADO?.toUpperCase().includes(statusUpper)
         );
     }, [apiData?.data, status]);
 
-    // ✅ TOTALIZADORES RECALCULADOS COM BASE NOS DADOS FILTRADOS
-    const totaisRecalculados = useMemo(() => {
-        const chamadosFiltrados = dadosFiltradosPorStatus;
+    const dadosFiltradosPorRecurso = useMemo(() => {
+        const statusUpper = status?.trim().toUpperCase();
+        const statusEhFinalizado = statusUpper === 'FINALIZADO';
 
-        return {
-            totalChamados: chamadosFiltrados.length,
-            totalOS: chamadosFiltrados.filter((c) => c.TEM_OS).length,
-            totalHoras: chamadosFiltrados.reduce((sum, c) => sum + (c.TOTAL_HORAS_OS || 0), 0),
-        };
-    }, [dadosFiltradosPorStatus]);
-
-    // ✅ APLICAR FILTROS DE COLUNA (também no frontend)
-    const dadosCompletosFiltrados = useMemo(() => {
-        if (columnFilters.length === 0) {
+        // Se status for FINALIZADO, recurso já vem filtrado da API
+        if (statusEhFinalizado || !recurso) {
             return dadosFiltradosPorStatus;
         }
 
-        return dadosFiltradosPorStatus.filter((row) => {
-            return columnFilters.every((filter) => {
-                const columnId = filter.id;
-                const filterValue = filter.value;
+        // Filtragem local por recurso
+        console.log('🔍 Filtrando localmente por recurso:', recurso);
 
-                if (
-                    !filterValue ||
-                    (typeof filterValue === 'string' && filterValue.trim() === '')
-                ) {
+        return dadosFiltradosPorStatus.filter((chamado) => {
+            const codRecurso = chamado.COD_RECURSO?.toString().trim();
+            const nomeRecurso = chamado.NOME_RECURSO?.toString().trim();
+
+            // Compara tanto COD_RECURSO quanto NOME_RECURSO
+            return codRecurso === recurso || nomeRecurso === recurso;
+        });
+    }, [dadosFiltradosPorStatus, recurso, status]);
+
+    useEffect(() => {
+        if (onDataChange) {
+            console.log(
+                '📤 Enviando dados para FiltrosChamado:',
+                dadosFiltradosPorRecurso.length,
+                'chamados'
+            );
+            onDataChange(dadosFiltradosPorRecurso);
+        }
+    }, [dadosFiltradosPorRecurso, onDataChange]);
+
+    // ✅ Totalizadores Otimizados
+    const totaisRecalculados = useMemo(() => {
+        return {
+            totalChamados: dadosFiltradosPorRecurso.length,
+            totalOS: dadosFiltradosPorRecurso.filter((c) => c.TEM_OS).length,
+            totalHoras: dadosFiltradosPorRecurso.reduce(
+                (sum, c) => sum + (c.TOTAL_HORAS_OS || 0),
+                0
+            ),
+        };
+    }, [dadosFiltradosPorRecurso]);
+
+    // ✅ Filtros de Coluna Otimizados
+    const dadosCompletosFiltrados = useMemo(() => {
+        if (columnFilters.length === 0) {
+            return dadosFiltradosPorRecurso;
+        }
+
+        return dadosFiltradosPorRecurso.filter((row) => {
+            return columnFilters.every((filter) => {
+                if (!filter.value || (typeof filter.value === 'string' && !filter.value.trim())) {
                     return true;
                 }
 
-                const cellValue = row[columnId as keyof ChamadoRowProps];
-
+                const cellValue = row[filter.id as keyof ChamadoRowProps];
                 if (cellValue == null) return false;
 
-                const normalizedCellValue = String(cellValue).toUpperCase();
-                const normalizedFilterValue = String(filterValue).toUpperCase();
-
-                return normalizedCellValue.includes(normalizedFilterValue);
+                return String(cellValue).toUpperCase().includes(String(filter.value).toUpperCase());
             });
         });
-    }, [dadosFiltradosPorStatus, columnFilters]);
+    }, [dadosFiltradosPorRecurso, columnFilters]);
 
-    // ✅ PAGINAÇÃO LOCAL (nos dados filtrados)
+    // ✅ Paginação Local
     const dadosPaginados = useMemo(() => {
         const startIndex = (page - 1) * limit;
-        const endIndex = startIndex + limit;
-        return dadosCompletosFiltrados.slice(startIndex, endIndex);
+        return dadosCompletosFiltrados.slice(startIndex, startIndex + limit);
     }, [dadosCompletosFiltrados, page, limit]);
 
-    // ✅ INFORMAÇÕES DE PAGINAÇÃO LOCAL
     const paginacaoLocal = useMemo(() => {
         const totalPages = Math.ceil(dadosCompletosFiltrados.length / limit);
-
         return {
             page,
             limit,
@@ -299,54 +354,28 @@ export function TabelaChamados() {
         };
     }, [dadosCompletosFiltrados.length, page, limit]);
 
-    // Reset de página quando filtros mudam
     useEffect(() => {
         setPage(1);
-    }, [status, columnFilters]);
+    }, [status, recurso, columnFiltersKey]);
 
-    const data = useMemo(() => {
-        const chamados = apiData?.data ?? [];
-        return chamados;
-    }, [apiData?.data]);
-
-    const totalOS = useMemo(() => apiData?.totalOS ?? 0, [apiData?.totalOS]);
-    const pagination = useMemo(() => apiData?.pagination, [apiData?.pagination]);
-
-    React.useEffect(() => {
-        console.log('Estado de page atualizado para:', page);
-    }, [page]);
-
-    React.useEffect(() => {
-        console.log('Dados da API atualizados:', {
-            currentPage: pagination?.page,
-            totalPages: pagination?.totalPages,
-            hasData: !!apiData,
-        });
-    }, [apiData, pagination]);
-
-    // Funções de paginação
+    // ===== CALLBACKS =====
     const handleNextPage = useCallback(() => {
-        if (pagination?.hasNextPage) {
+        if (paginacaoLocal?.hasNextPage) {
             setPage((prev) => prev + 1);
         }
-    }, [pagination?.hasNextPage]);
+    }, [paginacaoLocal?.hasNextPage]);
 
     const handlePreviousPage = useCallback(() => {
-        if (pagination?.hasPreviousPage) {
+        if (paginacaoLocal?.hasPreviousPage) {
             setPage((prev) => Math.max(1, prev - 1));
         }
-    }, [pagination?.hasPreviousPage]);
+    }, [paginacaoLocal?.hasPreviousPage]);
 
     const handleGoToPage = useCallback((pageNumber: number) => {
         setPage(pageNumber);
-
-        const tableContainer = document.querySelector('.scrollbar-thin');
-        if (tableContainer) {
-            tableContainer.scrollTop = 0;
-        }
+        document.querySelector('.scrollbar-thin')?.scrollTo(0, 0);
     }, []);
 
-    // Função para abrir modal de lista de OS's
     const handleChamadoClick = useCallback((codChamado: number, temOS: boolean) => {
         if (temOS) {
             setSelectedChamado(codChamado);
@@ -354,62 +383,61 @@ export function TabelaChamados() {
         }
     }, []);
 
-    // Função para abrir modal de detalhes da OS
     const handleOSSelect = useCallback((os: OSRowProps) => {
         setSelectedOS(os);
         setIsModalOSOpen(true);
     }, []);
 
-    // Função para fechar modal de lista de OS's
     const handleCloseModalListaOS = useCallback(() => {
         setIsModalListaOSOpen(false);
         setSelectedChamado(null);
     }, []);
 
-    // Função para fechar modal de detalhes da OS
     const handleCloseModalOS = useCallback(() => {
         setIsModalOSOpen(false);
         setSelectedOS(null);
     }, []);
 
-    // Função para salvar validação
-    const handleSaveValidation = useCallback(
-        (updatedRow: OSRowProps) => {
-            refetch();
-        },
-        [refetch]
-    );
+    const handleSaveValidation = useCallback(() => {
+        refetch();
+    }, [refetch]);
 
-    // Função para abrir modal de solicitação
     const handleOpenSolicitacao = useCallback((chamado: ChamadoRowProps) => {
         setSelectedChamadoSolicitacao(chamado);
         setIsModalSolicitacaoOpen(true);
     }, []);
 
-    // Função para fechar modal de solicitação
     const handleCloseSolicitacao = useCallback(() => {
         setIsModalSolicitacaoOpen(false);
         setSelectedChamadoSolicitacao(null);
     }, []);
 
-    // Função para abrir modal de avaliação
     const handleOpenAvaliacao = useCallback((chamado: ChamadoRowProps) => {
         setSelectedChamadoAvaliacao(chamado);
         setIsModalAvaliacaoOpen(true);
     }, []);
 
-    // Função para fechar modal de avaliação
     const handleCloseAvaliacao = useCallback(() => {
         setIsModalAvaliacaoOpen(false);
         setSelectedChamadoAvaliacao(null);
     }, []);
 
-    // Função para salvar avaliação
     const handleSaveAvaliacao = useCallback(() => {
         refetch();
     }, [refetch]);
 
-    // Colunas dinâmicas
+    const clearAllFilters = useCallback(() => {
+        setColumnFilters([]);
+    }, []);
+
+    const hasActiveFilters = useMemo(() => {
+        return columnFilters.some((filter) => {
+            const value = filter.value;
+            return value != null && (typeof value !== 'string' || value.trim() !== '');
+        });
+    }, [columnFilters]);
+
+    // ===== COLUNAS =====
     const columns = useMemo(
         () =>
             getColunasChamados(
@@ -422,92 +450,16 @@ export function TabelaChamados() {
         [isAdmin, columnWidths, handleOpenSolicitacao, handleOpenAvaliacao]
     );
 
-    // ==================== CALLBACKS ====================
-    const clearAllFilters = useCallback(() => {
-        setColumnFilters([]);
-    }, []);
-
-    // ==================== MEMORIZAÇÕES ====================
-    const hasActiveFilters = useMemo(() => {
-        return columnFilters.some((filter) => {
-            const value = filter.value;
-            if (value == null) return false;
-            if (typeof value === 'string') {
-                return value.trim() !== '';
-            }
-            return true;
-        });
-    }, [columnFilters]);
-
-    useEffect(() => {
-        if (columnFilters.length > 0) {
-            setPage(1);
-        }
-    }, [columnFilters]);
-
-    const dadosFiltrados = useMemo(() => {
-        if (!hasActiveFilters) {
-            return data;
-        }
-
-        return data.filter((row) => {
-            return columnFilters.every((filter) => {
-                const columnId = filter.id;
-                const filterValue = filter.value;
-
-                if (
-                    !filterValue ||
-                    (typeof filterValue === 'string' && filterValue.trim() === '')
-                ) {
-                    return true;
-                }
-
-                const normalizedFilterValue =
-                    typeof filterValue === 'string' ? filterValue : String(filterValue);
-
-                const fakeRow: any = {
-                    getValue: (id: string) => row[id as keyof ChamadoRowProps],
-                };
-
-                return columnFilterFn(fakeRow, columnId as string, normalizedFilterValue);
-            });
-        });
-    }, [data, columnFilters, hasActiveFilters, columnFilterFn]);
-
-    const totalHorasOS = useMemo(() => apiData?.totalHorasOS ?? 0, [apiData?.totalHorasOS]);
-
-    const totalHorasFiltradas = useMemo(() => {
-        return apiData?.totalHorasOS ?? 0;
-    }, [apiData?.totalHorasOS]);
-
     const table = useReactTable<ChamadoRowProps>({
-        data: dadosPaginados, // ← Usa dados paginados localmente
+        data: dadosPaginados,
         columns,
         getCoreRowModel: getCoreRowModel(),
-        state: {
-            columnFilters,
-        },
+        state: { columnFilters },
         onColumnFiltersChange: setColumnFilters,
-        meta: {
-            handleChamadoClick,
-        },
+        meta: { handleChamadoClick },
     });
 
-    const totalChamados = useMemo(() => apiData?.totalChamados ?? 0, [apiData?.totalChamados]);
-
-    const totalChamadosFiltrados = useMemo(() => {
-        return apiData?.totalChamados ?? 0;
-    }, [apiData?.totalChamados]);
-
-    const chamadosExibidos = useMemo(() => {
-        return data.length;
-    }, [data.length]);
-
-    const totalOSFiltrados = useMemo(() => {
-        return apiData?.totalOS ?? 0;
-    }, [apiData?.totalOS]);
-
-    // ==================== RENDERIZAÇÃO CONDICIONAL ====================
+    // ===== RENDERIZAÇÃO CONDICIONAL =====
     if (!isLoggedIn) {
         return <IsError isError={true} error={new Error('Você precisa estar logado')} title={''} />;
     }
@@ -520,7 +472,7 @@ export function TabelaChamados() {
         return <IsError isError={!!error} error={error as Error} title={''} />;
     }
 
-    // ==================== RENDERIZAÇÃO PRINCIPAL ====================
+    // ===== RENDERIZAÇÃO PRINCIPAL =====
     return (
         <>
             <div className="relative flex h-full w-full flex-col overflow-hidden border border-b-slate-500 bg-white shadow-md shadow-black">
@@ -529,41 +481,33 @@ export function TabelaChamados() {
                     recurso={recurso}
                     status={status}
                     isAdmin={isAdmin}
-                    totalChamados={apiData?.totalChamados ?? 0}
-                    totalChamadosFiltrados={chamadosExibidos}
-                    totalOS={apiData?.totalOS ?? 0}
-                    totalOSFiltrados={totalOSFiltrados}
-                    totalHorasOS={apiData?.totalHorasOS ?? 0}
-                    totalHorasFiltradas={totalHorasFiltradas}
+                    totalChamados={totaisRecalculados.totalChamados}
+                    totalChamadosFiltrados={totaisRecalculados.totalChamados}
+                    totalOS={totaisRecalculados.totalOS}
+                    totalOSFiltrados={totaisRecalculados.totalOS}
+                    totalHorasOS={totaisRecalculados.totalHoras}
+                    totalHorasFiltradas={totaisRecalculados.totalHoras}
                     hasActiveFilters={hasActiveFilters}
                     clearAllFilters={clearAllFilters}
-                    filteredData={data}
+                    filteredData={dadosCompletosFiltrados}
                     mes={String(mes)}
                     ano={String(ano)}
                     codCliente={codCliente}
                     onRefresh={() => {
                         clearAllFilters();
                         setPage(1);
-                        setTimeout(() => {
-                            if (typeof window !== 'undefined') window.location.reload();
-                        }, 100);
+                        setTimeout(() => window.location.reload(), 100);
                     }}
                 />
 
                 <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
                     <div
                         className="scrollbar-thin scrollbar-track-purple-100 scrollbar-thumb-purple-600 hover:scrollbar-thumb-purple-800 flex-1 overflow-x-auto overflow-y-auto"
-                        style={{
-                            maxHeight: MAX_HEIGHT,
-                            minHeight: MIN_HEIGHT,
-                        }}
+                        style={{ maxHeight: MAX_HEIGHT, minHeight: MIN_HEIGHT }}
                     >
                         <table
                             className="w-full border-separate border-spacing-0"
-                            style={{
-                                tableLayout: 'fixed',
-                                minWidth: '1400px',
-                            }}
+                            style={{ tableLayout: 'fixed', minWidth: '1400px' }}
                         >
                             <TableHeader
                                 table={table}
@@ -584,21 +528,22 @@ export function TabelaChamados() {
                     </div>
                 </div>
 
-                {pagination && pagination.totalPages > 1 && (
+                {paginacaoLocal && paginacaoLocal.totalPages > 1 && (
                     <PaginationControls
-                        currentPage={pagination.page}
-                        totalPages={pagination.totalPages}
-                        hasNextPage={pagination.hasNextPage}
-                        hasPreviousPage={pagination.hasPreviousPage}
+                        currentPage={paginacaoLocal.page}
+                        totalPages={paginacaoLocal.totalPages}
+                        hasNextPage={paginacaoLocal.hasNextPage}
+                        hasPreviousPage={paginacaoLocal.hasPreviousPage}
                         onNextPage={handleNextPage}
                         onPreviousPage={handlePreviousPage}
                         onGoToPage={handleGoToPage}
-                        totalChamados={totalChamados}
+                        totalChamados={totaisRecalculados.totalChamados}
                         limit={limit}
                     />
                 )}
             </div>
 
+            {/* Modais */}
             <ModalTabelaOS
                 isOpen={isModalListaOSOpen}
                 codChamado={selectedChamado}
@@ -636,8 +581,7 @@ export function TabelaChamados() {
 }
 
 // ============================================================
-// SUB-COMPONENTES (Header, PaginationControls, TableHeader, TableBody, EmptyState)
-// Mantidos iguais ao código original
+// SUB-COMPONENTES
 // ============================================================
 
 interface PaginationControlsProps {
@@ -799,8 +743,8 @@ function PaginationControls({
 }
 
 interface HeaderProps {
-    cliente: string; // ADICIONAR
-    recurso: string; // ADICIONAR
+    cliente: string;
+    recurso: string;
     status: string;
     isAdmin: boolean;
     totalChamados: number;
@@ -830,7 +774,6 @@ function Header({
     ano,
     codCliente,
 }: HeaderProps) {
-    // ✅ NOVA LÓGICA: Exibir mes/ano apenas se fornecidos
     const mesAnoTexto = mes && ano ? ` - ${mes}/${ano}` : '';
 
     return (
@@ -863,7 +806,7 @@ function Header({
                     filtros={{
                         ano,
                         mes,
-                        status,
+                        status: '',
                         totalChamados: totalChamadosFiltrados,
                         totalOS: totalOSFiltrados,
                         totalHorasOS: totalHorasFiltradas,
@@ -878,7 +821,7 @@ function Header({
                     filtros={{
                         ano,
                         mes,
-                        status,
+                        status: '',
                         totalChamados: totalChamadosFiltrados,
                         totalOS: totalOSFiltrados,
                         totalHorasOS: totalHorasFiltradas,
@@ -898,101 +841,6 @@ function Header({
         </header>
     );
 }
-
-// function TableHeader({
-//     table,
-//     columnWidths,
-//     handleMouseDown,
-//     handleDoubleClick,
-//     resizingColumn,
-// }: {
-//     table: any;
-//     isAdmin: boolean;
-//     columnWidths: Record<string, number>;
-//     handleMouseDown: (e: React.MouseEvent, columnId: string) => void;
-//     handleDoubleClick: (columnId: string) => void;
-//     resizingColumn: string | null;
-// }) {
-//     const hasAnyFilter = table.getAllColumns().some((column: any) => {
-//         const value = column.getFilterValue();
-//         return value !== '' && value != null;
-//     });
-
-//     return (
-//         <thead className="group/header sticky top-0 z-20">
-//             {table.getHeaderGroups().map((headerGroup: any) => (
-//                 <tr key={headerGroup.id}>
-//                     {headerGroup.headers.map((header: any, idx: number) => (
-//                         <th
-//                             key={header.id}
-//                             className="relative bg-teal-700 p-4 shadow-md shadow-black"
-//                             style={{ width: `${columnWidths[header.id]}px` }}
-//                         >
-//                             {header.isPlaceholder
-//                                 ? null
-//                                 : flexRender(header.column.columnDef.header, header.getContext())}
-
-//                             {idx < headerGroup.headers.length - 1 && (
-//                                 <RedimensionarColunas
-//                                     columnId={header.id}
-//                                     onMouseDown={handleMouseDown}
-//                                     onDoubleClick={handleDoubleClick}
-//                                     isResizing={resizingColumn === header.id}
-//                                 />
-//                             )}
-//                         </th>
-//                     ))}
-//                 </tr>
-//             ))}
-//             <tr
-//                 className={`bg-teal-700 shadow-sm shadow-black transition-all duration-200 ease-in-out ${
-//                     hasAnyFilter
-//                         ? 'opacity-100'
-//                         : 'h-0 overflow-hidden opacity-0 group-hover/header:h-auto group-hover/header:opacity-100'
-//                 }`}
-//             >
-//                 {table.getAllColumns().map((column: any, idx: number) => (
-//                     <th
-//                         key={column.id}
-//                         className={`relative transition-all duration-200 ${
-//                             hasAnyFilter
-//                                 ? 'p-1 lg:p-2'
-//                                 : 'h-0 p-0 group-hover/header:h-auto group-hover/header:p-1 group-hover/header:lg:p-3'
-//                         }`}
-//                         style={{ width: `${columnWidths[column.id]}px` }}
-//                     >
-//                         <div
-//                             className={`transition-all duration-200 ${
-//                                 hasAnyFilter
-//                                     ? 'scale-100 opacity-100'
-//                                     : 'h-0 scale-95 opacity-0 group-hover/header:h-auto group-hover/header:scale-100 group-hover/header:opacity-100'
-//                             }`}
-//                         >
-//                             {column.id === 'TOTAL_HORAS_OS' ? (
-//                                 <div className="h-[34px] lg:h-[38px]" />
-//                             ) : (
-//                                 <FiltroHeaderChamados
-//                                     value={(column.getFilterValue() as string) ?? ''}
-//                                     onChange={(value: string) => column.setFilterValue(value)}
-//                                     columnId={column.id}
-//                                 />
-//                             )}
-//                         </div>
-
-//                         {idx < table.getAllColumns().length - 1 && (
-//                             <RedimensionarColunas
-//                                 columnId={column.id}
-//                                 onMouseDown={handleMouseDown}
-//                                 onDoubleClick={handleDoubleClick}
-//                                 isResizing={resizingColumn === column.id}
-//                             />
-//                         )}
-//                     </th>
-//                 ))}
-//             </tr>
-//         </thead>
-//     );
-// }
 
 function TableHeader({
     table,
@@ -1034,7 +882,6 @@ function TableHeader({
                     ))}
                 </tr>
             ))}
-            {/* Linha de filtros sempre visível */}
             <tr className="bg-teal-700 shadow-sm shadow-black">
                 {table.getAllColumns().map((column: any, idx: number) => (
                     <th
@@ -1077,7 +924,7 @@ interface TableBodyProps {
     columnWidths: Record<string, number>;
 }
 
-function TableBody({ table, columns, isAdmin, clearAllFilters, columnWidths }: TableBodyProps) {
+function TableBody({ table, columns, clearAllFilters, columnWidths }: TableBodyProps) {
     const rows = table.getRowModel().rows;
 
     if (rows.length === 0) {
@@ -1095,22 +942,11 @@ function TableBody({ table, columns, isAdmin, clearAllFilters, columnWidths }: T
     return (
         <tbody className="relative">
             {rows.map((row: any, rowIndex: number) => {
-                // ❌ REMOVA ESTAS LINHAS:
-                // const handleChamadoClick = table.options.meta?.handleChamadoClick;
-                // const temOS = row.original.TEM_OS ?? false;
-
                 return (
                     <tr
                         key={row.id}
                         data-chamado-id={row.original.COD_CHAMADO}
-                        // ❌ REMOVA O onClick DA LINHA:
-                        // onClick={() => { ... }}
-                        className={`group relative transition-all ${
-                            // ❌ REMOVA O cursor condicional:
-                            // temOS ? 'cursor-pointer' : 'cursor-not-allowed'
-                            // ✅ DEIXE APENAS:
-                            'cursor-default'
-                        } ${
+                        className={`group relative cursor-default transition-all ${
                             rowIndex % 2 === 0
                                 ? 'bg-gray-100 hover:bg-teal-200'
                                 : 'bg-white hover:bg-teal-200'

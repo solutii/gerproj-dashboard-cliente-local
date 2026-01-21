@@ -27,6 +27,7 @@ export type ChamadoRowProps = {
     // ✅ NOVOS CAMPOS
     DATA_HISTCHAMADO?: string | null;
     HORA_HISTCHAMADO?: string | null;
+    COD_RECURSO?: number | null;
 };
 
 // Função para obter as classes de estilo com base no status
