@@ -410,7 +410,7 @@ export function Sidebar() {
                     <div className="w-full pb-4">
                         <button
                             onClick={handleLogout}
-                            className="group relative flex w-full items-center overflow-hidden rounded-xl border border-purple-900 bg-purple-700 p-3 shadow-md shadow-black transition-all duration-200 hover:scale-103 hover:shadow-xl hover:shadow-black active:scale-95"
+                            className="group relative flex w-full cursor-pointer items-center overflow-hidden rounded-xl border border-purple-900 bg-purple-700 p-3 shadow-md shadow-black transition-all duration-200 hover:scale-103 hover:shadow-xl hover:shadow-black active:scale-95"
                         >
                             {/* Efeito de brilho no hover */}
                             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-300/0 to-transparent transition-all duration-200 group-hover:via-red-300/20"></div>

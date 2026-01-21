@@ -12,6 +12,7 @@ import { formatarNumeros } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 import { useRedimensionarColunas } from '../../hooks/useRedimensionarColunas';
 import { useFiltersStore } from '../../store/useFiltersStore';
+// import { IsError } from '../shared/IsError';
 import { IsError } from '../shared/IsError';
 import { IsLoading } from '../shared/IsLoading';
 import { getColunasOS, OSRowProps } from './Colunas_Tabela_OS';
@@ -157,6 +158,7 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
         getCoreRowModel: getCoreRowModel(),
         meta: {
             handleOpenModalObs,
+            onSelectOS, // ✅ ADICIONE ESTA LINHA
         },
     });
 
@@ -193,7 +195,7 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
                     </div>
                     <button
                         onClick={onClose}
-                        className="group flex-shrink-0 cursor-pointer rounded-full border border-red-700 bg-red-500 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:shadow-xl hover:shadow-black active:scale-95"
+                        className="group flex-shrink-0 cursor-pointer rounded-full border border-red-600 bg-red-500 p-3 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:shadow-xl hover:shadow-black active:scale-95"
                         aria-label="Fechar modal"
                     >
                         <IoClose
@@ -231,7 +233,14 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
                                                     {headerGroup.headers.map((header, idx) => (
                                                         <th
                                                             key={header.id}
-                                                            className="relative bg-purple-700 p-4 shadow-md shadow-black"
+                                                            className={`relative bg-purple-700 p-4 shadow-sm shadow-black ${
+                                                                idx === 0 ? 'rounded-tl-2xl' : ''
+                                                            } ${
+                                                                idx ===
+                                                                headerGroup.headers.length - 1
+                                                                    ? 'rounded-tr-2xl'
+                                                                    : ''
+                                                            }`}
                                                             style={{
                                                                 width: `${columnWidths[header.id]}px`,
                                                             }}
@@ -265,9 +274,8 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
                                             {table.getRowModel().rows.map((row, idx) => (
                                                 <tr
                                                     key={row.id}
-                                                    onClick={() => onSelectOS(row.original)}
-                                                    className={`cursor-pointer transition-all ${
-                                                        idx % 2 === 0 ? 'bg-white' : 'bg-white'
+                                                    className={`transition-all ${
+                                                        idx % 2 === 0 ? 'bg-white' : 'bg-gray-100'
                                                     } hover:bg-teal-200`}
                                                 >
                                                     {row
@@ -278,11 +286,16 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
                                                                 style={{
                                                                     width: `${columnWidths[cell.column.id]}px`,
                                                                 }}
-                                                                className={`border-b border-gray-500 p-2 transition-all ${
+                                                                className={`border-b border-gray-200 p-2 transition-all ${
                                                                     cellIndex === 0
-                                                                        ? 'pl-2 lg:pl-3'
+                                                                        ? 'border-l border-l-gray-200 pl-4'
                                                                         : ''
-                                                                } ${cellIndex === row.getVisibleCells().length - 1 ? 'pr-2 lg:pr-4' : ''}`}
+                                                                } ${
+                                                                    cellIndex ===
+                                                                    row.getVisibleCells().length - 1
+                                                                        ? 'border-r border-r-gray-200'
+                                                                        : ''
+                                                                }`}
                                                             >
                                                                 {flexRender(
                                                                     cell.column.columnDef.cell,

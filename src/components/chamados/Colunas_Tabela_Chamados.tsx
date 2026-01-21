@@ -1,7 +1,7 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { BiSolidLike } from 'react-icons/bi';
-import { MdChevronRight, MdInsertDriveFile, MdOutlineStar } from 'react-icons/md';
-import { formatarDataHoraChamado, formatarDataParaBR } from '../../formatters/formatar-data';
+import { MdInsertDriveFile, MdOutlineStar, MdVisibility } from 'react-icons/md';
+import { formatarDataHoraChamado } from '../../formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 import { formatarNumeros, formatarPrioridade } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
@@ -20,11 +20,13 @@ export type ChamadoRowProps = {
     PRIOR_CHAMADO: number;
     AVALIA_CHAMADO: number | null;
     OBSAVAL_CHAMADO: string | null;
-
     NOME_RECURSO: string | null;
     NOME_CLASSIFICACAO: string | null;
     TOTAL_HORAS_OS: number;
     TEM_OS?: boolean;
+    // ✅ NOVOS CAMPOS
+    DATA_HISTCHAMADO?: string | null;
+    HORA_HISTCHAMADO?: string | null;
 };
 
 // Função para obter as classes de estilo com base no status
@@ -39,11 +41,11 @@ const getStylesStatus = (status: string | undefined) => {
         case 'NAO INICIADO':
             return 'bg-red-500 border border-red-700 text-white shadow-sm shadow-black';
         case 'STANDBY':
-            return 'bg-orange-500 border border-orange-700 text-white shadow-sm shadow-black';
+            return 'bg-orange-500 border border-orange-700 text-black shadow-sm shadow-black';
         case 'ATRIBUIDO':
-            return 'bg-cyan-500 border border-cyan-700 text-white shadow-sm shadow-black';
+            return 'bg-cyan-500 border border-cyan-700 text-black shadow-sm shadow-black';
         case 'AGUARDANDO VALIDACAO':
-            return 'bg-yellow-500 border border-yellow-700 text-white shadow-sm shadow-black';
+            return 'bg-yellow-500 border border-yellow-700 text-black shadow-sm shadow-black';
         default:
             return 'bg-gray-600 border border-gray-800 text-black shadow-sm shadow-black';
     }
@@ -140,26 +142,41 @@ export const getColunasChamados = (
                     CHAMADO
                 </div>
             ),
-            cell: ({ getValue, row }) => {
+            cell: ({ getValue, row, table }) => {
                 const temOS = row.original.TEM_OS ?? false;
                 const value = getValue() as number;
+                const handleChamadoClick = table.options.meta?.handleChamadoClick;
 
+                // Se NÃO tem OS, renderiza centralizado
+                if (!temOS) {
+                    return (
+                        <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                            {formatarNumeros(value)}
+                        </div>
+                    );
+                }
+
+                // Se TEM OS, renderiza com botão à esquerda
                 return (
-                    <div className="flex items-center gap-2">
-                        {/* Ícone indicando que há OS's */}
-                        <div className="flex h-6 w-6 flex-shrink-0 items-center justify-center">
-                            {temOS ? (
-                                <MdChevronRight
-                                    className="text-black transition-transform group-hover:scale-125"
-                                    size={24}
-                                />
-                            ) : (
-                                <div className="h-6 w-6" />
-                            )}
+                    <div className="flex items-center gap-6">
+                        {/* Botão para abrir modal de OS's */}
+                        <div className="flex items-center justify-center">
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    if (handleChamadoClick) {
+                                        handleChamadoClick(row.original.COD_CHAMADO, temOS);
+                                    }
+                                }}
+                                className="flex-shrink-0 cursor-pointer rounded-full bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-purple-500 hover:shadow-xl hover:shadow-black active:scale-95"
+                                title="Visualizar OS's do chamado"
+                            >
+                                <MdVisibility className="text-white" size={18} />
+                            </button>
                         </div>
 
                         {/* Número do Chamado */}
-                        <div className="flex-1 text-left text-sm font-semibold tracking-widest text-black select-none">
+                        <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
                             {formatarNumeros(value)}
                         </div>
                     </div>
@@ -181,7 +198,7 @@ export const getColunasChamados = (
                 const hora = row.original.HORA_CHAMADO;
                 return (
                     <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                        {formatarDataHoraChamado(data, hora)}
+                        {data && hora ? formatarDataHoraChamado(data, hora) : '---------------'}
                     </div>
                 );
             },
@@ -229,7 +246,7 @@ export const getColunasChamados = (
                                     e.stopPropagation();
                                     onOpenSolicitacao(row.original);
                                 }}
-                                className="flex-shrink-0 cursor-pointer rounded-md bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-110 hover:bg-purple-800 hover:shadow-xl hover:shadow-black active:scale-95"
+                                className="flex-shrink-0 cursor-pointer rounded-full bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-purple-500 hover:shadow-xl hover:shadow-black active:scale-95"
                                 title="Visualizar detalhes do chamado"
                             >
                                 <MdInsertDriveFile className="text-white" size={18} />
@@ -415,36 +432,65 @@ export const getColunasChamados = (
         },
 
         // Conclusão do chamado
+        // {
+        //     accessorKey: 'CONCLUSAO_CHAMADO',
+        //     id: 'CONCLUSAO_CHAMADO',
+        //     header: () => (
+        //         <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+        //             CONCLUSÃO
+        //         </div>
+        //     ),
+        //     cell: ({ getValue }) => {
+        //         const value = (getValue() as string) ?? '---------------';
+
+        //         const isSemConclusaoChamado = value === '---------------';
+
+        //         if (isSemConclusaoChamado) {
+        //             return (
+        //                 <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+        //                     {value}
+        //                 </div>
+        //             );
+        //         }
+
+        //         return (
+        //             <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+        //                 {formatarDataParaBR(value)}
+        //             </div>
+        //         );
+        //     },
+        //     enableColumnFilter: true,
+        // },
+
         {
-            accessorKey: 'CONCLUSAO_CHAMADO',
-            id: 'CONCLUSAO_CHAMADO',
+            id: 'DATA_HISTCHAMADO',
             header: () => (
                 <div className="text-center text-sm font-bold tracking-widest text-white select-none">
-                    CONCLUSÃO
+                    FINALIZAÇÃO
                 </div>
             ),
-            cell: ({ getValue }) => {
-                const value = (getValue() as string) ?? '---------------';
+            cell: ({ row }) => {
+                const data = row.original.DATA_HISTCHAMADO;
+                const hora = row.original.HORA_HISTCHAMADO;
+                const status = row.original.STATUS_CHAMADO;
 
-                const isSemConclusaoChamado = value === '---------------';
-
-                if (isSemConclusaoChamado) {
+                // Só exibe se o status for FINALIZADO
+                if (status?.toUpperCase() !== 'FINALIZADO' || !data || !hora) {
                     return (
                         <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                            {value}
+                            ---------------
                         </div>
                     );
                 }
 
                 return (
                     <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                        {formatarDataParaBR(value)}
+                        {formatarDataHoraChamado(data, hora)}
                     </div>
                 );
             },
             enableColumnFilter: true,
         },
-
         // Quantidade de horas
         {
             accessorKey: 'TOTAL_HORAS_OS',
@@ -458,7 +504,7 @@ export const getColunasChamados = (
                 const value = getValue() as number | null;
 
                 return (
-                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                    <div className="text-center text-lg font-extrabold tracking-widest text-black select-none">
                         {formatarHorasTotaisSufixo(value)}
                     </div>
                 );

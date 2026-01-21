@@ -65,11 +65,11 @@ export function ModalObservacaoOS({
 
                     <button
                         onClick={onClose}
-                        className="group flex-shrink-0 cursor-pointer rounded-full border border-red-700 bg-red-500 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:shadow-xl hover:shadow-black active:scale-95"
+                        className="group flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-red-700 bg-red-500 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:shadow-xl hover:shadow-black active:scale-95"
                         aria-label="Fechar modal"
                     >
                         <IoClose
-                            className="text-white group-hover:scale-125 group-active:scale-95"
+                            className="text-white transition-all duration-200 group-hover:scale-125 group-active:scale-95 hover:rotate-180"
                             size={20}
                         />
                     </button>
@@ -89,7 +89,7 @@ export function ModalObservacaoOS({
                     <div className="flex items-center justify-end">
                         <button
                             onClick={handleCopy}
-                            className="flex w-[250px] cursor-pointer items-center justify-center gap-4 rounded-md border border-blue-900 bg-blue-700 px-4 py-2 text-base font-extrabold text-white shadow-md shadow-black transition-all duration-200 hover:scale-103 hover:bg-blue-900 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex cursor-pointer items-center justify-center gap-4 rounded-md border border-blue-900 bg-blue-700 px-6 py-2 text-base font-extrabold text-white shadow-md shadow-black transition-all duration-200 hover:scale-103 hover:bg-blue-900 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                         >
                             {copied ? (
                                 <>

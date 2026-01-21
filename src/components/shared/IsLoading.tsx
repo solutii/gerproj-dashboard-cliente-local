@@ -32,7 +32,7 @@ export function IsLoading({ isLoading, title, icon }: LoadingOverlayProps) {
 
                     <div className="flex items-center justify-center gap-1">
                         <span className="text-xl font-semibold tracking-widest text-white italic select-none">
-                            Carregando informações
+                            aguarde, carregando informações
                         </span>
                         <div className="flex items-center justify-center gap-1">
                             <span className="h-2 w-2 animate-[bounce_1s_ease-in-out_infinite] rounded-full bg-white"></span>

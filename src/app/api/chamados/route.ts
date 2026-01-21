@@ -1,4 +1,5 @@
-// app/api/chamados/route.ts - OTIMIZADO
+// app/api/chamados/route.ts - MODIFICADO PARA SUPORTAR NOVOS FILTROS
+
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -22,20 +23,23 @@ export interface Chamado {
     TOTAL_HORAS_OS?: number;
     AVALIA_CHAMADO?: number;
     OBSAVAL_CHAMADO?: string | null;
+    // ✅ NOVOS CAMPOS
+    DATA_HISTCHAMADO?: Date | null;
+    HORA_HISTCHAMADO?: string | null;
 }
 
 interface QueryParams {
     isAdmin: boolean;
     codCliente?: string;
-    mes: number;
-    ano: number;
+    mes?: number; // ✅ Agora opcional para não admin
+    ano?: number; // ✅ Agora opcional para não admin
     codChamadoFilter?: string;
     statusFilter?: string;
     codClienteFilter?: string;
     codRecursoFilter?: string;
     page: number;
     limit: number;
-    columnFilters?: Record<string, string>; // ✅ NOVO
+    columnFilters?: Record<string, string>;
 }
 
 interface ChamadoRaw {
@@ -56,6 +60,9 @@ interface ChamadoRaw {
     AVALIA_CHAMADO?: number;
     OBSAVAL_CHAMADO?: string | null;
     TOTAL_HORAS_OS?: number;
+    // ✅ NOVOS CAMPOS
+    DATA_HISTCHAMADO?: Date | null;
+    HORA_HISTCHAMADO?: string | null;
 }
 
 // ==================== CACHE OTIMIZADO ====================
@@ -98,9 +105,10 @@ const CAMPOS_CHAMADO_BASE = `CHAMADO.COD_CHAMADO,
     CHAMADO.COD_CLASSIFICACAO,
     CLIENTE.NOME_CLIENTE,
     RECURSO.NOME_RECURSO,
-    CLASSIFICACAO.NOME_CLASSIFICACAO`;
+    CLASSIFICACAO.NOME_CLASSIFICACAO,
+    HISTCHAMADO.DATA_HISTCHAMADO,
+    HISTCHAMADO.HORA_HISTCHAMADO`;
 
-// Apenas para chamados finalizados
 const CAMPOS_AVALIACAO = `,
     CHAMADO.AVALIA_CHAMADO,
     CHAMADO.OBSAVAL_CHAMADO`;
@@ -109,22 +117,69 @@ const CAMPOS_AVALIACAO = `,
 const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
     const isAdmin = sp.get('isAdmin') === 'true';
     const codCliente = sp.get('codCliente')?.trim() || undefined;
-    const mes = Number(sp.get('mes'));
-    const ano = Number(sp.get('ano'));
-    const page = Number(sp.get('page')) || 1;
-    const limit = Number(sp.get('limit')) || 50;
+    const statusFilter = sp.get('statusFilter')?.trim() || undefined;
 
-    if (!mes || mes < 1 || mes > 12) {
-        return NextResponse.json({ error: "Parâmetro 'mes' inválido" }, { status: 400 });
-    }
+    // ✅ NOVA LÓGICA: Para não admin, mes e ano são opcionais EXCETO quando status = FINALIZADO
+    let mes: number | undefined;
+    let ano: number | undefined;
 
-    if (!ano || ano < 2000 || ano > 3000) {
-        return NextResponse.json({ error: "Parâmetro 'ano' inválido" }, { status: 400 });
+    if (isAdmin) {
+        // Para admin, mes e ano continuam obrigatórios
+        mes = Number(sp.get('mes'));
+        ano = Number(sp.get('ano'));
+
+        if (!mes || mes < 1 || mes > 12) {
+            return NextResponse.json({ error: "Parâmetro 'mes' inválido" }, { status: 400 });
+        }
+
+        if (!ano || ano < 2000 || ano > 3000) {
+            return NextResponse.json({ error: "Parâmetro 'ano' inválido" }, { status: 400 });
+        }
+    } else {
+        // Para não admin
+        const mesParam = sp.get('mes');
+        const anoParam = sp.get('ano');
+
+        // Se status for FINALIZADO, mes e ano são obrigatórios
+        if (statusFilter?.toUpperCase() === 'FINALIZADO') {
+            mes = Number(mesParam);
+            ano = Number(anoParam);
+
+            if (!mes || mes < 1 || mes > 12) {
+                return NextResponse.json(
+                    { error: "Parâmetro 'mes' é obrigatório quando status = FINALIZADO" },
+                    { status: 400 }
+                );
+            }
+
+            if (!ano || ano < 2000 || ano > 3000) {
+                return NextResponse.json(
+                    { error: "Parâmetro 'ano' é obrigatório quando status = FINALIZADO" },
+                    { status: 400 }
+                );
+            }
+        } else {
+            // Se status não for FINALIZADO, mes e ano são opcionais
+            mes = mesParam ? Number(mesParam) : undefined;
+            ano = anoParam ? Number(anoParam) : undefined;
+
+            // Valida apenas se foram fornecidos
+            if (mes && (mes < 1 || mes > 12)) {
+                return NextResponse.json({ error: "Parâmetro 'mes' inválido" }, { status: 400 });
+            }
+
+            if (ano && (ano < 2000 || ano > 3000)) {
+                return NextResponse.json({ error: "Parâmetro 'ano' inválido" }, { status: 400 });
+            }
+        }
     }
 
     if (!isAdmin && !codCliente) {
         return NextResponse.json({ error: "Parâmetro 'codCliente' obrigatório" }, { status: 400 });
     }
+
+    const page = Number(sp.get('page')) || 1;
+    const limit = Number(sp.get('limit')) || 50;
 
     if (page < 1) {
         return NextResponse.json({ error: "Parâmetro 'page' deve ser >= 1" }, { status: 400 });
@@ -137,7 +192,6 @@ const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
         );
     }
 
-    // ✅ NOVO: Extrair filtros de coluna
     const columnFilters: Record<string, string> = {};
     for (const [key, value] of sp.entries()) {
         if (key.startsWith('filter_')) {
@@ -152,17 +206,25 @@ const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
         mes,
         ano,
         codChamadoFilter: sp.get('codChamado')?.trim() || undefined,
-        statusFilter: sp.get('statusFilter')?.trim() || undefined,
+        statusFilter,
         codClienteFilter: sp.get('codClienteFilter')?.trim() || undefined,
         codRecursoFilter: sp.get('codRecursoFilter')?.trim() || undefined,
         page,
         limit,
-        columnFilters, // ✅ NOVO
+        columnFilters,
     };
 };
 
 // ==================== CONSTRUÇÃO DE DATAS ====================
-const construirDatas = (mes: number, ano: number): { dataInicio: string; dataFim: string } => {
+const construirDatas = (
+    mes?: number,
+    ano?: number
+): { dataInicio: string | null; dataFim: string | null } => {
+    // ✅ Se não houver mes ou ano, retorna null
+    if (!mes || !ano) {
+        return { dataInicio: null, dataFim: null };
+    }
+
     const m = mes.toString().padStart(2, '0');
     const dataInicio = `01.${m}.${ano}`;
     const dataFim =
@@ -172,8 +234,8 @@ const construirDatas = (mes: number, ano: number): { dataInicio: string; dataFim
 
 // ==================== QUERY ÚNICA OTIMIZADA ====================
 const buscarChamadosComTotais = async (
-    dataInicio: string,
-    dataFim: string,
+    dataInicio: string | null,
+    dataFim: string | null,
     params: QueryParams
 ): Promise<{
     chamados: ChamadoRaw[];
@@ -197,11 +259,24 @@ const buscarChamadosComTotais = async (
         const whereParams: any[] = [];
 
         if (params.isAdmin) {
+            // Para admin, sempre filtrar por data
             whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
             whereParams.push(dataInicio, dataFim);
         } else {
+            // ✅ NOVA LÓGICA: Para não admin
             whereClauses.push(`CHAMADO.COD_CLIENTE = ?`);
             whereParams.push(parseInt(params.codCliente!));
+
+            // Se houver filtro de data (quando status = FINALIZADO)
+            if (dataInicio && dataFim) {
+                whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
+                whereParams.push(dataInicio, dataFim);
+            }
+
+            // ✅ Se NÃO houver status filter, buscar apenas NÃO FINALIZADOS
+            if (!params.statusFilter) {
+                whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
+            }
         }
 
         if (params.codChamadoFilter) {
@@ -224,9 +299,8 @@ const buscarChamadosComTotais = async (
             whereParams.push(parseInt(params.codRecursoFilter));
         }
 
-        // ✅ NOVO: Aplicar filtros de coluna
+        // Aplicar filtros de coluna
         if (params.columnFilters) {
-            // Filtro de COD_CHAMADO
             if (params.columnFilters.COD_CHAMADO) {
                 const codChamado = params.columnFilters.COD_CHAMADO.replace(/\D/g, '');
                 if (codChamado) {
@@ -235,11 +309,9 @@ const buscarChamadosComTotais = async (
                 }
             }
 
-            // Filtro de DATA_CHAMADO
             if (params.columnFilters.DATA_CHAMADO) {
                 const dateNumbers = params.columnFilters.DATA_CHAMADO.replace(/\D/g, '');
                 if (dateNumbers) {
-                    // Formato: DDMMYYYY
                     whereClauses.push(`(
                         CAST(EXTRACT(DAY FROM CHAMADO.DATA_CHAMADO) AS VARCHAR(2)) ||
                         CAST(EXTRACT(MONTH FROM CHAMADO.DATA_CHAMADO) AS VARCHAR(2)) ||
@@ -249,7 +321,6 @@ const buscarChamadosComTotais = async (
                 }
             }
 
-            // Filtro de PRIOR_CHAMADO
             if (params.columnFilters.PRIOR_CHAMADO) {
                 const prioridade = params.columnFilters.PRIOR_CHAMADO.replace(/\D/g, '');
                 if (prioridade) {
@@ -258,25 +329,21 @@ const buscarChamadosComTotais = async (
                 }
             }
 
-            // Filtro de ASSUNTO_CHAMADO
             if (params.columnFilters.ASSUNTO_CHAMADO) {
                 whereClauses.push(`UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?)`);
                 whereParams.push(`%${params.columnFilters.ASSUNTO_CHAMADO}%`);
             }
 
-            // Filtro de EMAIL_CHAMADO
             if (params.columnFilters.EMAIL_CHAMADO) {
                 whereClauses.push(`UPPER(CHAMADO.EMAIL_CHAMADO) LIKE UPPER(?)`);
                 whereParams.push(`%${params.columnFilters.EMAIL_CHAMADO}%`);
             }
 
-            // Filtro de NOME_CLASSIFICACAO
             if (params.columnFilters.NOME_CLASSIFICACAO) {
                 whereClauses.push(`CLASSIFICACAO.NOME_CLASSIFICACAO = ?`);
                 whereParams.push(params.columnFilters.NOME_CLASSIFICACAO);
             }
 
-            // Filtro de DTENVIO_CHAMADO
             if (params.columnFilters.DTENVIO_CHAMADO) {
                 const dateNumbers = params.columnFilters.DTENVIO_CHAMADO.replace(/\D/g, '');
                 if (dateNumbers) {
@@ -289,19 +356,16 @@ const buscarChamadosComTotais = async (
                 }
             }
 
-            // Filtro de NOME_RECURSO
             if (params.columnFilters.NOME_RECURSO) {
                 whereClauses.push(`RECURSO.NOME_RECURSO = ?`);
                 whereParams.push(params.columnFilters.NOME_RECURSO);
             }
 
-            // Filtro de STATUS_CHAMADO (adicional ao filtro do header)
             if (params.columnFilters.STATUS_CHAMADO && !params.statusFilter) {
                 whereClauses.push(`CHAMADO.STATUS_CHAMADO = ?`);
                 whereParams.push(params.columnFilters.STATUS_CHAMADO);
             }
 
-            // Filtro de CONCLUSAO_CHAMADO
             if (params.columnFilters.CONCLUSAO_CHAMADO) {
                 const dateNumbers = params.columnFilters.CONCLUSAO_CHAMADO.replace(/\D/g, '');
                 if (dateNumbers) {
@@ -317,7 +381,6 @@ const buscarChamadosComTotais = async (
 
         const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-        // ===== RESTO DA FUNÇÃO PERMANECE IGUAL =====
         const sqlCount = `SELECT COUNT(DISTINCT CHAMADO.COD_CHAMADO) AS TOTAL
 FROM CHAMADO
 LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
@@ -326,6 +389,10 @@ LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIF
 ${whereClause}`;
 
         const offset = (params.page - 1) * params.limit;
+
+        // ✅ Para query de OS, usar datas se disponíveis, senão usar intervalo amplo
+        const osDataInicio = dataInicio || '01.01.2000';
+        const osDataFim = dataFim || '31.12.2099';
 
         let sqlChamados = `SELECT ${camposChamado},
     COALESCE(SUM((CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
@@ -339,14 +406,16 @@ LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIF
 LEFT JOIN OS ON CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) = OS.CHAMADO_OS
     AND OS.DTINI_OS >= ? AND OS.DTINI_OS < ?
 LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1
+LEFT JOIN HISTCHAMADO ON CHAMADO.COD_CHAMADO = HISTCHAMADO.COD_CHAMADO
+    AND UPPER(HISTCHAMADO.DESC_HISTCHAMADO) = 'FINALIZADO'
 ${whereClause}
 GROUP BY ${camposChamado}
 ORDER BY CHAMADO.DATA_CHAMADO DESC, CHAMADO.HORA_CHAMADO DESC
 ROWS ${offset + 1} TO ${offset + params.limit}`;
 
-        const sqlParamsChamados = [dataInicio, dataFim, ...whereParams];
+        const sqlParamsChamados = [osDataInicio, osDataFim, ...whereParams];
 
-        // Query de totais permanece igual...
+        // Query de totais
         let sqlTotais = `SELECT
     COUNT(DISTINCT OS.COD_OS) AS TOTAL_OS,
     SUM((CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
@@ -378,7 +447,7 @@ INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE`;
             "TRIM(OS.CHAMADO_OS) <> ''",
         ];
 
-        const sqlParamsTotais: any[] = [dataInicio, dataFim];
+        const sqlParamsTotais: any[] = [osDataInicio, osDataFim];
 
         if (!params.isAdmin && params.codCliente) {
             whereTotais.push('CLIENTE.COD_CLIENTE = ?');
@@ -400,13 +469,11 @@ INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE`;
             sqlParamsTotais.push(`%${params.statusFilter}%`);
         }
 
-        // ✅ NOVO: Aplicar filtro de STATUS_CHAMADO na query de totais
         if (params.columnFilters?.STATUS_CHAMADO && !params.statusFilter) {
             whereTotais.push('CHAMADO.STATUS_CHAMADO = ?');
             sqlParamsTotais.push(params.columnFilters.STATUS_CHAMADO);
         }
 
-        // ✅ NOVO: Aplicar filtro de COD_CHAMADO na query de totais
         if (params.columnFilters?.COD_CHAMADO) {
             const codChamado = params.columnFilters.COD_CHAMADO.replace(/\D/g, '');
             if (codChamado) {
@@ -514,6 +581,9 @@ const processarChamados = (chamados: ChamadoRaw[]): Chamado[] => {
         TOTAL_HORAS_OS: c.TOTAL_HORAS_OS ?? 0,
         AVALIA_CHAMADO: c.AVALIA_CHAMADO ?? 1,
         OBSAVAL_CHAMADO: c.OBSAVAL_CHAMADO ?? null,
+        // ✅ NOVOS CAMPOS DO HISTÓRICO
+        DATA_HISTCHAMADO: c.DATA_HISTCHAMADO || null,
+        HORA_HISTCHAMADO: c.HORA_HISTCHAMADO || null,
     }));
 };
 
@@ -530,7 +600,6 @@ export async function GET(request: NextRequest) {
         const codClienteAplicado =
             params.codClienteFilter || (!params.isAdmin ? params.codCliente : undefined);
 
-        // Execução paralela: buscar chamados+totais e nomes
         const [resultado, nomes] = await Promise.all([
             buscarChamadosComTotais(dataInicio, dataFim, params),
             buscarNomes(codClienteAplicado, params.codRecursoFilter),
@@ -564,10 +633,7 @@ export async function GET(request: NextRequest) {
         }
 
         const chamadosProcessados = processarChamados(chamados);
-
-        // Status do primeiro chamado (se houver filtro de status)
         const statusFiltro = params.statusFilter ? chamados[0]?.STATUS_CHAMADO || null : null;
-
         const totalPages = Math.ceil(totalChamados / params.limit);
 
         return NextResponse.json(
@@ -607,7 +673,6 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// ==================== FUNÇÕES AUXILIARES ====================
 export function limparCacheChamados(): void {
     nomeClienteCache.clear();
     nomeRecursoCache.clear();

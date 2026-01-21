@@ -1,6 +1,6 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { FaTimesCircle } from 'react-icons/fa';
-import { MdCheckCircle, MdInsertDriveFile } from 'react-icons/md';
+import { MdCheck, MdCheckCircle, MdInsertDriveFile } from 'react-icons/md';
 import { formatarDataParaBR } from '../../formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 import { formatarNumeros } from '../../formatters/formatar-numeros';
@@ -9,6 +9,7 @@ import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corromp
 declare module '@tanstack/react-table' {
     interface TableMeta<TData> {
         handleOpenModalObs?: (os: TData) => void;
+        onSelectOS?: (os: TData) => void;
     }
 }
 
@@ -34,9 +35,9 @@ const ValidacaoBadge = ({ status }: { status?: string | null }) => {
 
     if (statusNormalized === 'SIM') {
         return (
-            <div className="inline-flex items-center gap-2 rounded border border-green-800 bg-green-600 px-3 py-1.5 text-sm font-extrabold tracking-widest text-white select-none">
+            <div className="inline-flex items-center gap-2 rounded-md border-t border-green-600 bg-green-600 px-6 py-1.5 text-sm font-extrabold tracking-widest text-white shadow-md shadow-black select-none">
                 <MdCheckCircle className="text-white" size={16} />
-                Aprovado
+                Aprovada
             </div>
         );
     }
@@ -45,7 +46,7 @@ const ValidacaoBadge = ({ status }: { status?: string | null }) => {
         return (
             <div className="inline-flex items-center gap-2 rounded border border-red-800 bg-red-600 px-3 py-1.5 text-sm font-extrabold tracking-widest text-white select-none">
                 <FaTimesCircle className="text-white" size={16} />
-                Recusado
+                Recusada
             </div>
         );
     }
@@ -71,11 +72,32 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                     NÚM. OS
                 </div>
             ),
-            cell: ({ getValue }) => {
+            cell: ({ getValue, row, table }) => {
                 const value = (getValue() as number) ?? '---------------';
+
+                // Acessa a função onSelectOS do meta
+                const onSelectOS = table.options.meta?.onSelectOS;
+
                 return (
-                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                        {formatarNumeros(value)}
+                    <div className="flex items-center gap-2">
+                        {/* Botão para abrir detalhes da OS */}
+                        <button
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onSelectOS) {
+                                    onSelectOS(row.original);
+                                }
+                            }}
+                            className="flex-shrink-0 cursor-pointer rounded-full bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-purple-500 hover:shadow-xl hover:shadow-black active:scale-95"
+                            title="Aprovação da OS"
+                        >
+                            <MdCheck className="text-white" size={18} />
+                        </button>
+
+                        {/* Número da OS */}
+                        <div className="flex-1 text-center text-sm font-semibold tracking-widest text-black select-none">
+                            {formatarNumeros(value)}
+                        </div>
                     </div>
                 );
             },
@@ -183,7 +205,7 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                                     e.stopPropagation();
                                     handleOpenModalObs(row.original);
                                 }}
-                                className="flex-shrink-0 cursor-pointer rounded-md bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-110 hover:bg-purple-800 hover:shadow-xl hover:shadow-black active:scale-95"
+                                className="flex-shrink-0 cursor-pointer rounded-full bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-purple-500 hover:shadow-xl hover:shadow-black active:scale-95"
                                 title="Visualizar observação completa"
                             >
                                 <MdInsertDriveFile className="text-white" size={18} />
