@@ -58,8 +58,15 @@ GET http://localhost:3000/api/filtros/status?isAdmin=true&mes=11&ano=2025
 ### Buscar todos os chamados de um determinado PERÍODO - ADMIN
 GET http://localhost:3000/api/chamados?mes=01&ano=2026&isAdmin=true
 
+
+
 ### Teste: Não-Admin - Apenas ano (sem mês) - Chamados NÃO FINALIZADOS
 GET http://localhost:3000/api/chamados?isAdmin=false&codCliente=156&ano=2025
+
+
+
+### Teste: Não-Admin - Apenas ano (sem ano) - Chamados NÃO FINALIZADOS
+GET http://localhost:3000/api/chamados?isAdmin=false&codCliente=156&mes=12
 
 
 

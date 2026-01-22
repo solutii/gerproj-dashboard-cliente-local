@@ -1,12 +1,37 @@
-// src/components/shared/Filtros_Chamado.tsx - RECURSOS LOCAIS CORRIGIDO
+// src/components/shared/Filtros_Chamado.tsx - PARTE 1/2
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
+import {
+    createContext,
+    ReactNode,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useState,
+} from 'react';
 import { MdCalendarMonth, MdClose, MdFilterAlt, MdFilterAltOff } from 'react-icons/md';
 import { useAuth } from '../../context/AuthContext';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 import { Relogio } from './Relogio';
+
+// ==================== CONSTANTES ====================
+const ANOS_DISPONIVEIS_FINALIZADOS = [2024, 2025, 2026];
+const MESES_NOMES = [
+    'Janeiro',
+    'Fevereiro',
+    'Março',
+    'Abril',
+    'Maio',
+    'Junho',
+    'Julho',
+    'Agosto',
+    'Setembro',
+    'Outubro',
+    'Novembro',
+    'Dezembro',
+];
 
 // ==================== INTERFACES ====================
 interface Cliente {
@@ -27,6 +52,29 @@ interface Filtros {
     status: string;
 }
 
+interface FiltrosChamadoProps {
+    children?: ReactNode;
+    dadosChamados?: Array<{
+        COD_RECURSO?: number | null;
+        NOME_RECURSO?: string | null;
+        STATUS_CHAMADO?: string | null;
+        DATA_CHAMADO?: string | Date | number;
+        [key: string]: any;
+    }>;
+}
+
+interface SelectWithClearProps {
+    value: string | number | undefined;
+    valorAplicado: string | number | undefined;
+    onChange: (value: string) => void;
+    onClearImmediate: () => void;
+    disabled?: boolean;
+    options: Array<{ value: string | number; label: string }>;
+    placeholder: string;
+    className?: string;
+    showClearButton?: boolean;
+}
+
 // ==================== CONTEXT ====================
 const FiltrosContext = createContext<Filtros | null>(null);
 
@@ -36,17 +84,6 @@ export function useFiltrosChamado() {
         throw new Error('useFiltrosChamado deve ser usado dentro de FiltrosChamado');
     }
     return context;
-}
-
-// ==================== PROPS ADICIONAIS ====================
-interface FiltrosChamadoProps {
-    children?: ReactNode;
-    dadosChamados?: Array<{
-        COD_RECURSO?: number | null;
-        NOME_RECURSO?: string | null;
-        STATUS_CHAMADO?: string | null;
-        [key: string]: any;
-    }>;
 }
 
 // ==================== FUNÇÕES AUXILIARES ====================
@@ -62,7 +99,44 @@ function processarNome(nome: string, maxPalavras: number = 2): string {
     return limitarNome(nomeCorrigido, maxPalavras);
 }
 
-// ==================== FUNÇÕES DE FETCH ====================
+function extrairAnoDeData(dataChamado: string | Date | number | null | undefined): number | null {
+    if (!dataChamado) return null;
+
+    let data: Date | null = null;
+
+    if (typeof dataChamado === 'string') {
+        data = new Date(dataChamado);
+    } else if (dataChamado instanceof Date) {
+        data = dataChamado;
+    } else if (typeof dataChamado === 'number') {
+        data = new Date(dataChamado);
+    }
+
+    if (!data || isNaN(data.getTime())) return null;
+
+    const ano = data.getFullYear();
+    return ano >= 2020 && ano <= 2030 ? ano : null;
+}
+
+function extrairMesDeData(dataChamado: string | Date | number | null | undefined): number | null {
+    if (!dataChamado) return null;
+
+    let data: Date | null = null;
+
+    if (typeof dataChamado === 'string') {
+        data = new Date(dataChamado);
+    } else if (dataChamado instanceof Date) {
+        data = dataChamado;
+    } else if (typeof dataChamado === 'number') {
+        data = new Date(dataChamado);
+    }
+
+    if (!data || isNaN(data.getTime())) return null;
+
+    return data.getMonth() + 1;
+}
+
+// ==================== API FETCHERS ====================
 const fetchClientes = async ({
     mes,
     ano,
@@ -75,15 +149,10 @@ const fetchClientes = async ({
     codCliente: string | null;
 }): Promise<Cliente[]> => {
     const params = new URLSearchParams();
-
     if (mes) params.append('mes', mes.toString());
     if (ano) params.append('ano', ano.toString());
-
     params.append('isAdmin', isAdmin.toString());
-
-    if (!isAdmin && codCliente) {
-        params.append('codCliente', codCliente);
-    }
+    if (!isAdmin && codCliente) params.append('codCliente', codCliente);
 
     const response = await fetch(`/api/filtros/clientes?${params.toString()}`);
     if (!response.ok) throw new Error('Erro ao carregar clientes');
@@ -104,18 +173,11 @@ const fetchRecursos = async ({
     clienteSelecionado: string;
 }): Promise<Recurso[]> => {
     const params = new URLSearchParams();
-
     if (mes) params.append('mes', mes.toString());
     if (ano) params.append('ano', ano.toString());
-
     params.append('isAdmin', isAdmin.toString());
-
-    if (!isAdmin && codCliente) {
-        params.append('codCliente', codCliente);
-    }
-    if (isAdmin && clienteSelecionado) {
-        params.append('cliente', clienteSelecionado);
-    }
+    if (!isAdmin && codCliente) params.append('codCliente', codCliente);
+    if (isAdmin && clienteSelecionado) params.append('cliente', clienteSelecionado);
 
     const response = await fetch(`/api/filtros/recursos?${params.toString()}`);
     if (!response.ok) throw new Error('Erro ao carregar recursos');
@@ -138,51 +200,201 @@ const fetchStatus = async ({
     recursoSelecionado: string;
 }): Promise<string[]> => {
     const params = new URLSearchParams();
-
     if (mes) params.append('mes', mes.toString());
     if (ano) params.append('ano', ano.toString());
-
     params.append('isAdmin', isAdmin.toString());
-
-    if (!isAdmin && codCliente) {
-        params.append('codCliente', codCliente);
-    }
-    if (isAdmin && clienteSelecionado) {
-        params.append('cliente', clienteSelecionado);
-    }
-    if (recursoSelecionado) {
-        params.append('recurso', recursoSelecionado);
-    }
+    if (!isAdmin && codCliente) params.append('codCliente', codCliente);
+    if (isAdmin && clienteSelecionado) params.append('cliente', clienteSelecionado);
+    if (recursoSelecionado) params.append('recurso', recursoSelecionado);
 
     const response = await fetch(`/api/filtros/status?${params.toString()}`);
     if (!response.ok) throw new Error('Erro ao carregar status');
     return response.json();
 };
 
-// ================================================================================
-// COMPONENTE PRINCIPAL
-// ================================================================================
+// ==================== HOOKS CUSTOMIZADOS ====================
+function useDataAtual() {
+    return useMemo(() => {
+        const hoje = new Date();
+        return {
+            hoje,
+            anoAtual: hoje.getFullYear(),
+            mesAtual: hoje.getMonth() + 1,
+        };
+    }, []);
+}
+
+function useAnosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+    return useMemo(() => {
+        if (!dadosChamados?.length) {
+            console.log('⚠️ Nenhum chamado disponível para extrair anos locais');
+            return [];
+        }
+
+        console.log('🔍 Extraindo anos locais de', dadosChamados.length, 'chamados');
+        const anosUnicos = new Set<number>();
+
+        dadosChamados.forEach((chamado) => {
+            const ano = extrairAnoDeData(chamado.DATA_CHAMADO);
+            if (ano) anosUnicos.add(ano);
+        });
+
+        const anos = Array.from(anosUnicos).sort((a, b) => b - a);
+        console.log('📋 Anos únicos encontrados:', anos.length, anos.join(', '));
+        return anos;
+    }, [dadosChamados]);
+}
+
+function useMesesDisponiveisNoAno(
+    dadosChamados: FiltrosChamadoProps['dadosChamados'],
+    anoTemp: number | undefined
+) {
+    return useMemo(() => {
+        if (!anoTemp || !dadosChamados?.length) return [];
+
+        console.log('🔍 Extraindo meses disponíveis para ano:', anoTemp);
+        const mesesUnicos = new Set<number>();
+
+        dadosChamados.forEach((chamado) => {
+            const ano = extrairAnoDeData(chamado.DATA_CHAMADO);
+            const mes = extrairMesDeData(chamado.DATA_CHAMADO);
+
+            if (ano === anoTemp && mes) {
+                mesesUnicos.add(mes);
+            }
+        });
+
+        const meses = Array.from(mesesUnicos).sort((a, b) => a - b);
+        console.log('📋 Meses disponíveis encontrados:', meses.join(', '));
+        return meses;
+    }, [dadosChamados, anoTemp]);
+}
+
+function useRecursosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+    return useMemo(() => {
+        if (!dadosChamados?.length) {
+            console.log('⚠️ Nenhum chamado disponível para extrair recursos locais');
+            return [];
+        }
+
+        console.log('🔍 Extraindo recursos locais de', dadosChamados.length, 'chamados');
+        const recursosUnicos = new Map<string, string>();
+
+        dadosChamados.forEach((chamado, index) => {
+            const nomeRecurso = chamado.NOME_RECURSO?.toString().trim();
+            const codRecurso = chamado.COD_RECURSO?.toString().trim() || nomeRecurso;
+
+            if (codRecurso && nomeRecurso && !recursosUnicos.has(codRecurso)) {
+                recursosUnicos.set(codRecurso, nomeRecurso);
+                console.log(`✅ Recurso ${index + 1} adicionado: ${codRecurso} - ${nomeRecurso}`);
+            }
+        });
+
+        const recursos = Array.from(recursosUnicos.entries())
+            .map(([cod, nome]) => ({ cod, nome }))
+            .sort((a, b) => a.nome.localeCompare(b.nome));
+
+        console.log('📋 Recursos únicos encontrados:', recursos.length);
+        return recursos;
+    }, [dadosChamados]);
+}
+
+// CONTINUA NA PARTE 2...
+// src/components/shared/Filtros_Chamado.tsx - PARTE 2/2
+// CONTINUAÇÃO DA PARTE 1...
+
+// ==================== COMPONENTE SELECT ====================
+function SelectWithClear({
+    value,
+    valorAplicado,
+    onChange,
+    onClearImmediate,
+    disabled,
+    options,
+    placeholder,
+    className,
+    showClearButton = true,
+}: SelectWithClearProps) {
+    const isDisabled = Boolean(disabled);
+    const hasValue = value !== '' && value !== undefined && value !== 0;
+    const isAplicado = valorAplicado !== '' && valorAplicado !== undefined && valorAplicado !== 0;
+
+    return (
+        <div className="relative">
+            <select
+                value={value ?? ''}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={isDisabled}
+                className={`${className} ${hasValue ? 'pr-12' : 'pr-8'} ${
+                    hasValue && !isDisabled
+                        ? '-translate-y-3 border-t border-purple-300 bg-purple-100'
+                        : 'border'
+                }`}
+            >
+                <option
+                    value=""
+                    className="text-base font-semibold tracking-widest text-black select-none"
+                >
+                    {placeholder}
+                </option>
+                {options.map((opt, index) => {
+                    const optValue =
+                        typeof opt.value === 'object'
+                            ? JSON.stringify(opt.value)
+                            : String(opt.value);
+                    const optLabel = typeof opt.label === 'string' ? opt.label : String(opt.label);
+
+                    return (
+                        <option
+                            key={`option-${optValue}-${index}`}
+                            value={optValue}
+                            className="text-base font-semibold tracking-widest text-black select-none"
+                            title={optLabel}
+                        >
+                            {processarNome(optLabel, 2)}
+                        </option>
+                    );
+                })}
+            </select>
+
+            {showClearButton && isAplicado && !isDisabled && (
+                <button
+                    onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onClearImmediate();
+                    }}
+                    className="absolute top-1/2 right-8 flex -translate-y-1/2 cursor-pointer"
+                    title="Limpar este filtro"
+                    type="button"
+                >
+                    <MdClose
+                        className={`text-red-500 transition-all duration-200 hover:scale-125 hover:rotate-180 ${
+                            hasValue ? '-translate-y-3' : ''
+                        }`}
+                        size={28}
+                    />
+                </button>
+            )}
+        </div>
+    );
+}
+
+// ==================== COMPONENTE PRINCIPAL ====================
 export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoProps) {
     const { isAdmin, codCliente } = useAuth();
+    const { hoje, anoAtual, mesAtual } = useDataAtual();
 
-    // ✅ Memoizar valores que não mudam durante a sessão
-    const hoje = useMemo(() => new Date(), []);
-    const anoAtual = useMemo(() => hoje.getFullYear(), [hoje]);
-    const mesAtual = useMemo(() => hoje.getMonth() + 1, [hoje]);
-
-    const valoresPadrao = {
-        ano: isAdmin ? anoAtual : undefined,
-        mes: isAdmin ? mesAtual : undefined,
-    };
-
-    const [anoTemp, setAnoTemp] = useState<number | undefined>(valoresPadrao.ano);
-    const [mesTemp, setMesTemp] = useState<number | undefined>(valoresPadrao.mes);
+    // Estados temporários (antes de aplicar)
+    const [anoTemp, setAnoTemp] = useState<number | undefined>(isAdmin ? anoAtual : undefined);
+    const [mesTemp, setMesTemp] = useState<number | undefined>(isAdmin ? mesAtual : undefined);
     const [clienteTemp, setClienteTemp] = useState('');
     const [recursoTemp, setRecursoTemp] = useState('');
     const [statusTemp, setStatusTemp] = useState('');
 
-    const [ano, setAno] = useState<number | undefined>(valoresPadrao.ano);
-    const [mes, setMes] = useState<number | undefined>(valoresPadrao.mes);
+    // Estados aplicados
+    const [ano, setAno] = useState<number | undefined>(isAdmin ? anoAtual : undefined);
+    const [mes, setMes] = useState<number | undefined>(isAdmin ? mesAtual : undefined);
     const [clienteSelecionado, setClienteSelecionado] = useState('');
     const [recursoSelecionado, setRecursoSelecionado] = useState('');
     const [statusSelecionado, setStatusSelecionado] = useState('');
@@ -190,6 +402,322 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
     const [isInitialized, setIsInitialized] = useState(false);
     const [filtrosForamAlterados, setFiltrosForamAlterados] = useState(false);
 
+    // Dados extraídos localmente
+    const anosLocais = useAnosLocais(dadosChamados);
+    const mesesDisponiveisNoAno = useMesesDisponiveisNoAno(dadosChamados, anoTemp);
+    const recursosLocais = useRecursosLocais(dadosChamados);
+
+    // Valores padrão
+    const valoresPadrao = useMemo(
+        () => ({
+            ano: isAdmin ? anoAtual : undefined,
+            mes: isAdmin ? mesAtual : undefined,
+        }),
+        [isAdmin, anoAtual, mesAtual]
+    );
+
+    // Status é FINALIZADO?
+    const statusEhFinalizado = useMemo(() => {
+        return statusSelecionado?.trim().toUpperCase() === 'FINALIZADO';
+    }, [statusSelecionado]);
+
+    const usarAnosConfigurados = useMemo(() => {
+        const statusParaVerificar = statusTemp || statusSelecionado;
+        return statusParaVerificar?.trim().toUpperCase() === 'FINALIZADO';
+    }, [statusTemp, statusSelecionado]);
+
+    // Anos disponíveis
+    const years = useMemo(() => {
+        if (usarAnosConfigurados) {
+            console.log(
+                '📅 Usando anos configurados para status FINALIZADO:',
+                ANOS_DISPONIVEIS_FINALIZADOS
+            );
+            return ANOS_DISPONIVEIS_FINALIZADOS;
+        }
+        if (anosLocais.length === 0) {
+            console.log('📅 Usando anos padrão (sem chamados carregados)');
+            return [2024, 2025, 2026];
+        }
+        console.log('📅 Usando anos extraídos dos chamados:', anosLocais);
+        return anosLocais;
+    }, [anosLocais, usarAnosConfigurados]);
+
+    // Meses disponíveis
+    const mesesDisponiveis = useMemo(() => {
+        if (!anoTemp) return [];
+
+        if (usarAnosConfigurados) {
+            console.log('📅 Calculando meses para status FINALIZADO');
+
+            if (anoTemp < anoAtual) {
+                console.log('📅 Ano anterior ao atual: mostrando todos os 12 meses');
+                return MESES_NOMES.map((m, i) => ({ value: i + 1, label: m }));
+            }
+            if (anoTemp === anoAtual) {
+                console.log(`📅 Ano atual: mostrando meses até ${MESES_NOMES[mesAtual - 1]}`);
+                return MESES_NOMES.slice(0, mesAtual).map((m, i) => ({ value: i + 1, label: m }));
+            }
+            if (anoTemp > anoAtual) {
+                console.log('📅 Ano futuro: nenhum mês disponível');
+                return [];
+            }
+        }
+
+        if (mesesDisponiveisNoAno.length > 0) {
+            console.log('📅 Usando meses extraídos dos dados');
+            return mesesDisponiveisNoAno.map((mesNum) => ({
+                value: mesNum,
+                label: MESES_NOMES[mesNum - 1],
+            }));
+        }
+
+        // Fallback
+        if (anoTemp < anoAtual) {
+            return MESES_NOMES.map((m, i) => ({ value: i + 1, label: m }));
+        }
+        if (anoTemp === anoAtual) {
+            return MESES_NOMES.slice(0, mesAtual).map((m, i) => ({ value: i + 1, label: m }));
+        }
+        if (anoTemp > anoAtual) {
+            const diferencaAnos = anoTemp - anoAtual;
+            if (diferencaAnos === 1) {
+                const mesesFuturos = Math.max(0, mesAtual - 1);
+                return MESES_NOMES.slice(0, mesesFuturos).map((m, i) => ({
+                    value: i + 1,
+                    label: m,
+                }));
+            }
+            return [];
+        }
+
+        return MESES_NOMES.map((m, i) => ({ value: i + 1, label: m }));
+    }, [anoTemp, anoAtual, mesAtual, mesesDisponiveisNoAno, usarAnosConfigurados]);
+
+    // Estados de desabilitação
+    const anoDesabilitado = useMemo(() => {
+        const statusNaoFinalizado = statusTemp && statusTemp.trim().toUpperCase() !== 'FINALIZADO';
+        const statusMudou = statusTemp !== statusSelecionado;
+        return Boolean(statusNaoFinalizado && statusMudou);
+    }, [statusTemp, statusSelecionado]);
+
+    const mesDesabilitado = !anoTemp || mesesDisponiveis.length === 0 || anoDesabilitado;
+
+    const recursoDesabilitadoPorStatus = statusTemp !== statusSelecionado && statusTemp !== '';
+    const isLoadingRecursos = recursosLocais.length === 0 && dadosChamados.length > 0;
+    const recursoDesabilitado =
+        recursoDesabilitadoPorStatus || isLoadingRecursos || !recursosLocais.length;
+
+    // Queries
+    const { data: clientesData = [], isLoading: clientesLoading } = useQuery({
+        queryKey: ['clientes', mes, ano, isAdmin, codCliente],
+        queryFn: () => fetchClientes({ mes, ano, isAdmin, codCliente }),
+        enabled: !!isInitialized,
+        staleTime: 1000 * 60 * 5,
+        retry: 2,
+    });
+
+    const { data: statusData = [], isLoading: statusLoading } = useQuery({
+        queryKey: ['status', mes, ano, isAdmin, codCliente, clienteSelecionado, recursoSelecionado],
+        queryFn: () =>
+            fetchStatus({ mes, ano, isAdmin, codCliente, clienteSelecionado, recursoSelecionado }),
+        enabled: !!(isInitialized && (isAdmin || codCliente)),
+        staleTime: 1000 * 60 * 5,
+        retry: 2,
+    });
+
+    // Contadores e flags
+    const mudancasCount = useMemo(() => {
+        return [
+            anoTemp !== ano,
+            mesTemp !== mes,
+            ...(isAdmin ? [clienteTemp !== clienteSelecionado] : []),
+            recursoTemp !== recursoSelecionado,
+            statusTemp !== statusSelecionado,
+        ].filter(Boolean).length;
+    }, [
+        anoTemp,
+        ano,
+        mesTemp,
+        mes,
+        clienteTemp,
+        clienteSelecionado,
+        recursoTemp,
+        recursoSelecionado,
+        statusTemp,
+        statusSelecionado,
+        isAdmin,
+    ]);
+
+    const temMudancas = mudancasCount > 0;
+
+    const temFiltrosAtivos = useMemo(() => {
+        const temAnoMesDiferente = isAdmin
+            ? ano !== valoresPadrao.ano || mes !== valoresPadrao.mes
+            : ano !== undefined || mes !== undefined;
+        const temCliente = isAdmin && clienteSelecionado;
+        const temRecurso = recursoSelecionado;
+        const temStatus = statusSelecionado;
+
+        return temAnoMesDiferente || temCliente || temRecurso || temStatus;
+    }, [
+        ano,
+        mes,
+        clienteSelecionado,
+        recursoSelecionado,
+        statusSelecionado,
+        isAdmin,
+        valoresPadrao,
+    ]);
+
+    // Callbacks
+    const aplicarFiltros = useCallback(() => {
+        console.log('🎯 Aplicando filtros:', {
+            anoTemp,
+            mesTemp,
+            clienteTemp,
+            recursoTemp,
+            statusTemp,
+        });
+
+        setAno(anoTemp);
+        setMes(mesTemp);
+        setClienteSelecionado(clienteTemp);
+        setRecursoSelecionado(recursoTemp);
+        setStatusSelecionado(statusTemp);
+
+        if (
+            anoTemp !== valoresPadrao.ano ||
+            mesTemp !== valoresPadrao.mes ||
+            clienteTemp ||
+            recursoTemp ||
+            statusTemp
+        ) {
+            setFiltrosForamAlterados(true);
+        }
+    }, [anoTemp, mesTemp, clienteTemp, recursoTemp, statusTemp, valoresPadrao]);
+
+    const limparAnoMes = useCallback(() => {
+        console.log('🧹 Limpando ano e mês:', { isAdmin, valoresPadrao, statusSelecionado });
+
+        if (isAdmin) {
+            setAnoTemp(valoresPadrao.ano);
+            setMesTemp(valoresPadrao.mes);
+            setAno(valoresPadrao.ano);
+            setMes(valoresPadrao.mes);
+        } else {
+            setAnoTemp(undefined);
+            setMesTemp(undefined);
+            setAno(undefined);
+            setMes(undefined);
+        }
+
+        if (statusSelecionado === 'FINALIZADO') {
+            console.log('⚠️ Status FINALIZADO detectado, limpando status também');
+            setStatusTemp('');
+            setStatusSelecionado('');
+        }
+    }, [isAdmin, valoresPadrao, statusSelecionado]);
+
+    const limparFiltroIndividual = useCallback(
+        (campo: 'ano' | 'mes' | 'cliente' | 'recurso' | 'status') => {
+            console.log('🧹 Limpando filtro individual:', campo);
+
+            switch (campo) {
+                case 'ano':
+                case 'mes':
+                    limparAnoMes();
+                    break;
+                case 'cliente':
+                    setClienteTemp('');
+                    setClienteSelecionado('');
+                    break;
+                case 'recurso':
+                    setRecursoTemp('');
+                    setRecursoSelecionado('');
+                    break;
+                case 'status':
+                    if (statusSelecionado === 'FINALIZADO') {
+                        console.log('🧹 Limpando recurso junto com status FINALIZADO');
+                        setRecursoTemp('');
+                        setRecursoSelecionado('');
+                    }
+                    setStatusTemp('');
+                    setStatusSelecionado('');
+                    if (!isAdmin) {
+                        console.log('⚠️ Não-admin: limpando ano e mês também');
+                        setAnoTemp(undefined);
+                        setMesTemp(undefined);
+                        setAno(undefined);
+                        setMes(undefined);
+                    }
+                    break;
+            }
+
+            const verificarFiltrosRestantes = () => {
+                if (campo === 'status') {
+                    const temAnoMes =
+                        (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
+                        (!isAdmin && (ano !== undefined || mes !== undefined));
+                    const temCliente = isAdmin && clienteSelecionado;
+                    return temAnoMes || temCliente;
+                }
+                if (campo === 'cliente') {
+                    const temAnoMes =
+                        (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
+                        (!isAdmin && (ano !== undefined || mes !== undefined));
+                    return temAnoMes || recursoSelecionado || statusSelecionado;
+                }
+                if (campo === 'recurso') {
+                    const temAnoMes =
+                        (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
+                        (!isAdmin && (ano !== undefined || mes !== undefined));
+                    const temCliente = isAdmin && clienteSelecionado;
+                    return temAnoMes || temCliente || statusSelecionado;
+                }
+                if (campo === 'ano' || campo === 'mes') {
+                    const temCliente = isAdmin && clienteSelecionado;
+                    return temCliente || recursoSelecionado || statusSelecionado;
+                }
+                return false;
+            };
+
+            if (!verificarFiltrosRestantes()) {
+                setFiltrosForamAlterados(false);
+            }
+        },
+        [
+            limparAnoMes,
+            isAdmin,
+            ano,
+            mes,
+            valoresPadrao,
+            clienteSelecionado,
+            recursoSelecionado,
+            statusSelecionado,
+        ]
+    );
+
+    const limparFiltros = useCallback(() => {
+        console.log('🧹 Limpando todos os filtros:', valoresPadrao);
+
+        setAnoTemp(valoresPadrao.ano);
+        setMesTemp(valoresPadrao.mes);
+        if (isAdmin) {
+            setClienteTemp('');
+            setClienteSelecionado('');
+        }
+        setRecursoTemp('');
+        setStatusTemp('');
+        setAno(valoresPadrao.ano);
+        setMes(valoresPadrao.mes);
+        if (isAdmin) setClienteSelecionado('');
+        setRecursoSelecionado('');
+        setStatusSelecionado('');
+        setFiltrosForamAlterados(false);
+    }, [valoresPadrao, isAdmin]);
+
+    // Effects
     useEffect(() => {
         setIsInitialized(true);
         console.log('🚀 Componente inicializado:', {
@@ -216,454 +744,55 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
         }
     }, [statusTemp, isAdmin, anoTemp, mesTemp, anoAtual, mesAtual]);
 
-    // ==================== CÁLCULO DE MESES DISPONÍVEIS ====================
-    const mesesDisponiveis = useMemo(() => {
-        const todosOsMeses = [
-            'Janeiro',
-            'Fevereiro',
-            'Março',
-            'Abril',
-            'Maio',
-            'Junho',
-            'Julho',
-            'Agosto',
-            'Setembro',
-            'Outubro',
-            'Novembro',
-            'Dezembro',
-        ];
-
-        if (!anoTemp) return [];
-
-        if (anoTemp < anoAtual) {
-            return todosOsMeses.map((m, i) => ({ value: i + 1, label: m }));
-        }
-
-        if (anoTemp === anoAtual) {
-            return todosOsMeses.slice(0, mesAtual).map((m, i) => ({ value: i + 1, label: m }));
-        }
-
-        if (anoTemp > anoAtual) {
-            const diferencaAnos = anoTemp - anoAtual;
-            if (diferencaAnos === 1) {
-                const mesesFuturos = Math.max(0, mesAtual - 1);
-                return todosOsMeses
-                    .slice(0, mesesFuturos)
-                    .map((m, i) => ({ value: i + 1, label: m }));
-            }
-            return [];
-        }
-
-        return todosOsMeses.map((m, i) => ({ value: i + 1, label: m }));
-    }, [anoTemp, anoAtual, mesAtual]);
-
-    const mesDesabilitado = !anoTemp || mesesDisponiveis.length === 0;
-
     useEffect(() => {
-        if (mesTemp && anoTemp) {
+        if (mesTemp && anoTemp && mesesDisponiveis.length > 0) {
             const mesDisponivel = mesesDisponiveis.some((m) => m.value === mesTemp);
             if (!mesDisponivel) {
-                console.log('⚠️ Mês selecionado não disponível para o ano, limpando...');
+                console.log('⚠️ Mês selecionado não disponível para o ano/status, limpando...');
                 setMesTemp(undefined);
             }
         }
-    }, [anoTemp, mesTemp, mesesDisponiveis]);
+    }, [anoTemp, mesesDisponiveis, mesTemp]);
 
     useEffect(() => {
-        if (!isAdmin && statusTemp === 'FINALIZADO') {
-            if (!anoTemp) setAnoTemp(anoAtual);
-            if (!mesTemp) setMesTemp(mesAtual);
-        }
-    }, [statusTemp, isAdmin, anoTemp, mesTemp, anoAtual, mesAtual]);
-
-    // ==================== QUERIES ====================
-    const { data: clientesData = [], isLoading: clientesLoading } = useQuery({
-        queryKey: ['clientes', mes, ano, isAdmin, codCliente],
-        queryFn: () => fetchClientes({ mes, ano, isAdmin, codCliente }),
-        enabled: !!isInitialized,
-        staleTime: 1000 * 60 * 5,
-        retry: 2,
-    });
-
-    const statusEhFinalizado = useMemo(() => {
-        return statusSelecionado?.trim().toUpperCase() === 'FINALIZADO';
-    }, [statusSelecionado]);
-
-    const { data: recursosData = [], isLoading: recursosLoading } = useQuery({
-        queryKey: ['recursos', mes, ano, isAdmin, codCliente, clienteSelecionado],
-        queryFn: () =>
-            fetchRecursos({
-                mes,
-                ano,
-                isAdmin,
-                codCliente,
-                clienteSelecionado,
-            }),
-        enabled: !!(
-            isInitialized &&
-            statusEhFinalizado &&
-            (isAdmin || codCliente || clienteSelecionado)
-        ),
-        staleTime: 1000 * 60 * 5,
-        retry: 2,
-    });
-
-    // ✅ EXTRAÇÃO LOCAL DE RECURSOS - USA NOME_RECURSO COMO CHAVE
-    const recursosLocais = useMemo(() => {
-        if (!dadosChamados || dadosChamados.length === 0) {
-            console.log('⚠️ Nenhum chamado disponível para extrair recursos locais');
-            return [];
-        }
-
-        console.log('🔍 Extraindo recursos locais de', dadosChamados.length, 'chamados');
-
-        const recursosUnicos = new Map<string, string>();
-
-        dadosChamados.forEach((chamado, index) => {
-            const nomeRecurso = chamado.NOME_RECURSO?.toString().trim();
-
-            // ✅ Usa NOME_RECURSO como chave E valor quando COD_RECURSO não existe
-            const codRecurso = chamado.COD_RECURSO?.toString().trim() || nomeRecurso;
-
-            if (codRecurso && nomeRecurso && !recursosUnicos.has(codRecurso)) {
-                recursosUnicos.set(codRecurso, nomeRecurso);
-                console.log(`✅ Recurso ${index + 1} adicionado: ${codRecurso} - ${nomeRecurso}`);
-            }
-        });
-
-        const recursos = Array.from(recursosUnicos.entries())
-            .map(([cod, nome]) => ({ cod, nome }))
-            .sort((a, b) => a.nome.localeCompare(b.nome));
-
-        console.log('📋 Recursos únicos encontrados:', recursos.length);
-        console.log('📋 Lista:', recursos.map((r) => r.nome).join(', '));
-
-        return recursos;
-    }, [dadosChamados]);
-
-    const recursosFinais = useMemo(() => {
-        // ✅ SEMPRE usa recursos locais extraídos dos chamados carregados
-        console.log('💾 Usando recursos locais:', recursosLocais.length);
-        return recursosLocais;
-    }, [recursosLocais]);
+        if (!isInitialized || !codCliente || isAdmin || clientesData.length === 0) return;
+        setClienteTemp(codCliente);
+        setClienteSelecionado(codCliente);
+    }, [isAdmin, codCliente, clientesData, isInitialized]);
 
     useEffect(() => {
-        // ✅ Sempre valida se o recurso ainda existe nos recursos locais
-        if (recursoTemp) {
-            const recursoExiste = recursosLocais.some((r) => r.cod === recursoTemp);
-            if (!recursoExiste) {
-                console.log('⚠️ Recurso selecionado não existe mais, limpando...');
-                setRecursoTemp('');
-            }
+        if (!recursoTemp) return;
+        const recursoExiste = recursosLocais.some((r) => r.cod === recursoTemp);
+        if (!recursoExiste) {
+            console.log('⚠️ Recurso selecionado não existe mais, limpando...');
+            setRecursoTemp('');
         }
     }, [recursosLocais, recursoTemp]);
 
-    const isLoadingRecursos = recursosLocais.length === 0 && dadosChamados.length > 0;
-
-    const { data: statusData = [], isLoading: statusLoading } = useQuery({
-        queryKey: ['status', mes, ano, isAdmin, codCliente, clienteSelecionado, recursoSelecionado],
-        queryFn: () =>
-            fetchStatus({
-                mes,
-                ano,
-                isAdmin,
-                codCliente,
-                clienteSelecionado,
-                recursoSelecionado,
-            }),
-        enabled: !!(isInitialized && (isAdmin || codCliente)),
-        staleTime: 1000 * 60 * 5,
-        retry: 2,
-    });
-
     useEffect(() => {
-        if (!isInitialized) return;
-        if (!isAdmin && codCliente && clientesData.length > 0) {
-            setClienteTemp(codCliente);
-            setClienteSelecionado(codCliente);
-        }
-    }, [isAdmin, codCliente, clientesData, isInitialized]);
-
-    const mudancasCount = [
-        anoTemp !== ano,
-        mesTemp !== mes,
-        ...(isAdmin ? [clienteTemp !== clienteSelecionado] : []),
-        recursoTemp !== recursoSelecionado,
-        statusTemp !== statusSelecionado,
-    ].filter(Boolean).length;
-
-    const temMudancas = mudancasCount > 0;
-    const temFiltrosAtivos = useMemo(() => {
-        const temAnoMesDiferente = isAdmin
-            ? ano !== valoresPadrao.ano || mes !== valoresPadrao.mes
-            : ano !== undefined || mes !== undefined;
-
-        const temCliente = isAdmin && clienteSelecionado;
-        const temRecurso = recursoSelecionado;
-        const temStatus = statusSelecionado;
-
-        return temAnoMesDiferente || temCliente || temRecurso || temStatus;
-    }, [
-        ano,
-        mes,
-        clienteSelecionado,
-        recursoSelecionado,
-        statusSelecionado,
-        isAdmin,
-        valoresPadrao,
-    ]);
-
-    const recursoDesabilitadoPorStatus = statusTemp !== statusSelecionado && statusTemp !== '';
-
-    const recursoDesabilitado = useMemo(() => {
-        if (recursoDesabilitadoPorStatus) return true;
-        if (isLoadingRecursos) return true;
-        return !recursosFinais.length;
-    }, [recursoDesabilitadoPorStatus, isLoadingRecursos, recursosFinais.length]);
-
-    const aplicarFiltros = () => {
-        console.log('🎯 Aplicando filtros:', {
-            anoTemp,
-            mesTemp,
-            clienteTemp,
-            recursoTemp,
-            statusTemp,
-        });
-
-        setAno(anoTemp);
-        setMes(mesTemp);
-        setClienteSelecionado(clienteTemp);
-        setRecursoSelecionado(recursoTemp);
-        setStatusSelecionado(statusTemp);
-
-        if (
-            anoTemp !== valoresPadrao.ano ||
-            mesTemp !== valoresPadrao.mes ||
-            clienteTemp ||
-            recursoTemp ||
-            statusTemp
-        ) {
-            setFiltrosForamAlterados(true);
-        }
-    };
-
-    const limparAnoMes = () => {
-        console.log('🧹 Limpando ano e mês:', { isAdmin, valoresPadrao, statusSelecionado });
-
-        if (isAdmin) {
-            setAnoTemp(valoresPadrao.ano);
-            setMesTemp(valoresPadrao.mes);
-            setAno(valoresPadrao.ano);
-            setMes(valoresPadrao.mes);
-        } else {
+        if (!anoTemp || years.length === 0) return;
+        const anoExiste = years.includes(anoTemp);
+        if (!anoExiste) {
+            console.log('⚠️ Ano selecionado não existe mais nos anos disponíveis, limpando...');
             setAnoTemp(undefined);
             setMesTemp(undefined);
-            setAno(undefined);
-            setMes(undefined);
         }
+    }, [anoTemp, years]);
 
-        if (statusSelecionado === 'FINALIZADO') {
-            console.log('⚠️ Status FINALIZADO detectado, limpando status também');
-            setStatusTemp('');
-            setStatusSelecionado('');
-        }
-    };
+    const filtrosAtuais: Filtros = useMemo(
+        () => ({
+            ano,
+            mes,
+            cliente: clienteSelecionado,
+            recurso: recursoSelecionado,
+            status: statusSelecionado,
+        }),
+        [ano, mes, clienteSelecionado, recursoSelecionado, statusSelecionado]
+    );
 
-    const limparFiltroIndividual = (campo: 'ano' | 'mes' | 'cliente' | 'recurso' | 'status') => {
-        console.log('🧹 Limpando filtro individual:', campo);
+    const selectClassName =
+        'w-full cursor-pointer rounded-md p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30';
 
-        switch (campo) {
-            case 'ano':
-            case 'mes':
-                limparAnoMes();
-                break;
-            case 'cliente':
-                setClienteTemp('');
-                setClienteSelecionado('');
-                break;
-            case 'recurso':
-                setRecursoTemp('');
-                setRecursoSelecionado('');
-                break;
-            case 'status':
-                // ✅ Se está limpando status FINALIZADO, limpa recurso também
-                if (statusSelecionado === 'FINALIZADO') {
-                    console.log('🧹 Limpando recurso junto com status FINALIZADO');
-                    setRecursoTemp('');
-                    setRecursoSelecionado('');
-                }
-                setStatusTemp('');
-                setStatusSelecionado('');
-                if (!isAdmin) {
-                    console.log('⚠️ Não-admin: limpando ano e mês também');
-                    setAnoTemp(undefined);
-                    setMesTemp(undefined);
-                    setAno(undefined);
-                    setMes(undefined);
-                }
-                break;
-        }
-
-        const verificarFiltrosRestantes = () => {
-            if (campo === 'status') {
-                // Após limpar status (e recurso se FINALIZADO)
-                const temAnoMes =
-                    (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
-                    (!isAdmin && (ano !== undefined || mes !== undefined));
-                const temCliente = isAdmin && clienteSelecionado;
-                return temAnoMes || temCliente;
-            }
-            if (campo === 'cliente') {
-                const temAnoMes =
-                    (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
-                    (!isAdmin && (ano !== undefined || mes !== undefined));
-                const temRecurso = recursoSelecionado;
-                const temStatus = statusSelecionado;
-                return temAnoMes || temRecurso || temStatus;
-            }
-            if (campo === 'recurso') {
-                const temAnoMes =
-                    (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
-                    (!isAdmin && (ano !== undefined || mes !== undefined));
-                const temCliente = isAdmin && clienteSelecionado;
-                const temStatus = statusSelecionado;
-                return temAnoMes || temCliente || temStatus;
-            }
-            if (campo === 'ano' || campo === 'mes') {
-                const temCliente = isAdmin && clienteSelecionado;
-                const temRecurso = recursoSelecionado;
-                const temStatus = statusSelecionado;
-                return temCliente || temRecurso || temStatus;
-            }
-            return false;
-        };
-
-        if (!verificarFiltrosRestantes()) {
-            setFiltrosForamAlterados(false);
-        }
-    };
-
-    const limparFiltros = () => {
-        console.log('🧹 Limpando todos os filtros:', valoresPadrao);
-
-        setAnoTemp(valoresPadrao.ano);
-        setMesTemp(valoresPadrao.mes);
-        setClienteTemp('');
-        setRecursoTemp('');
-        setStatusTemp('');
-
-        setAno(valoresPadrao.ano);
-        setMes(valoresPadrao.mes);
-        setClienteSelecionado('');
-        setRecursoSelecionado('');
-        setStatusSelecionado('');
-
-        setFiltrosForamAlterados(false);
-    };
-
-    const filtrosAtuais: Filtros = {
-        ano,
-        mes,
-        cliente: clienteSelecionado,
-        recurso: recursoSelecionado,
-        status: statusSelecionado,
-    };
-
-    const years = [2024, 2025, 2026];
-    const isLoading = isLoadingRecursos || statusLoading;
-    const desabilitarMesAno = false;
-
-    // ==================== SELECT COM BOTÃO LIMPAR ====================
-    interface SelectWithClearProps {
-        value: string | number | undefined;
-        valorAplicado: string | number | undefined;
-        onChange: (value: string) => void;
-        onClearImmediate: () => void;
-        disabled?: boolean;
-        options: Array<{ value: string | number; label: string }>;
-        placeholder: string;
-        className?: string;
-        showClearButton?: boolean;
-    }
-
-    function SelectWithClear({
-        value,
-        valorAplicado,
-        onChange,
-        onClearImmediate,
-        disabled,
-        options,
-        placeholder,
-        className,
-        showClearButton = true,
-    }: SelectWithClearProps) {
-        const hasValue = value !== '' && value !== undefined && value !== 0;
-        const isAplicado =
-            valorAplicado !== '' && valorAplicado !== undefined && valorAplicado !== 0;
-
-        return (
-            <div className="relative">
-                <select
-                    value={value ?? ''}
-                    onChange={(e) => onChange(e.target.value)}
-                    disabled={disabled}
-                    className={`${className} ${hasValue ? 'pr-12' : 'pr-8'} ${
-                        hasValue && !disabled
-                            ? '-translate-y-3 border-t border-purple-300 bg-purple-100'
-                            : 'border'
-                    }`}
-                >
-                    <option
-                        value=""
-                        className="text-base font-semibold tracking-widest text-black select-none"
-                    >
-                        {placeholder}
-                    </option>
-                    {options.map((opt, index) => {
-                        const optValue =
-                            typeof opt.value === 'object'
-                                ? JSON.stringify(opt.value)
-                                : String(opt.value);
-                        const optLabel =
-                            typeof opt.label === 'string' ? opt.label : String(opt.label);
-
-                        return (
-                            <option
-                                key={`option-${optValue}-${index}`}
-                                value={optValue}
-                                className="text-base font-semibold tracking-widest text-black select-none"
-                                title={optLabel}
-                            >
-                                {processarNome(optLabel, 2)}
-                            </option>
-                        );
-                    })}
-                </select>
-
-                {showClearButton && isAplicado && !disabled && (
-                    <button
-                        onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            onClearImmediate();
-                        }}
-                        className="absolute top-1/2 right-8 flex -translate-y-1/2 cursor-pointer"
-                        title="Limpar este filtro"
-                        type="button"
-                    >
-                        <MdClose
-                            className={`text-red-500 transition-all duration-200 hover:scale-125 hover:rotate-180 ${hasValue ? '-translate-y-3' : ''}`}
-                            size={28}
-                        />
-                    </button>
-                )}
-            </div>
-        );
-    }
-
-    // ================================================================================
-    // RENDERIZAÇÃO
-    // ================================================================================
     return (
         <FiltrosContext.Provider value={filtrosAtuais}>
             <div className="flex flex-col gap-4">
@@ -674,7 +803,6 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                             FILTROS
                         </h1>
                     </div>
-
                     <div className="mr-2 flex items-center gap-6">
                         <div className="flex items-center gap-2 text-base font-extrabold tracking-widest text-black select-none">
                             <MdCalendarMonth className="text-black" size={24} />
@@ -692,37 +820,35 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                     <SelectWithClear
                         value={anoTemp}
                         valorAplicado={ano}
-                        onChange={(value) => {
-                            const novoAno = value ? Number(value) : undefined;
-                            console.log('📅 Ano selecionado:', novoAno);
-                            setAnoTemp(novoAno);
-                        }}
+                        onChange={(value) => setAnoTemp(value ? Number(value) : undefined)}
                         onClearImmediate={() => limparFiltroIndividual('ano')}
-                        disabled={desabilitarMesAno}
+                        disabled={anoDesabilitado}
                         options={years.map((y) => ({ value: y, label: String(y) }))}
-                        placeholder="Selecione o ano"
-                        className="w-full cursor-pointer rounded-md p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+                        placeholder={
+                            anoDesabilitado
+                                ? 'Aplique o filtro p/ selecionar ano'
+                                : 'Selecione o ano'
+                        }
+                        className={selectClassName}
                     />
 
                     <SelectWithClear
                         value={mesTemp}
                         valorAplicado={mes}
-                        onChange={(value) => {
-                            const novoMes = value ? Number(value) : undefined;
-                            console.log('📅 Mês selecionado:', novoMes);
-                            setMesTemp(novoMes);
-                        }}
+                        onChange={(value) => setMesTemp(value ? Number(value) : undefined)}
                         onClearImmediate={() => limparFiltroIndividual('mes')}
-                        disabled={mesDesabilitado || desabilitarMesAno}
+                        disabled={mesDesabilitado}
                         options={mesesDisponiveis}
                         placeholder={
-                            !anoTemp
-                                ? 'Selecione o ano p/ selecionar mês'
-                                : mesesDisponiveis.length === 0
-                                  ? 'Nenhum mês disponível'
-                                  : 'Selecione o mês'
+                            anoDesabilitado
+                                ? 'Aplique o filtro p/ selecionar mês'
+                                : !anoTemp
+                                  ? 'Selecione o ano p/ selecionar mês'
+                                  : mesesDisponiveis.length === 0
+                                    ? 'Nenhum mês disponível'
+                                    : 'Selecione o mês'
                         }
-                        className="w-full cursor-pointer rounded-md p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+                        className={selectClassName}
                     />
 
                     <SelectWithClear
@@ -734,7 +860,7 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                         options={clientesData.map((c) => ({ value: c.cod, label: c.nome }))}
                         placeholder={clientesLoading ? 'Carregando...' : 'Selecione o cliente'}
                         showClearButton={!codCliente}
-                        className="w-full cursor-pointer rounded-md p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:scale-100 disabled:hover:shadow-md disabled:hover:shadow-black"
+                        className={`${selectClassName} disabled:hover:scale-100 disabled:hover:shadow-md disabled:hover:shadow-black`}
                     />
 
                     <SelectWithClear
@@ -743,17 +869,17 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                         onChange={setRecursoTemp}
                         onClearImmediate={() => limparFiltroIndividual('recurso')}
                         disabled={recursoDesabilitado}
-                        options={recursosFinais.map((r) => ({ value: r.cod, label: r.nome }))}
+                        options={recursosLocais.map((r) => ({ value: r.cod, label: r.nome }))}
                         placeholder={
                             recursoDesabilitadoPorStatus
                                 ? 'Aplique o filtro p/ selecionar recurso'
                                 : isLoadingRecursos
                                   ? 'Carregando...'
-                                  : recursosFinais.length === 0
+                                  : recursosLocais.length === 0
                                     ? 'Nenhum recurso disponível'
                                     : 'Selecione o recurso'
                         }
-                        className="w-full cursor-pointer rounded-md p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+                        className={selectClassName}
                     />
 
                     <SelectWithClear
@@ -761,10 +887,10 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                         valorAplicado={statusSelecionado}
                         onChange={setStatusTemp}
                         onClearImmediate={() => limparFiltroIndividual('status')}
-                        disabled={!statusData.length || isLoading}
+                        disabled={!statusData.length || statusLoading}
                         options={statusData.map((s) => ({ value: s, label: s }))}
-                        placeholder={isLoading ? 'Carregando...' : 'Selecione o status'}
-                        className="w-full cursor-pointer rounded-md p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                        placeholder={statusLoading ? 'Carregando...' : 'Selecione o status'}
+                        className={selectClassName}
                     />
 
                     <div className="flex items-center justify-end gap-6">
