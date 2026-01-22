@@ -302,6 +302,41 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         };
     }, [dadosFiltradosPorRecurso]);
 
+    // ✅ Contagem de chamados NÃO FINALIZADOS (sempre da API completa)
+    // ✅ NOVO: Total geral de chamados (SEM filtrar por status)
+    const totalGeralChamados = useMemo(() => {
+        const chamados = apiData?.data ?? [];
+        return chamados.length;
+    }, [apiData?.data]);
+
+    const totalGeralChamadosAPI = useMemo(() => {
+        return apiData?.totalChamados ?? 0;
+    }, [apiData?.totalChamados]);
+
+    // ✅ Contagem de chamados NÃO FINALIZADOS (corrigido)
+    const totalChamadosNaoFinalizados = useMemo(() => {
+        const chamados = apiData?.data ?? [];
+
+        // Para admin SEM filtro de status, contar apenas não finalizados da página
+        if (isAdmin && !status) {
+            return chamados.filter(
+                (chamado) => chamado.STATUS_CHAMADO?.toUpperCase() !== 'FINALIZADO'
+            ).length;
+        }
+
+        // Para não-admin OU admin COM filtro, a API já fez a filtragem
+        return chamados.length;
+    }, [apiData?.data, isAdmin, status]);
+
+    // ✅ Contagem de chamados FINALIZADOS (mantido)
+    const totalChamadosFinalizados = useMemo(() => {
+        const statusUpper = status?.trim().toUpperCase();
+        if (statusUpper !== 'FINALIZADO') {
+            return 0;
+        }
+        return apiData?.totalChamados ?? 0; // ✅ MUDANÇA: usar total da API
+    }, [status, apiData?.totalChamados]);
+
     // ✅ Filtros de Coluna Otimizados
     const dadosCompletosFiltrados = useMemo(() => {
         if (columnFilters.length === 0) {
@@ -338,6 +373,33 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             hasPreviousPage: page > 1,
         };
     }, [dadosCompletosFiltrados.length, page, limit]);
+
+    useEffect(() => {
+        console.log('📊 DEBUG PAGINAÇÃO COMPLETO:', {
+            totalGeralChamados,
+            totalChamadosNaoFinalizados,
+            totalChamadosFinalizados,
+            dadosCompletosFiltrados: dadosCompletosFiltrados.length,
+            dadosPaginados: dadosPaginados.length,
+            page,
+            limit,
+            totalPages: paginacaoLocal.totalPages,
+            mostrandoPaginacao: paginacaoLocal.totalPages >= 1,
+            apiData: apiData?.data.length,
+            status: status || 'SEM FILTRO',
+            isAdmin,
+        });
+    }, [
+        totalGeralChamados,
+        totalChamadosNaoFinalizados,
+        dadosCompletosFiltrados.length,
+        dadosPaginados.length,
+        page,
+        paginacaoLocal,
+        apiData?.data.length,
+        status,
+        isAdmin,
+    ]);
 
     useEffect(() => {
         setPage(1);
@@ -483,6 +545,10 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                         setPage(1);
                         setTimeout(() => window.location.reload(), 100);
                     }}
+                    totalChamadosNaoFinalizados={totalChamadosNaoFinalizados}
+                    totalChamadosFinalizados={totalChamadosFinalizados}
+                    totalGeralChamados={totalGeralChamados}
+                    totalGeralChamadosAPI={totalGeralChamadosAPI} // ✅ ADICIONAR ESTA LINHA
                 />
 
                 <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
@@ -513,7 +579,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                     </div>
                 </div>
 
-                {paginacaoLocal && paginacaoLocal.totalPages > 1 && (
+                {paginacaoLocal && paginacaoLocal.totalPages >= 1 && (
                     <PaginationControls
                         currentPage={paginacaoLocal.page}
                         totalPages={paginacaoLocal.totalPages}
@@ -745,6 +811,10 @@ interface HeaderProps {
     ano: string;
     codCliente: string | null;
     onRefresh: () => void;
+    totalChamadosNaoFinalizados: number;
+    totalChamadosFinalizados: number;
+    totalGeralChamados: number;
+    totalGeralChamadosAPI: number; // ✅ ADICIONAR ESTA LINHA
 }
 
 function Header({
@@ -758,16 +828,51 @@ function Header({
     mes,
     ano,
     codCliente,
+    totalChamadosNaoFinalizados,
+    totalChamadosFinalizados,
+    totalGeralChamados,
+    totalGeralChamadosAPI, // ✅ ADICIONAR ESTA LINHA
+    status,
 }: HeaderProps) {
     const mesAnoTexto = mes && ano ? ` - ${mes}/${ano}` : '';
+
+    // ✅ LÓGICA CORRIGIDA DE EXIBIÇÃO
+    const statusUpper = status?.trim().toUpperCase();
+    const filtrandoPorFinalizado = statusUpper === 'FINALIZADO';
+    const semFiltroStatus = !status || status.trim() === '';
+
+    // Determina qual contagem e label exibir
+    let contagemExibida: number;
+    let labelContagem: string;
+
+    if (filtrandoPorFinalizado) {
+        // Filtrando por FINALIZADO - usa total da API
+        contagemExibida = totalGeralChamadosAPI;
+        labelContagem = 'FINALIZADOS';
+    } else if (isAdmin && semFiltroStatus) {
+        // Admin SEM filtro de status = TOTAL GERAL da API
+        contagemExibida = totalGeralChamadosAPI;
+        labelContagem = 'TOTAL GERAL';
+    } else {
+        // Demais casos = apenas ATIVOS (não finalizados)
+        contagemExibida = totalChamadosNaoFinalizados;
+        labelContagem = 'ATIVOS';
+    }
 
     return (
         <header className="flex items-center justify-between gap-4 bg-purple-900 p-6">
             <div className="flex items-center gap-4">
                 <IoCall className="text-white" size={50} />
-                <h2 className="text-2xl font-extrabold tracking-widest text-white select-none">
-                    CHAMADOS
-                </h2>
+                <div className="flex items-center gap-10">
+                    <h2 className="text-2xl font-extrabold tracking-widest text-white select-none">
+                        CHAMADOS {labelContagem}
+                    </h2>
+                    <div className="rounded-full bg-white/30 px-8 py-1 shadow-md ring-2 shadow-black ring-white/30">
+                        <span className="text-3xl font-extrabold tracking-widest text-white select-none">
+                            {contagemExibida}
+                        </span>
+                    </div>
+                </div>
             </div>
 
             <div className="flex items-center gap-6">

@@ -276,6 +276,9 @@ const buscarChamadosComTotais = async (
             // Para admin, sempre filtrar por data (mes + ano obrigatórios)
             whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
             whereParams.push(dataInicio, dataFim);
+
+            // ✅ ADMIN NÃO FILTRA POR STATUS AUTOMATICAMENTE
+            // Apenas se o usuário explicitamente filtrar
         } else {
             // Para não admin
             whereClauses.push(`CHAMADO.COD_CLIENTE = ?`);
@@ -287,7 +290,8 @@ const buscarChamadosComTotais = async (
                 whereParams.push(dataInicio, dataFim);
             }
 
-            // Se NÃO houver status filter, buscar apenas NÃO FINALIZADOS
+            // ✅ IMPORTANTE: Para NÃO-ADMIN, se não houver filtro de status,
+            // buscar apenas chamados NÃO FINALIZADOS
             if (!params.statusFilter) {
                 whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
             }
