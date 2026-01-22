@@ -717,7 +717,7 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                         options={mesesDisponiveis}
                         placeholder={
                             !anoTemp
-                                ? 'Selecione o ano primeiro'
+                                ? 'Selecione o ano p/ selecionar mês'
                                 : mesesDisponiveis.length === 0
                                   ? 'Nenhum mês disponível'
                                   : 'Selecione o mês'
@@ -746,7 +746,7 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                         options={recursosFinais.map((r) => ({ value: r.cod, label: r.nome }))}
                         placeholder={
                             recursoDesabilitadoPorStatus
-                                ? 'Aplique o filtro primeiro'
+                                ? 'Aplique o filtro p/ selecionar recurso'
                                 : isLoadingRecursos
                                   ? 'Carregando...'
                                   : recursosFinais.length === 0

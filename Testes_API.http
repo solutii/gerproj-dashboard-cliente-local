@@ -58,6 +58,9 @@ GET http://localhost:3000/api/filtros/status?isAdmin=true&mes=11&ano=2025
 ### Buscar todos os chamados de um determinado PERÍODO - ADMIN
 GET http://localhost:3000/api/chamados?mes=01&ano=2026&isAdmin=true
 
+### Teste: Não-Admin - Apenas ano (sem mês) - Chamados NÃO FINALIZADOS
+GET http://localhost:3000/api/chamados?isAdmin=false&codCliente=156&ano=2025
+
 
 
 ### Buscar todos os chamados de um CLIENTE específico - ADMIN
@@ -103,4 +106,8 @@ GET http://localhost:3000/api/dashboard/media-hrs-chamado-tarefa?codCliente=156&
 
 ### Buscar histórico de 6 meses para cliente 123
 GET http://localhost:3000/api/saldo-horas?codCliente=156&mes=12&ano=2025&isAdmin=true&mesesHistorico=6
+
+
+
+
 

@@ -1,4 +1,4 @@
-// app/api/chamados/route.ts - MODIFICADO PARA SUPORTAR NOVOS FILTROS
+// app/api/chamados/route.ts - MODIFICADO PARA SUPORTAR FILTRO APENAS POR ANO
 
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextRequest, NextResponse } from 'next/server';
@@ -23,7 +23,6 @@ export interface Chamado {
     TOTAL_HORAS_OS?: number;
     AVALIA_CHAMADO?: number;
     OBSAVAL_CHAMADO?: string | null;
-    // ✅ NOVOS CAMPOS
     DATA_HISTCHAMADO?: Date | null;
     HORA_HISTCHAMADO?: string | null;
 }
@@ -31,8 +30,8 @@ export interface Chamado {
 interface QueryParams {
     isAdmin: boolean;
     codCliente?: string;
-    mes?: number; // ✅ Agora opcional para não admin
-    ano?: number; // ✅ Agora opcional para não admin
+    mes?: number;
+    ano?: number;
     codChamadoFilter?: string;
     statusFilter?: string;
     codClienteFilter?: string;
@@ -60,7 +59,6 @@ interface ChamadoRaw {
     AVALIA_CHAMADO?: number;
     OBSAVAL_CHAMADO?: string | null;
     TOTAL_HORAS_OS?: number;
-    // ✅ NOVOS CAMPOS
     DATA_HISTCHAMADO?: Date | null;
     HORA_HISTCHAMADO?: string | null;
 }
@@ -119,7 +117,6 @@ const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
     const codCliente = sp.get('codCliente')?.trim() || undefined;
     const statusFilter = sp.get('statusFilter')?.trim() || undefined;
 
-    // ✅ NOVA LÓGICA: Para não admin, mes e ano são opcionais EXCETO quando status = FINALIZADO
     let mes: number | undefined;
     let ano: number | undefined;
 
@@ -140,7 +137,7 @@ const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
         const mesParam = sp.get('mes');
         const anoParam = sp.get('ano');
 
-        // Se status for FINALIZADO, mes e ano são obrigatórios
+        // ✅ NOVA LÓGICA: Se status for FINALIZADO, mes e ano são obrigatórios
         if (statusFilter?.toUpperCase() === 'FINALIZADO') {
             mes = Number(mesParam);
             ano = Number(anoParam);
@@ -159,17 +156,26 @@ const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
                 );
             }
         } else {
-            // Se status não for FINALIZADO, mes e ano são opcionais
-            mes = mesParam ? Number(mesParam) : undefined;
+            // ✅ MODIFICAÇÃO: Para status diferente de FINALIZADO, aceita apenas ano
             ano = anoParam ? Number(anoParam) : undefined;
+            mes = mesParam ? Number(mesParam) : undefined;
 
-            // Valida apenas se foram fornecidos
+            // Validação do ano (se fornecido)
+            if (ano && (ano < 2000 || ano > 3000)) {
+                return NextResponse.json({ error: "Parâmetro 'ano' inválido" }, { status: 400 });
+            }
+
+            // Validação do mês (se fornecido)
             if (mes && (mes < 1 || mes > 12)) {
                 return NextResponse.json({ error: "Parâmetro 'mes' inválido" }, { status: 400 });
             }
 
-            if (ano && (ano < 2000 || ano > 3000)) {
-                return NextResponse.json({ error: "Parâmetro 'ano' inválido" }, { status: 400 });
+            // ✅ Se informou mês mas não informou ano, retorna erro
+            if (mes && !ano) {
+                return NextResponse.json(
+                    { error: "Se informar 'mes', deve informar 'ano' também" },
+                    { status: 400 }
+                );
             }
         }
     }
@@ -220,11 +226,19 @@ const construirDatas = (
     mes?: number,
     ano?: number
 ): { dataInicio: string | null; dataFim: string | null } => {
-    // ✅ Se não houver mes ou ano, retorna null
-    if (!mes || !ano) {
+    // ✅ MODIFICAÇÃO: Se não houver ano, retorna null
+    if (!ano) {
         return { dataInicio: null, dataFim: null };
     }
 
+    // ✅ NOVA LÓGICA: Se tiver ano mas não tiver mês, usa o ano inteiro
+    if (!mes) {
+        const dataInicio = `01.01.${ano}`;
+        const dataFim = `01.01.${ano + 1}`;
+        return { dataInicio, dataFim };
+    }
+
+    // Lógica original: mes + ano
     const m = mes.toString().padStart(2, '0');
     const dataInicio = `01.${m}.${ano}`;
     const dataFim =
@@ -259,21 +273,21 @@ const buscarChamadosComTotais = async (
         const whereParams: any[] = [];
 
         if (params.isAdmin) {
-            // Para admin, sempre filtrar por data
+            // Para admin, sempre filtrar por data (mes + ano obrigatórios)
             whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
             whereParams.push(dataInicio, dataFim);
         } else {
-            // ✅ NOVA LÓGICA: Para não admin
+            // Para não admin
             whereClauses.push(`CHAMADO.COD_CLIENTE = ?`);
             whereParams.push(parseInt(params.codCliente!));
 
-            // Se houver filtro de data (quando status = FINALIZADO)
+            // ✅ MODIFICAÇÃO: Aplica filtro de data se houver ano (com ou sem mês)
             if (dataInicio && dataFim) {
                 whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
                 whereParams.push(dataInicio, dataFim);
             }
 
-            // ✅ Se NÃO houver status filter, buscar apenas NÃO FINALIZADOS
+            // Se NÃO houver status filter, buscar apenas NÃO FINALIZADOS
             if (!params.statusFilter) {
                 whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
             }
@@ -581,7 +595,6 @@ const processarChamados = (chamados: ChamadoRaw[]): Chamado[] => {
         TOTAL_HORAS_OS: c.TOTAL_HORAS_OS ?? 0,
         AVALIA_CHAMADO: c.AVALIA_CHAMADO ?? 1,
         OBSAVAL_CHAMADO: c.OBSAVAL_CHAMADO ?? null,
-        // ✅ NOVOS CAMPOS DO HISTÓRICO
         DATA_HISTCHAMADO: c.DATA_HISTCHAMADO || null,
         HORA_HISTCHAMADO: c.HORA_HISTCHAMADO || null,
     }));
