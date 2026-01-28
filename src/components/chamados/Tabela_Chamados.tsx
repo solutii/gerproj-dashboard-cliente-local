@@ -1,4 +1,4 @@
-// src/components/chamados/Tabela_Chamados.tsx - VERSÃO OTIMIZADA
+// src/components/chamados/Tabela_Chamados.tsx
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
@@ -28,15 +28,34 @@ import { ModalTabelaOS } from './Modal_Tabela_OS';
 import { ModalValidarOS } from './Modal_Validar_OS';
 import { RedimensionarColunas } from './Redimensionar_Colunas';
 
-// ===== CONFIGURAÇÃO =====
+// =====================================================
+// CONFIGURAÇÕES E CONSTANTES
+// =====================================================
 const ZOOM_LEVEL = 0.67;
 const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL;
 const HEADER_HEIGHT = 293;
 const BASE_MIN_HEIGHT = 400;
 const MAX_HEIGHT = `calc(${ZOOM_COMPENSATION}vh - ${HEADER_HEIGHT}px)`;
 const MIN_HEIGHT = `${(BASE_MIN_HEIGHT * ZOOM_COMPENSATION) / 100}px`;
+const PAGINATION_LIMIT = 300;
 
-// ===== INTERFACES =====
+const INITIAL_COLUMN_WIDTHS = {
+    COD_CHAMADO: 110,
+    DATA_CHAMADO: 170,
+    PRIOR_CHAMADO: 110,
+    ASSUNTO_CHAMADO: 280,
+    EMAIL_CHAMADO: 220,
+    NOME_CLASSIFICACAO: 180,
+    DTENVIO_CHAMADO: 170,
+    NOME_RECURSO: 180,
+    STATUS_CHAMADO: 220,
+    DATA_HISTCHAMADO: 170,
+    TOTAL_HORAS_OS: 120,
+} as const;
+
+// =====================================================
+// INTERFACES E TIPOS
+// =====================================================
 interface ApiResponseChamados {
     success: boolean;
     totalChamados: number;
@@ -52,13 +71,31 @@ interface ApiResponseChamados {
     data: ChamadoRowProps[];
 }
 
+interface TabelaChamadosProps {
+    onDataChange?: (data: ChamadoRowProps[]) => void;
+}
+
+interface FetchChamadosParams {
+    ano?: string;
+    mes?: string;
+    isAdmin: boolean;
+    codCliente: string | null;
+    cliente?: string;
+    status?: string;
+    page: number;
+    limit: number;
+    columnFilters?: ColumnFiltersState;
+}
+
 declare module '@tanstack/react-table' {
     interface TableMeta<TData> {
         handleChamadoClick?: (codChamado: number, temOS: boolean) => void;
     }
 }
 
-// ===== UTILITÁRIOS =====
+// =====================================================
+// FUNÇÕES UTILITÁRIAS
+// =====================================================
 const createAuthHeaders = () => ({
     'Content-Type': 'application/json',
     'x-is-logged-in': localStorage.getItem('isLoggedIn') || 'false',
@@ -67,7 +104,6 @@ const createAuthHeaders = () => ({
     'x-cod-cliente': localStorage.getItem('codCliente') || '',
 });
 
-// ✅ FUNÇÃO DE SERIALIZAÇÃO ESTÁVEL PARA QUERY KEY
 const serializeColumnFilters = (filters: ColumnFiltersState): string => {
     return JSON.stringify(
         filters
@@ -77,7 +113,9 @@ const serializeColumnFilters = (filters: ColumnFiltersState): string => {
     );
 };
 
-// ===== FETCH FUNCTION =====
+// =====================================================
+// API - FETCH DE DADOS
+// =====================================================
 const fetchChamados = async ({
     ano,
     mes,
@@ -88,35 +126,20 @@ const fetchChamados = async ({
     page,
     limit,
     columnFilters,
-}: {
-    ano?: string;
-    mes?: string;
-    isAdmin: boolean;
-    codCliente: string | null;
-    cliente?: string;
-    status?: string;
-    page: number;
-    limit: number;
-    columnFilters?: ColumnFiltersState;
-}): Promise<ApiResponseChamados> => {
+}: FetchChamadosParams): Promise<ApiResponseChamados> => {
     const params = new URLSearchParams({
         isAdmin: String(isAdmin),
         page: String(page),
         limit: String(limit),
     });
 
-    // ✅ Adiciona cliente se existir
     if (cliente) params.append('codClienteFilter', cliente);
 
-    // ✅ RECURSO REMOVIDO: Sempre filtra localmente, nunca envia para API
-
-    // Status FINALIZADO vai para API
     const statusUpper = status?.trim().toUpperCase();
     if (statusUpper === 'FINALIZADO') {
         params.append('statusFilter', status!);
     }
 
-    // Ano e Mês
     if (isAdmin) {
         params.append('ano', ano || String(new Date().getFullYear()));
         params.append('mes', mes || String(new Date().getMonth() + 1));
@@ -126,14 +149,11 @@ const fetchChamados = async ({
         if (mes) params.append('mes', mes);
     }
 
-    // Filtros de coluna (exceto status)
     columnFilters?.forEach((filter) => {
         if (filter.id !== 'STATUS_CHAMADO' && filter.value && String(filter.value).trim()) {
             params.append(`filter_${filter.id}`, String(filter.value));
         }
     });
-
-    console.log('🔍 Requisição API:', params.toString());
 
     const response = await fetch(`/api/chamados?${params.toString()}`, {
         headers: createAuthHeaders(),
@@ -146,20 +166,20 @@ const fetchChamados = async ({
 
     return response.json();
 };
-interface TabelaChamadosProps {
-    onDataChange?: (data: ChamadoRowProps[]) => void;
-}
 
-// ===== COMPONENTE PRINCIPAL =====
+// =====================================================
+// COMPONENTE PRINCIPAL
+// =====================================================
 export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const { isAdmin, codCliente, isLoggedIn } = useAuth();
     const filtros = useFiltrosChamado();
     const { ano, mes, cliente, recurso, status } = filtros;
 
-    // Estados
+    // Estados principais
     const [page, setPage] = useState(1);
-    const [limit] = useState(50);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+
+    // Estados dos modais
     const [isModalListaOSOpen, setIsModalListaOSOpen] = useState(false);
     const [isModalOSOpen, setIsModalOSOpen] = useState(false);
     const [selectedChamado, setSelectedChamado] = useState<number | null>(null);
@@ -171,25 +191,13 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const [selectedChamadoAvaliacao, setSelectedChamadoAvaliacao] =
         useState<ChamadoRowProps | null>(null);
 
-    const initialColumnWidths = {
-        COD_CHAMADO: 110,
-        DATA_CHAMADO: 170,
-        PRIOR_CHAMADO: 110,
-        ASSUNTO_CHAMADO: 280,
-        EMAIL_CHAMADO: 220,
-        NOME_CLASSIFICACAO: 180,
-        DTENVIO_CHAMADO: 170,
-        NOME_RECURSO: 180,
-        STATUS_CHAMADO: 220,
-        DATA_HISTCHAMADO: 170,
-        TOTAL_HORAS_OS: 120,
-    };
-
+    // Hook de redimensionamento
     const { columnWidths, handleMouseDown, handleDoubleClick, resizingColumn } =
-        useRedimensionarColunas(initialColumnWidths);
+        useRedimensionarColunas(INITIAL_COLUMN_WIDTHS);
 
-    // ✅ Query Key Estável
-
+    // =====================================================
+    // MEMOIZAÇÕES E DERIVAÇÕES DE ESTADO
+    // =====================================================
     const statusParaQuery = useMemo(() => {
         const statusUpper = status?.trim().toUpperCase();
         return statusUpper === 'FINALIZADO' ? status : '';
@@ -201,7 +209,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         return isLoggedIn && (isAdmin ? !!ano && !!mes : true);
     }, [isLoggedIn, isAdmin, ano, mes]);
 
-    // ✅ React Query com Key Estável
+    // =====================================================
+    // REACT QUERY
+    // =====================================================
     const {
         data: apiData,
         isLoading,
@@ -213,12 +223,11 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             ano,
             mes,
             cliente ?? '',
-            // recurso REMOVIDO - sempre filtra localmente
             statusParaQuery,
             isAdmin,
             codCliente ?? '',
             page,
-            limit,
+            PAGINATION_LIMIT,
             columnFiltersKey,
         ],
         queryFn: () =>
@@ -228,10 +237,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 isAdmin,
                 codCliente,
                 cliente: cliente ?? '',
-                // recurso REMOVIDO - nunca envia para API
                 status: status ?? '',
                 page,
-                limit,
+                limit: PAGINATION_LIMIT,
                 columnFilters,
             }),
         enabled: queryEnabled,
@@ -242,19 +250,15 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         retry: 2,
     });
 
-    // ✅ Filtro de Status Otimizado
+    // =====================================================
+    // FILTRAGENS E TRANSFORMAÇÕES DE DADOS
+    // =====================================================
     const dadosFiltradosPorStatus = useMemo(() => {
         const chamados = apiData?.data ?? [];
-
-        if (!status || status.trim() === '') {
-            return chamados;
-        }
+        if (!status || status.trim() === '') return chamados;
 
         const statusUpper = status.trim().toUpperCase();
-
-        if (statusUpper === 'FINALIZADO') {
-            return chamados; // Já vem filtrado da API
-        }
+        if (statusUpper === 'FINALIZADO') return chamados;
 
         return chamados.filter((chamado) =>
             chamado.STATUS_CHAMADO?.toUpperCase().includes(statusUpper)
@@ -262,161 +266,112 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     }, [apiData?.data, status]);
 
     const dadosFiltradosPorRecurso = useMemo(() => {
-        // Se não tiver recurso selecionado, retorna tudo
-        if (!recurso) {
-            return dadosFiltradosPorStatus;
-        }
-
-        // Filtragem local por recurso (funciona para QUALQUER status)
-        console.log('🔍 Filtrando localmente por recurso:', recurso);
+        if (!recurso) return dadosFiltradosPorStatus;
 
         return dadosFiltradosPorStatus.filter((chamado) => {
             const codRecurso = chamado.COD_RECURSO?.toString().trim();
             const nomeRecurso = chamado.NOME_RECURSO?.toString().trim();
-
-            // Compara tanto COD_RECURSO quanto NOME_RECURSO
             return codRecurso === recurso || nomeRecurso === recurso;
         });
     }, [dadosFiltradosPorStatus, recurso]);
 
-    useEffect(() => {
-        if (onDataChange) {
-            console.log(
-                '📤 Enviando dados para FiltrosChamado:',
-                dadosFiltradosPorRecurso.length,
-                'chamados'
-            );
-            onDataChange(dadosFiltradosPorRecurso);
-        }
-    }, [dadosFiltradosPorRecurso, onDataChange]);
-
-    // ✅ Totalizadores Otimizados
-    const totaisRecalculados = useMemo(() => {
-        return {
-            totalChamados: dadosFiltradosPorRecurso.length,
-            totalOS: dadosFiltradosPorRecurso.filter((c) => c.TEM_OS).length,
-            totalHoras: dadosFiltradosPorRecurso.reduce(
-                (sum, c) => sum + (c.TOTAL_HORAS_OS || 0),
-                0
-            ),
-        };
-    }, [dadosFiltradosPorRecurso]);
-
-    // ✅ Contagem de chamados NÃO FINALIZADOS (sempre da API completa)
-    // ✅ NOVO: Total geral de chamados (SEM filtrar por status)
-    const totalGeralChamados = useMemo(() => {
-        const chamados = apiData?.data ?? [];
-        return chamados.length;
-    }, [apiData?.data]);
-
-    const totalGeralChamadosAPI = useMemo(() => {
-        return apiData?.totalChamados ?? 0;
-    }, [apiData?.totalChamados]);
-
-    // ✅ Contagem de chamados NÃO FINALIZADOS (corrigido)
-    const totalChamadosNaoFinalizados = useMemo(() => {
-        const chamados = apiData?.data ?? [];
-
-        // Para admin SEM filtro de status, contar apenas não finalizados da página
-        if (isAdmin && !status) {
-            return chamados.filter(
-                (chamado) => chamado.STATUS_CHAMADO?.toUpperCase() !== 'FINALIZADO'
-            ).length;
-        }
-
-        // Para não-admin OU admin COM filtro, a API já fez a filtragem
-        return chamados.length;
-    }, [apiData?.data, isAdmin, status]);
-
-    // ✅ Contagem de chamados FINALIZADOS (mantido)
-    const totalChamadosFinalizados = useMemo(() => {
-        const statusUpper = status?.trim().toUpperCase();
-        if (statusUpper !== 'FINALIZADO') {
-            return 0;
-        }
-        return apiData?.totalChamados ?? 0; // ✅ MUDANÇA: usar total da API
-    }, [status, apiData?.totalChamados]);
-
-    // ✅ Filtros de Coluna Otimizados
     const dadosCompletosFiltrados = useMemo(() => {
-        if (columnFilters.length === 0) {
-            return dadosFiltradosPorRecurso;
-        }
+        if (columnFilters.length === 0) return dadosFiltradosPorRecurso;
 
         return dadosFiltradosPorRecurso.filter((row) => {
             return columnFilters.every((filter) => {
                 if (!filter.value || (typeof filter.value === 'string' && !filter.value.trim())) {
                     return true;
                 }
-
                 const cellValue = row[filter.id as keyof ChamadoRowProps];
                 if (cellValue == null) return false;
-
                 return String(cellValue).toUpperCase().includes(String(filter.value).toUpperCase());
             });
         });
     }, [dadosFiltradosPorRecurso, columnFilters]);
 
-    // ✅ Paginação Local
-    const dadosPaginados = useMemo(() => {
-        const startIndex = (page - 1) * limit;
-        return dadosCompletosFiltrados.slice(startIndex, startIndex + limit);
-    }, [dadosCompletosFiltrados, page, limit]);
+    const dadosPaginados = useMemo(() => dadosCompletosFiltrados, [dadosCompletosFiltrados]);
 
-    const paginacaoLocal = useMemo(() => {
-        const totalPages = Math.ceil(dadosCompletosFiltrados.length / limit);
-        return {
-            page,
-            limit,
-            totalPages,
-            hasNextPage: page < totalPages,
-            hasPreviousPage: page > 1,
-        };
-    }, [dadosCompletosFiltrados.length, page, limit]);
+    // =====================================================
+    // TOTALIZADORES
+    // =====================================================
+    const totaisRecalculados = useMemo(
+        () => ({
+            totalChamados: dadosFiltradosPorRecurso.length,
+            totalOS: dadosFiltradosPorRecurso.filter((c) => c.TEM_OS).length,
+            totalHoras: dadosFiltradosPorRecurso.reduce(
+                (sum, c) => sum + (c.TOTAL_HORAS_OS || 0),
+                0
+            ),
+        }),
+        [dadosFiltradosPorRecurso]
+    );
 
-    useEffect(() => {
-        console.log('📊 DEBUG PAGINAÇÃO COMPLETO:', {
-            totalGeralChamados,
-            totalChamadosNaoFinalizados,
-            totalChamadosFinalizados,
-            dadosCompletosFiltrados: dadosCompletosFiltrados.length,
-            dadosPaginados: dadosPaginados.length,
-            page,
-            limit,
-            totalPages: paginacaoLocal.totalPages,
-            mostrandoPaginacao: paginacaoLocal.totalPages >= 1,
-            apiData: apiData?.data.length,
-            status: status || 'SEM FILTRO',
-            isAdmin,
+    const totalGeralChamados = useMemo(() => apiData?.data.length ?? 0, [apiData?.data]);
+    const totalGeralChamadosAPI = useMemo(
+        () => apiData?.totalChamados ?? 0,
+        [apiData?.totalChamados]
+    );
+
+    const totalChamadosNaoFinalizados = useMemo(() => {
+        const chamados = apiData?.data ?? [];
+        if (isAdmin && !status) {
+            return chamados.filter(
+                (chamado) => chamado.STATUS_CHAMADO?.toUpperCase() !== 'FINALIZADO'
+            ).length;
+        }
+        return chamados.length;
+    }, [apiData?.data, isAdmin, status]);
+
+    const totalChamadosFinalizados = useMemo(() => {
+        const statusUpper = status?.trim().toUpperCase();
+        if (statusUpper !== 'FINALIZADO') return 0;
+        return apiData?.totalChamados ?? 0;
+    }, [status, apiData?.totalChamados]);
+
+    const paginacaoServidor = useMemo(() => {
+        if (!apiData?.pagination) {
+            return {
+                page: 1,
+                limit: 50,
+                totalPages: 0,
+                hasNextPage: false,
+                hasPreviousPage: false,
+            };
+        }
+        return apiData.pagination;
+    }, [apiData?.pagination]);
+
+    const hasActiveFilters = useMemo(() => {
+        return columnFilters.some((filter) => {
+            const value = filter.value;
+            return value != null && (typeof value !== 'string' || value.trim() !== '');
         });
-    }, [
-        totalGeralChamados,
-        totalChamadosNaoFinalizados,
-        dadosCompletosFiltrados.length,
-        dadosPaginados.length,
-        page,
-        paginacaoLocal,
-        apiData?.data.length,
-        status,
-        isAdmin,
-    ]);
+    }, [columnFilters]);
+
+    // =====================================================
+    // EFFECTS
+    // =====================================================
+    useEffect(() => {
+        if (onDataChange) {
+            onDataChange(dadosFiltradosPorRecurso);
+        }
+    }, [dadosFiltradosPorRecurso, onDataChange]);
 
     useEffect(() => {
         setPage(1);
     }, [status, recurso, columnFiltersKey]);
 
-    // ===== CALLBACKS =====
+    // =====================================================
+    // CALLBACKS
+    // =====================================================
     const handleNextPage = useCallback(() => {
-        if (paginacaoLocal?.hasNextPage) {
-            setPage((prev) => prev + 1);
-        }
-    }, [paginacaoLocal?.hasNextPage]);
+        if (paginacaoServidor?.hasNextPage) setPage((prev) => prev + 1);
+    }, [paginacaoServidor?.hasNextPage]);
 
     const handlePreviousPage = useCallback(() => {
-        if (paginacaoLocal?.hasPreviousPage) {
-            setPage((prev) => Math.max(1, prev - 1));
-        }
-    }, [paginacaoLocal?.hasPreviousPage]);
+        if (paginacaoServidor?.hasPreviousPage) setPage((prev) => Math.max(1, prev - 1));
+    }, [paginacaoServidor?.hasPreviousPage]);
 
     const handleGoToPage = useCallback((pageNumber: number) => {
         setPage(pageNumber);
@@ -445,9 +400,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         setSelectedOS(null);
     }, []);
 
-    const handleSaveValidation = useCallback(() => {
-        refetch();
-    }, [refetch]);
+    const handleSaveValidation = useCallback(() => refetch(), [refetch]);
 
     const handleOpenSolicitacao = useCallback((chamado: ChamadoRowProps) => {
         setSelectedChamadoSolicitacao(chamado);
@@ -469,22 +422,13 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         setSelectedChamadoAvaliacao(null);
     }, []);
 
-    const handleSaveAvaliacao = useCallback(() => {
-        refetch();
-    }, [refetch]);
+    const handleSaveAvaliacao = useCallback(() => refetch(), [refetch]);
 
-    const clearAllFilters = useCallback(() => {
-        setColumnFilters([]);
-    }, []);
+    const clearAllFilters = useCallback(() => setColumnFilters([]), []);
 
-    const hasActiveFilters = useMemo(() => {
-        return columnFilters.some((filter) => {
-            const value = filter.value;
-            return value != null && (typeof value !== 'string' || value.trim() !== '');
-        });
-    }, [columnFilters]);
-
-    // ===== COLUNAS =====
+    // =====================================================
+    // COLUNAS E TABELA
+    // =====================================================
     const columns = useMemo(
         () =>
             getColunasChamados(
@@ -506,7 +450,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         meta: { handleChamadoClick },
     });
 
-    // ===== RENDERIZAÇÃO CONDICIONAL =====
+    // =====================================================
+    // RENDERIZAÇÃO CONDICIONAL
+    // =====================================================
     if (!isLoggedIn) {
         return <IsError isError={true} error={new Error('Você precisa estar logado')} title={''} />;
     }
@@ -519,21 +465,17 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         return <IsError isError={!!error} error={error as Error} title={''} />;
     }
 
-    // ===== RENDERIZAÇÃO PRINCIPAL =====
+    // =====================================================
+    // RENDERIZAÇÃO PRINCIPAL
+    // =====================================================
     return (
         <>
             <div className="relative flex h-full w-full flex-col overflow-hidden border border-b-slate-500 bg-white shadow-md shadow-black">
                 <Header
-                    cliente={cliente}
-                    recurso={recurso}
-                    status={status}
                     isAdmin={isAdmin}
-                    totalChamados={totaisRecalculados.totalChamados}
-                    totalChamadosFiltrados={totaisRecalculados.totalChamados}
-                    totalOS={totaisRecalculados.totalOS}
-                    totalOSFiltrados={totaisRecalculados.totalOS}
-                    totalHorasOS={totaisRecalculados.totalHoras}
-                    totalHorasFiltradas={totaisRecalculados.totalHoras}
+                    totalChamadosFiltrados={apiData?.totalChamados || 0}
+                    totalOSFiltrados={apiData?.totalOS || 0}
+                    totalHorasFiltradas={apiData?.totalHorasOS || 0}
                     hasActiveFilters={hasActiveFilters}
                     clearAllFilters={clearAllFilters}
                     filteredData={dadosCompletosFiltrados}
@@ -548,7 +490,13 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                     totalChamadosNaoFinalizados={totalChamadosNaoFinalizados}
                     totalChamadosFinalizados={totalChamadosFinalizados}
                     totalGeralChamados={totalGeralChamados}
-                    totalGeralChamadosAPI={totalGeralChamadosAPI} // ✅ ADICIONAR ESTA LINHA
+                    totalGeralChamadosAPI={totalGeralChamadosAPI}
+                    status={status}
+                    cliente={''}
+                    recurso={''}
+                    totalChamados={0}
+                    totalOS={0}
+                    totalHorasOS={0}
                 />
 
                 <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
@@ -579,36 +527,33 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                     </div>
                 </div>
 
-                {paginacaoLocal && paginacaoLocal.totalPages >= 1 && (
+                {paginacaoServidor && paginacaoServidor.totalPages >= PAGINATION_LIMIT && (
                     <PaginationControls
-                        currentPage={paginacaoLocal.page}
-                        totalPages={paginacaoLocal.totalPages}
-                        hasNextPage={paginacaoLocal.hasNextPage}
-                        hasPreviousPage={paginacaoLocal.hasPreviousPage}
+                        currentPage={paginacaoServidor.page}
+                        totalPages={paginacaoServidor.totalPages}
+                        hasNextPage={paginacaoServidor.hasNextPage}
+                        hasPreviousPage={paginacaoServidor.hasPreviousPage}
                         onNextPage={handleNextPage}
                         onPreviousPage={handlePreviousPage}
                         onGoToPage={handleGoToPage}
-                        totalChamados={totaisRecalculados.totalChamados}
-                        limit={limit}
+                        totalChamados={apiData?.totalChamados || 0}
+                        limit={PAGINATION_LIMIT}
                     />
                 )}
             </div>
 
-            {/* Modais */}
             <ModalTabelaOS
                 isOpen={isModalListaOSOpen}
                 codChamado={selectedChamado}
                 onClose={handleCloseModalListaOS}
                 onSelectOS={handleOSSelect}
             />
-
             <ModalValidarOS
                 isOpen={isModalOSOpen}
                 selectedRow={selectedOS}
                 onClose={handleCloseModalOS}
                 onSave={handleSaveValidation}
             />
-
             <ModalSolicitacaoChamado
                 isOpen={isModalSolicitacaoOpen}
                 onClose={handleCloseSolicitacao}
@@ -617,7 +562,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 codChamado={selectedChamadoSolicitacao?.COD_CHAMADO || 0}
                 dataChamado={selectedChamadoSolicitacao?.DATA_CHAMADO}
             />
-
             <ModalAvaliarChamado
                 isOpen={isModalAvaliacaoOpen}
                 onClose={handleCloseAvaliacao}

@@ -1,4 +1,4 @@
-// app/api/chamados/route.ts - MODIFICADO PARA SUPORTAR FILTRO APENAS POR ANO
+// app/api/chamados/route.ts
 
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextRequest, NextResponse } from 'next/server';

@@ -1,4 +1,4 @@
-// src/components/shared/Filtros_Chamado.tsx - PARTE 1/2
+// src/components/shared/Filtros_Chamado.tsx
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
@@ -227,11 +227,9 @@ function useDataAtual() {
 function useAnosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
     return useMemo(() => {
         if (!dadosChamados?.length) {
-            console.log('⚠️ Nenhum chamado disponível para extrair anos locais');
             return [];
         }
 
-        console.log('🔍 Extraindo anos locais de', dadosChamados.length, 'chamados');
         const anosUnicos = new Set<number>();
 
         dadosChamados.forEach((chamado) => {
@@ -240,7 +238,6 @@ function useAnosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
         });
 
         const anos = Array.from(anosUnicos).sort((a, b) => b - a);
-        console.log('📋 Anos únicos encontrados:', anos.length, anos.join(', '));
         return anos;
     }, [dadosChamados]);
 }
@@ -252,7 +249,6 @@ function useMesesDisponiveisNoAno(
     return useMemo(() => {
         if (!anoTemp || !dadosChamados?.length) return [];
 
-        console.log('🔍 Extraindo meses disponíveis para ano:', anoTemp);
         const mesesUnicos = new Set<number>();
 
         dadosChamados.forEach((chamado) => {
@@ -265,7 +261,6 @@ function useMesesDisponiveisNoAno(
         });
 
         const meses = Array.from(mesesUnicos).sort((a, b) => a - b);
-        console.log('📋 Meses disponíveis encontrados:', meses.join(', '));
         return meses;
     }, [dadosChamados, anoTemp]);
 }
@@ -273,11 +268,9 @@ function useMesesDisponiveisNoAno(
 function useRecursosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
     return useMemo(() => {
         if (!dadosChamados?.length) {
-            console.log('⚠️ Nenhum chamado disponível para extrair recursos locais');
             return [];
         }
 
-        console.log('🔍 Extraindo recursos locais de', dadosChamados.length, 'chamados');
         const recursosUnicos = new Map<string, string>();
 
         dadosChamados.forEach((chamado, index) => {
@@ -286,7 +279,6 @@ function useRecursosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) 
 
             if (codRecurso && nomeRecurso && !recursosUnicos.has(codRecurso)) {
                 recursosUnicos.set(codRecurso, nomeRecurso);
-                console.log(`✅ Recurso ${index + 1} adicionado: ${codRecurso} - ${nomeRecurso}`);
             }
         });
 
@@ -294,14 +286,9 @@ function useRecursosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) 
             .map(([cod, nome]) => ({ cod, nome }))
             .sort((a, b) => a.nome.localeCompare(b.nome));
 
-        console.log('📋 Recursos únicos encontrados:', recursos.length);
         return recursos;
     }, [dadosChamados]);
 }
-
-// CONTINUA NA PARTE 2...
-// src/components/shared/Filtros_Chamado.tsx - PARTE 2/2
-// CONTINUAÇÃO DA PARTE 1...
 
 // ==================== COMPONENTE SELECT ====================
 function SelectWithClear({
@@ -429,17 +416,11 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
     // Anos disponíveis
     const years = useMemo(() => {
         if (usarAnosConfigurados) {
-            console.log(
-                '📅 Usando anos configurados para status FINALIZADO:',
-                ANOS_DISPONIVEIS_FINALIZADOS
-            );
             return ANOS_DISPONIVEIS_FINALIZADOS;
         }
         if (anosLocais.length === 0) {
-            console.log('📅 Usando anos padrão (sem chamados carregados)');
             return [2024, 2025, 2026];
         }
-        console.log('📅 Usando anos extraídos dos chamados:', anosLocais);
         return anosLocais;
     }, [anosLocais, usarAnosConfigurados]);
 
@@ -448,24 +429,18 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
         if (!anoTemp) return [];
 
         if (usarAnosConfigurados) {
-            console.log('📅 Calculando meses para status FINALIZADO');
-
             if (anoTemp < anoAtual) {
-                console.log('📅 Ano anterior ao atual: mostrando todos os 12 meses');
                 return MESES_NOMES.map((m, i) => ({ value: i + 1, label: m }));
             }
             if (anoTemp === anoAtual) {
-                console.log(`📅 Ano atual: mostrando meses até ${MESES_NOMES[mesAtual - 1]}`);
                 return MESES_NOMES.slice(0, mesAtual).map((m, i) => ({ value: i + 1, label: m }));
             }
             if (anoTemp > anoAtual) {
-                console.log('📅 Ano futuro: nenhum mês disponível');
                 return [];
             }
         }
 
         if (mesesDisponiveisNoAno.length > 0) {
-            console.log('📅 Usando meses extraídos dos dados');
             return mesesDisponiveisNoAno.map((mesNum) => ({
                 value: mesNum,
                 label: MESES_NOMES[mesNum - 1],
@@ -572,14 +547,6 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
 
     // Callbacks
     const aplicarFiltros = useCallback(() => {
-        console.log('🎯 Aplicando filtros:', {
-            anoTemp,
-            mesTemp,
-            clienteTemp,
-            recursoTemp,
-            statusTemp,
-        });
-
         setAno(anoTemp);
         setMes(mesTemp);
         setClienteSelecionado(clienteTemp);
@@ -598,8 +565,6 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
     }, [anoTemp, mesTemp, clienteTemp, recursoTemp, statusTemp, valoresPadrao]);
 
     const limparAnoMes = useCallback(() => {
-        console.log('🧹 Limpando ano e mês:', { isAdmin, valoresPadrao, statusSelecionado });
-
         if (isAdmin) {
             setAnoTemp(valoresPadrao.ano);
             setMesTemp(valoresPadrao.mes);
@@ -613,7 +578,6 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
         }
 
         if (statusSelecionado === 'FINALIZADO') {
-            console.log('⚠️ Status FINALIZADO detectado, limpando status também');
             setStatusTemp('');
             setStatusSelecionado('');
         }
@@ -621,8 +585,6 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
 
     const limparFiltroIndividual = useCallback(
         (campo: 'ano' | 'mes' | 'cliente' | 'recurso' | 'status') => {
-            console.log('🧹 Limpando filtro individual:', campo);
-
             switch (campo) {
                 case 'ano':
                 case 'mes':
@@ -638,14 +600,12 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
                     break;
                 case 'status':
                     if (statusSelecionado === 'FINALIZADO') {
-                        console.log('🧹 Limpando recurso junto com status FINALIZADO');
                         setRecursoTemp('');
                         setRecursoSelecionado('');
                     }
                     setStatusTemp('');
                     setStatusSelecionado('');
                     if (!isAdmin) {
-                        console.log('⚠️ Não-admin: limpando ano e mês também');
                         setAnoTemp(undefined);
                         setMesTemp(undefined);
                         setAno(undefined);
@@ -699,8 +659,6 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
     );
 
     const limparFiltros = useCallback(() => {
-        console.log('🧹 Limpando todos os filtros:', valoresPadrao);
-
         setAnoTemp(valoresPadrao.ano);
         setMesTemp(valoresPadrao.mes);
         if (isAdmin) {
@@ -720,22 +678,7 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
     // Effects
     useEffect(() => {
         setIsInitialized(true);
-        console.log('🚀 Componente inicializado:', {
-            isAdmin,
-            codCliente,
-            totalChamados: dadosChamados.length,
-        });
     }, [isAdmin, codCliente, dadosChamados.length]);
-
-    useEffect(() => {
-        console.log('📊 Filtros Aplicados:', {
-            ano,
-            mes,
-            cliente: clienteSelecionado,
-            recurso: recursoSelecionado,
-            status: statusSelecionado,
-        });
-    }, [ano, mes, clienteSelecionado, recursoSelecionado, statusSelecionado]);
 
     useEffect(() => {
         if (!isAdmin && statusTemp === 'FINALIZADO') {
@@ -748,7 +691,6 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
         if (mesTemp && anoTemp && mesesDisponiveis.length > 0) {
             const mesDisponivel = mesesDisponiveis.some((m) => m.value === mesTemp);
             if (!mesDisponivel) {
-                console.log('⚠️ Mês selecionado não disponível para o ano/status, limpando...');
                 setMesTemp(undefined);
             }
         }
@@ -764,7 +706,6 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
         if (!recursoTemp) return;
         const recursoExiste = recursosLocais.some((r) => r.cod === recursoTemp);
         if (!recursoExiste) {
-            console.log('⚠️ Recurso selecionado não existe mais, limpando...');
             setRecursoTemp('');
         }
     }, [recursosLocais, recursoTemp]);
@@ -773,7 +714,6 @@ export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoP
         if (!anoTemp || years.length === 0) return;
         const anoExiste = years.includes(anoTemp);
         if (!anoExiste) {
-            console.log('⚠️ Ano selecionado não existe mais nos anos disponíveis, limpando...');
             setAnoTemp(undefined);
             setMesTemp(undefined);
         }
