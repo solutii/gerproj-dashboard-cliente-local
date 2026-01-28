@@ -5,6 +5,7 @@ import { formatarDataHoraChamado } from '../../formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 import { formatarNumeros, formatarPrioridade } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
+import { SLACell } from './SLACell';
 
 // ==================== TIPOS ====================
 export type ChamadoRowProps = {
@@ -24,10 +25,17 @@ export type ChamadoRowProps = {
     NOME_CLASSIFICACAO: string | null;
     TOTAL_HORAS_OS: number;
     TEM_OS?: boolean;
-    // ✅ NOVOS CAMPOS
     DATA_HISTCHAMADO?: string | null;
     HORA_HISTCHAMADO?: string | null;
     COD_RECURSO?: number | null;
+
+    // ✅ ADICIONAR ESTES CAMPOS:
+    SLA_STATUS?: string;
+    SLA_PERCENTUAL?: number;
+    SLA_TEMPO_DECORRIDO?: number;
+    SLA_TEMPO_RESTANTE?: number;
+    SLA_PRAZO_TOTAL?: number;
+    SLA_DENTRO_PRAZO?: boolean;
 };
 
 // Função para obter as classes de estilo com base no status
@@ -432,36 +440,34 @@ export const getColunasChamados = (
             },
         },
 
-        // Conclusão do chamado
-        // {
-        //     accessorKey: 'CONCLUSAO_CHAMADO',
-        //     id: 'CONCLUSAO_CHAMADO',
-        //     header: () => (
-        //         <div className="text-center text-sm font-bold tracking-widest text-white select-none">
-        //             CONCLUSÃO
-        //         </div>
-        //     ),
-        //     cell: ({ getValue }) => {
-        //         const value = (getValue() as string) ?? '---------------';
+        {
+            id: 'SLA_INFO',
+            header: () => (
+                <div className="text-center text-sm font-bold tracking-widest text-white select-none">
+                    SLA
+                </div>
+            ),
+            cell: ({ row }) => {
+                const {
+                    DATA_CHAMADO,
+                    HORA_CHAMADO,
+                    PRIOR_CHAMADO,
+                    STATUS_CHAMADO,
+                    CONCLUSAO_CHAMADO,
+                } = row.original;
 
-        //         const isSemConclusaoChamado = value === '---------------';
-
-        //         if (isSemConclusaoChamado) {
-        //             return (
-        //                 <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-        //                     {value}
-        //                 </div>
-        //             );
-        //         }
-
-        //         return (
-        //             <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-        //                 {formatarDataParaBR(value)}
-        //             </div>
-        //         );
-        //     },
-        //     enableColumnFilter: true,
-        // },
+                return (
+                    <SLACell
+                        dataChamado={DATA_CHAMADO}
+                        horaChamado={HORA_CHAMADO}
+                        prioridade={PRIOR_CHAMADO}
+                        statusChamado={STATUS_CHAMADO}
+                        dataConclusao={CONCLUSAO_CHAMADO}
+                    />
+                );
+            },
+            enableColumnFilter: false,
+        },
 
         {
             id: 'DATA_HISTCHAMADO',

@@ -1,6 +1,7 @@
 // app/api/chamados/route.ts
 
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
+import { calcularStatusSLA, SLA_CONFIGS } from '@/lib/sla/sla-utils';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ==================== TIPOS ====================
@@ -25,6 +26,14 @@ export interface Chamado {
     OBSAVAL_CHAMADO?: string | null;
     DATA_HISTCHAMADO?: Date | null;
     HORA_HISTCHAMADO?: string | null;
+
+    // ✅ ADICIONAR CAMPOS SLA
+    SLA_STATUS?: string;
+    SLA_PERCENTUAL?: number;
+    SLA_TEMPO_DECORRIDO?: number;
+    SLA_TEMPO_RESTANTE?: number;
+    SLA_PRAZO_TOTAL?: number;
+    SLA_DENTRO_PRAZO?: boolean;
 }
 
 interface QueryParams {
@@ -581,29 +590,64 @@ const buscarNomes = async (
 };
 
 // ==================== PROCESSAMENTO ====================
-const processarChamados = (chamados: ChamadoRaw[]): Chamado[] => {
-    return chamados.map((c) => ({
-        COD_CHAMADO: c.COD_CHAMADO,
-        DATA_CHAMADO: c.DATA_CHAMADO,
-        HORA_CHAMADO: c.HORA_CHAMADO ?? '',
-        SOLICITACAO_CHAMADO: c.SOLICITACAO_CHAMADO || null,
-        CONCLUSAO_CHAMADO: c.CONCLUSAO_CHAMADO || null,
-        STATUS_CHAMADO: c.STATUS_CHAMADO,
-        DTENVIO_CHAMADO: c.DTENVIO_CHAMADO || null,
-        ASSUNTO_CHAMADO: c.ASSUNTO_CHAMADO || null,
-        EMAIL_CHAMADO: c.EMAIL_CHAMADO || null,
-        PRIOR_CHAMADO: c.PRIOR_CHAMADO ?? 100,
-        COD_CLASSIFICACAO: c.COD_CLASSIFICACAO ?? 0,
-        NOME_CLIENTE: c.NOME_CLIENTE || null,
-        NOME_RECURSO: c.NOME_RECURSO || null,
-        NOME_CLASSIFICACAO: c.NOME_CLASSIFICACAO || null,
-        TEM_OS: (c.TOTAL_HORAS_OS ?? 0) > 0,
-        TOTAL_HORAS_OS: c.TOTAL_HORAS_OS ?? 0,
-        AVALIA_CHAMADO: c.AVALIA_CHAMADO ?? 1,
-        OBSAVAL_CHAMADO: c.OBSAVAL_CHAMADO ?? null,
-        DATA_HISTCHAMADO: c.DATA_HISTCHAMADO || null,
-        HORA_HISTCHAMADO: c.HORA_HISTCHAMADO || null,
-    }));
+const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado[] => {
+    return chamados.map((c) => {
+        // Dados base do chamado
+        const chamadoBase: Chamado = {
+            COD_CHAMADO: c.COD_CHAMADO,
+            DATA_CHAMADO: c.DATA_CHAMADO,
+            HORA_CHAMADO: c.HORA_CHAMADO ?? '',
+            SOLICITACAO_CHAMADO: c.SOLICITACAO_CHAMADO || null,
+            CONCLUSAO_CHAMADO: c.CONCLUSAO_CHAMADO || null,
+            STATUS_CHAMADO: c.STATUS_CHAMADO,
+            DTENVIO_CHAMADO: c.DTENVIO_CHAMADO || null,
+            ASSUNTO_CHAMADO: c.ASSUNTO_CHAMADO || null,
+            EMAIL_CHAMADO: c.EMAIL_CHAMADO || null,
+            PRIOR_CHAMADO: c.PRIOR_CHAMADO ?? 100,
+            COD_CLASSIFICACAO: c.COD_CLASSIFICACAO ?? 0,
+            NOME_CLIENTE: c.NOME_CLIENTE || null,
+            NOME_RECURSO: c.NOME_RECURSO || null,
+            NOME_CLASSIFICACAO: c.NOME_CLASSIFICACAO || null,
+            TEM_OS: (c.TOTAL_HORAS_OS ?? 0) > 0,
+            TOTAL_HORAS_OS: c.TOTAL_HORAS_OS ?? 0,
+            AVALIA_CHAMADO: c.AVALIA_CHAMADO ?? 1,
+            OBSAVAL_CHAMADO: c.OBSAVAL_CHAMADO ?? null,
+            DATA_HISTCHAMADO: c.DATA_HISTCHAMADO || null,
+            HORA_HISTCHAMADO: c.HORA_HISTCHAMADO || null,
+        };
+
+        // ✅ Se incluirSLA = false OU chamado está finalizado, retorna sem SLA
+        if (!incluirSLA || c.STATUS_CHAMADO?.toUpperCase() === 'FINALIZADO') {
+            return chamadoBase;
+        }
+
+        // ✅ Calcular SLA para chamados não finalizados
+        try {
+            const sla = calcularStatusSLA(
+                c.DATA_CHAMADO,
+                c.HORA_CHAMADO ?? '00:00',
+                c.PRIOR_CHAMADO ?? 100,
+                c.STATUS_CHAMADO,
+                c.CONCLUSAO_CHAMADO,
+                'resolucao'
+            );
+
+            const config = SLA_CONFIGS[c.PRIOR_CHAMADO ?? 100] || SLA_CONFIGS[100];
+
+            return {
+                ...chamadoBase,
+                SLA_STATUS: sla.status,
+                SLA_PERCENTUAL: sla.percentualUsado,
+                SLA_TEMPO_DECORRIDO: sla.tempoDecorrido,
+                SLA_TEMPO_RESTANTE: sla.tempoRestante,
+                SLA_PRAZO_TOTAL: config.tempoResolucao,
+                SLA_DENTRO_PRAZO: sla.dentroPrazo,
+            };
+        } catch (error) {
+            console.error(`[SLA] Erro ao calcular SLA do chamado ${c.COD_CHAMADO}:`, error);
+            return chamadoBase;
+        }
+    });
 };
 
 // ==================== HANDLER PRINCIPAL ====================
@@ -613,6 +657,9 @@ export async function GET(request: NextRequest) {
 
         const params = validarParametros(searchParams);
         if (params instanceof NextResponse) return params;
+
+        // ✅ ADICIONAR: Verificar se deve incluir SLA
+        const incluirSLA = searchParams.get('incluirSLA') !== 'false'; // true por padrão
 
         const { dataInicio, dataFim } = construirDatas(params.mes, params.ano);
 
@@ -651,7 +698,8 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const chamadosProcessados = processarChamados(chamados);
+        // ✅ MODIFICAR: Passar incluirSLA para processarChamados
+        const chamadosProcessados = processarChamados(chamados, incluirSLA);
         const statusFiltro = params.statusFilter ? chamados[0]?.STATUS_CHAMADO || null : null;
         const totalPages = Math.ceil(totalChamados / params.limit);
 

@@ -51,30 +51,113 @@ export function isDentroHorarioComercial(
 }
 
 /**
- * Calcula horas úteis entre duas datas
+ * Calcula horas úteis entre duas datas considerando horário comercial
  */
 export function calcularHorasUteis(
     dataInicio: Date,
     dataFim: Date,
     config: HorarioComercial = HORARIO_COMERCIAL_PADRAO
 ): number {
+    if (dataInicio >= dataFim) {
+        return 0;
+    }
+
     let horasUteis = 0;
     const atual = new Date(dataInicio);
 
+    // Normaliza para o início do horário comercial se necessário
+    if (atual.getHours() < config.inicio) {
+        atual.setHours(config.inicio, 0, 0, 0);
+    } else if (atual.getHours() >= config.fim) {
+        // Se está fora do horário, vai para o próximo dia útil
+        atual.setDate(atual.getDate() + 1);
+        atual.setHours(config.inicio, 0, 0, 0);
+    }
+
     while (atual < dataFim) {
-        if (isDentroHorarioComercial(atual, config)) {
-            horasUteis += 1;
+        const diaAtual = atual.getDay();
+
+        // Verifica se é dia útil
+        if (config.diasUteis.includes(diaAtual)) {
+            // Define início e fim do expediente para o dia atual
+            const inicioExpediente = new Date(atual);
+            inicioExpediente.setHours(config.inicio, 0, 0, 0);
+
+            const fimExpediente = new Date(atual);
+            fimExpediente.setHours(config.fim, 0, 0, 0);
+
+            // Define o início real (máximo entre atual e início do expediente)
+            const inicioReal = atual < inicioExpediente ? inicioExpediente : atual;
+
+            // Define o fim real (mínimo entre dataFim e fim do expediente)
+            const fimReal = dataFim < fimExpediente ? dataFim : fimExpediente;
+
+            // Se há trabalho neste dia
+            if (inicioReal < fimReal) {
+                const horasNesteDia = (fimReal.getTime() - inicioReal.getTime()) / (1000 * 60 * 60);
+                horasUteis += horasNesteDia;
+            }
         }
-        atual.setHours(atual.getHours() + 1);
+
+        // Avança para o próximo dia
+        atual.setDate(atual.getDate() + 1);
+        atual.setHours(config.inicio, 0, 0, 0);
+
+        // Se já passou do dataFim, encerra
+        if (atual >= dataFim) {
+            break;
+        }
     }
 
-    // Adiciona fração da última hora
-    const minutosRestantes = (dataFim.getTime() - atual.getTime()) / (1000 * 60);
-    if (minutosRestantes > 0 && isDentroHorarioComercial(dataFim, config)) {
-        horasUteis += minutosRestantes / 60;
+    return Math.round(horasUteis * 100) / 100; // Arredonda para 2 casas decimais
+}
+
+/**
+ * Parse da hora no formato "1401" ou "HH:MM" para horas e minutos
+ */
+function parseHoraChamado(horaChamado: string): { horas: number; minutos: number } {
+    // Remove espaços e garante que tem conteúdo
+    const horaLimpa = (horaChamado || '').trim();
+
+    if (!horaLimpa) {
+        return { horas: 0, minutos: 0 };
     }
 
-    return horasUteis;
+    // Se vier no formato "HH:MM" ou "HH:MM:SS"
+    if (horaLimpa.includes(':')) {
+        const [horas, minutos] = horaLimpa.split(':').map(Number);
+        return { horas: horas || 0, minutos: minutos || 0 };
+    }
+
+    // Se vier no formato "HHMM" (ex: "1401" = 14h01min)
+    if (horaLimpa.length === 4) {
+        const horas = parseInt(horaLimpa.substring(0, 2), 10);
+        const minutos = parseInt(horaLimpa.substring(2, 4), 10);
+        return { horas, minutos };
+    }
+
+    // Se vier no formato "HMM" (ex: "901" = 09h01min)
+    if (horaLimpa.length === 3) {
+        const horas = parseInt(horaLimpa.substring(0, 1), 10);
+        const minutos = parseInt(horaLimpa.substring(1, 3), 10);
+        return { horas, minutos };
+    }
+
+    // Se vier no formato "HH" (ex: "14" = 14h00min)
+    if (horaLimpa.length === 2) {
+        const horas = parseInt(horaLimpa, 10);
+        return { horas, minutos: 0 };
+    }
+
+    // Fallback: tenta converter direto
+    const horaNum = parseInt(horaLimpa, 10);
+    if (!isNaN(horaNum)) {
+        const horas = Math.floor(horaNum / 100);
+        const minutos = horaNum % 100;
+        return { horas, minutos };
+    }
+
+    return { horas: 0, minutos: 0 };
 }
 
 /**
@@ -91,10 +174,13 @@ export function calcularStatusSLA(
     const config = SLA_CONFIGS[prioridade] || SLA_CONFIGS[100];
     const prazoTotal = tipoSLA === 'resposta' ? config.tempoResposta : config.tempoResolucao;
 
+    // Parse correto da hora do chamado (formato "HHMM" como "1401" ou "HH:MM")
+    const { horas, minutos } = parseHoraChamado(horaChamado);
+
     // Cria data/hora de abertura do chamado
-    const [horas, minutos] = horaChamado.split(':').map(Number);
+    // IMPORTANTE: Usa a data do chamado mas com a hora correta do campo HORA_CHAMADO
     const dataAbertura = new Date(dataChamado);
-    dataAbertura.setHours(horas || 0, minutos || 0, 0, 0);
+    dataAbertura.setHours(horas, minutos, 0, 0);
 
     // Define data de referência (conclusão ou agora)
     const dataReferencia = dataConclusao || new Date();
@@ -118,9 +204,9 @@ export function calcularStatusSLA(
 
     return {
         dentroPrazo: percentualUsado < 100,
-        percentualUsado: Math.round(percentualUsado * 100) / 100,
-        tempoRestante: Math.round(tempoRestante * 100) / 100,
-        tempoDecorrido: Math.round(tempoDecorrido * 100) / 100,
+        percentualUsado: Math.round(percentualUsado * 10) / 10, // 1 casa decimal
+        tempoRestante: Math.round(tempoRestante * 10) / 10, // 1 casa decimal
+        tempoDecorrido: Math.round(tempoDecorrido * 10) / 10, // 1 casa decimal
         prazoTotal,
         status,
     };

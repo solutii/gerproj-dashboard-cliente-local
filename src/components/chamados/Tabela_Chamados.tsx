@@ -49,6 +49,7 @@ const INITIAL_COLUMN_WIDTHS = {
     DTENVIO_CHAMADO: 170,
     NOME_RECURSO: 180,
     STATUS_CHAMADO: 220,
+    SLA_INFO: 120,
     DATA_HISTCHAMADO: 170,
     TOTAL_HORAS_OS: 120,
 } as const;
@@ -131,6 +132,7 @@ const fetchChamados = async ({
         isAdmin: String(isAdmin),
         page: String(page),
         limit: String(limit),
+        incluirSLA: 'true',
     });
 
     if (cliente) params.append('codClienteFilter', cliente);
