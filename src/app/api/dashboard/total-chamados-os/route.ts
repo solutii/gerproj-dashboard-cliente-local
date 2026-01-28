@@ -1,3 +1,4 @@
+// app/api/dashboard/total-chamados-os/route.ts
 import { NextResponse } from 'next/server';
 import { firebirdQuery } from '../../../../lib/firebird/firebird-client';
 
@@ -74,7 +75,6 @@ function construirDatas(mes: number, ano: number): { dataInicio: string; dataFim
 
 // ==================== CONSTRUÇÃO DE SQL OTIMIZADO ====================
 function construirSQLTotalizadoresOtimizado(params: QueryParams): string {
-    // Query unificada que calcula tudo de uma vez
     let sql = `
   WITH OS_VALIDAS AS (
     SELECT
@@ -91,6 +91,7 @@ function construirSQLTotalizadoresOtimizado(params: QueryParams): string {
       AND TAREFA.EXIBECHAM_TAREFA = 1
       AND OS.CHAMADO_OS IS NOT NULL
       AND OS.CHAMADO_OS <> ''
+      AND UPPER(OS.FATURADO_OS) <> 'NAO'
   `;
 
     return sql;

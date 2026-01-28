@@ -1,3 +1,4 @@
+// app/api/saldo-horas/route.ts
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextResponse } from 'next/server';
 
@@ -63,6 +64,7 @@ async function buscarHorasMes(
       AND OS.CHAMADO_OS IS NOT NULL
       AND TRIM(OS.CHAMADO_OS) <> ''
       AND CLIENTE.COD_CLIENTE = ?
+      AND UPPER(OS.FATURADO_OS) <> 'NAO'  -- ✅ ADICIONAR ESTA LINHA
   `;
 
     const result = await firebirdQuery(sql, [dataInicio, dataFim, parseInt(codCliente)]);
