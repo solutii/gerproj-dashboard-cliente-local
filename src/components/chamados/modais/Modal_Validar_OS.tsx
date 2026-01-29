@@ -1,6 +1,15 @@
-// src/components/chamados/Modal_OS.tsx
+// src/components/chamados/modais/Modal_Validar_OS.tsx
+
 'use client';
 
+import { OSRowProps } from '@/components/chamados/tabelas/Colunas_Tabela_OS';
+import { LoadingButton } from '@/components/shared/Loading_Button';
+import { useAuth } from '@/context/AuthContext';
+import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
+import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
+import { removerAcentos } from '@/formatters/remover-acentuacao';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -18,14 +27,6 @@ import {
 import { IoIosSave } from 'react-icons/io';
 import { IoClose } from 'react-icons/io5';
 import { LuTriangleAlert } from 'react-icons/lu';
-import { useAuth } from '../../context/AuthContext';
-import { formatarDataParaBR } from '../../formatters/formatar-data';
-import { formatarHora, formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
-import { formatarNumeros } from '../../formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { removerAcentos } from '../../formatters/remover-acentuacao';
-import { LoadingButton } from '../shared/Loading_Button';
-import { OSRowProps } from './Colunas_Tabela_OS';
 // ==========
 
 interface ModalDataProps {

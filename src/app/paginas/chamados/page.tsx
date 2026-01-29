@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ChamadoRowProps } from '../../../components/chamados/Colunas_Tabela_Chamados';
-import { LayoutTabelaChamados } from '../../../components/chamados/Layout_Tabela_Chamados';
-import { TabelaChamados } from '../../../components/chamados/Tabela_Chamados';
+import { LayoutPaginaChamados } from '../../../components/chamados/Layout_Pagina_Chamados';
+import { ChamadoRowProps } from '../../../components/chamados/tabelas/Colunas_Tabela_Chamados';
+import { TabelaChamados } from '../../../components/chamados/tabelas/Tabela_Chamados';
 import { FiltrosChamado } from '../../../components/shared/Filtros_Chamado';
 
 export default function ChamadosPage() {
@@ -15,7 +15,7 @@ export default function ChamadosPage() {
     }, [dadosChamados]);
 
     return (
-        <LayoutTabelaChamados pageTitle="Chamados">
+        <LayoutPaginaChamados pageTitle="Chamados">
             <div className="flex h-full flex-col gap-10 overflow-hidden">
                 <FiltrosChamado dadosChamados={dadosChamados}>
                     <div className="flex h-full flex-col overflow-hidden">
@@ -25,6 +25,6 @@ export default function ChamadosPage() {
                     </div>
                 </FiltrosChamado>
             </div>
-        </LayoutTabelaChamados>
+        </LayoutPaginaChamados>
     );
 }

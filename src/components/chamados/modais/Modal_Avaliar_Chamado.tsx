@@ -1,4 +1,5 @@
-// src/components/chamados/Modal_Avaliacao_Chamado.tsx
+// src/components/chamados/modais/Modal_Avaliar_Chamado.tsx
+
 'use client';
 
 import { Star } from 'lucide-react';

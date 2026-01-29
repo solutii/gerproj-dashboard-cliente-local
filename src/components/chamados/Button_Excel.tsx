@@ -9,8 +9,8 @@ import { formatarHora, formatarHorasTotaisSufixo } from '../../formatters/format
 import { formatarNumeros } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 import { renderizarDoisPrimeirosNomes } from '../../formatters/remover-acentuacao';
-import type { ChamadoRowProps } from './Colunas_Tabela_Chamados';
-import type { OSRowProps } from './Colunas_Tabela_OS';
+import type { ChamadoRowProps } from '../chamados/tabelas/Colunas_Tabela_Chamados';
+import type { OSRowProps } from '../chamados/tabelas/Colunas_Tabela_OS';
 
 // ================================================================================
 // INTERFACES E TIPOS

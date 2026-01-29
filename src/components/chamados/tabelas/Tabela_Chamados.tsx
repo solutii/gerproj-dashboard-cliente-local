@@ -1,7 +1,23 @@
-// src/components/chamados/Tabela_Chamados.tsx
+// src/components/chamados/tabelas/Tabela_Chamados.tsx
+
 'use client';
 
+import { ExportaExcelChamadosButton } from '@/components/chamados/Button_Excel';
+import { ExportaPDFChamadosButton } from '@/components/chamados/Button_PDF';
+import { FiltroHeaderChamados } from '@/components/chamados/Filtro_Header_Tabela_Chamados';
+import { ModalAssuntoSolicitacaoChamado } from '@/components/chamados/modais/Modal_Assunto_Solicitacao_Chamado';
+import { ModalAvaliarChamado } from '@/components/chamados/modais/Modal_Avaliar_Chamado';
+import { ModalValidarOS } from '@/components/chamados/modais/Modal_Validar_OS';
+import { RedimensionarColunas } from '@/components/chamados/Redimensionar_Colunas';
+import { OSRowProps } from '@/components/chamados/tabelas/Colunas_Tabela_OS';
+import { TabelaOS } from '@/components/chamados/tabelas/Tabela_OS';
+import { useFiltrosChamado } from '@/components/shared/Filtros_Chamado';
+import { IsError } from '@/components/shared/IsError';
+import { IsLoading } from '@/components/shared/IsLoading';
+import { useAuth } from '@/context/AuthContext';
+import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
 import { useQuery } from '@tanstack/react-query';
+// =====================================================
 import {
     ColumnFiltersState,
     flexRender,
@@ -14,21 +30,7 @@ import { FaEraser } from 'react-icons/fa';
 import { IoCall } from 'react-icons/io5';
 import { MdNavigateBefore, MdNavigateNext } from 'react-icons/md';
 import { TbMoodEmptyFilled } from 'react-icons/tb';
-import { useAuth } from '../../context/AuthContext';
-import { useRedimensionarColunas } from '../../hooks/useRedimensionarColunas';
-import { useFiltrosChamado } from '../shared/Filtros_Chamado';
-import { IsError } from '../shared/IsError';
-import { IsLoading } from '../shared/IsLoading';
-import { ExportaExcelChamadosButton } from './Button_Excel';
-import { ExportaPDFChamadosButton } from './Button_PDF';
 import { ChamadoRowProps, getColunasChamados } from './Colunas_Tabela_Chamados';
-import { OSRowProps } from './Colunas_Tabela_OS';
-import { FiltroHeaderChamados } from './Filtro_Header_Tabela_Chamados';
-import { ModalAssuntoSolicitacaoChamado } from './Modal_Assunto_Solicitacao_Chamado';
-import { ModalAvaliarChamado } from './Modal_Avaliar_Chamado';
-import { ModalTabelaOS } from './Modal_Tabela_OS';
-import { ModalValidarOS } from './Modal_Validar_OS';
-import { RedimensionarColunas } from './Redimensionar_Colunas';
 
 // =====================================================
 // CONFIGURAÇÕES E CONSTANTES
@@ -506,7 +508,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 )}
             </div>
 
-            <ModalTabelaOS
+            <TabelaOS
                 isOpen={isModalListaOSOpen}
                 codChamado={selectedChamado}
                 onClose={handleCloseModalListaOS}

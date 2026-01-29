@@ -1,12 +1,14 @@
-// src/components/chamados/Colunas_Tabela_OS.tsx
+// src/components/chamados/tabelas/Colunas_Tabela_OS.tsx
+
+import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
+import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { ColumnDef } from '@tanstack/react-table';
+// =====================================================
 import React from 'react';
 import { FaCheck } from 'react-icons/fa';
 import { MdClose, MdOpenInNew } from 'react-icons/md';
-import { formatarDataParaBR } from '../../formatters/formatar-data';
-import { formatarHora, formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
-import { formatarNumeros } from '../../formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 
 // =====================================================
 // MODULE AUGMENTATION

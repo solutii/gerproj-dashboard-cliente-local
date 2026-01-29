@@ -10,7 +10,7 @@
     "editor.fontFamily": "'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace",
     "editor.fontLigatures": true,
     "editor.cursorBlinking": "smooth",
-    "editor.cursorSmoothCaretAnimation": "on",
+    "editor.cursorSmoothAnimation": "on",
     "editor.bracketPairColorization.enabled": true,
     "editor.guides.bracketPairs": true,
 
@@ -37,6 +37,10 @@
     "javascript.inlayHints.parameterNames.enabled": "all",
     "typescript.inlayHints.parameterNames.enabled": "all",
 
+    // ✨ NOVAS CONFIGURAÇÕES PARA ALIASES
+    "typescript.preferences.importModuleSpecifier": "non-relative",
+    "javascript.preferences.importModuleSpecifier": "non-relative",
+
     // ESLint
     "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
 
@@ -45,6 +49,14 @@
         ["class:\\s*?[\"'`]([^\"'`]*).*?[\"'`]", "[\"'`]([^\"'`]*).*?[\"'`]"],
         ["className:\\s*?[\"'`]([^\"'`]*).*?[\"'`]", "[\"'`]([^\"'`]*).*?[\"'`]"]
     ],
+
+    // ✨ PATH INTELLISENSE
+    "path-intellisense.mappings": {
+        "@": "${workspaceRoot}/src"
+    },
+    "path-intellisense.autoSlashAfterDirectory": true,
+    "path-intellisense.extensionOnImport": true,
+
     "[javascript]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
     },

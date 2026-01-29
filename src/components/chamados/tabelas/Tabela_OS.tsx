@@ -1,22 +1,24 @@
-// src/components/chamados/Modal_Tabela_OS.tsx
+// src/components/chamados/tabelas/Modal_Tabela_OS.tsx
+
 'use client';
 
+import { ModalObservacaoOS } from '@/components/chamados/modais/Modal_Observacao_OS';
+import { RedimensionarColunas } from '@/components/chamados/Redimensionar_Colunas';
+import { IsError } from '@/components/shared/IsError';
+import { IsLoading } from '@/components/shared/IsLoading';
+import { useAuth } from '@/context/AuthContext';
+import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
+import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
+import { useFiltersStore } from '@/store/useFiltersStore';
 import { useQuery } from '@tanstack/react-query';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+// =====================================================
 import React, { useCallback, useMemo, useState } from 'react';
 import { IoClose } from 'react-icons/io5';
 import { TbFileInvoice } from 'react-icons/tb';
-import { useAuth } from '../../context/AuthContext';
-import { formatarDataParaBR } from '../../formatters/formatar-data';
-import { formatarNumeros } from '../../formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { useRedimensionarColunas } from '../../hooks/useRedimensionarColunas';
-import { useFiltersStore } from '../../store/useFiltersStore';
-import { IsError } from '../shared/IsError';
-import { IsLoading } from '../shared/IsLoading';
 import { getColunasOS, OSRowProps } from './Colunas_Tabela_OS';
-import { ModalObservacaoOS } from './Modal_Observacao_OS';
-import { RedimensionarColunas } from './Redimensionar_Colunas';
 
 // =====================================================
 // CONFIGURAÇÃO E CONSTANTES
@@ -116,7 +118,7 @@ const fetchOSByChamado = async ({
 // =====================================================
 // COMPONENTE PRINCIPAL
 // =====================================================
-export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProps) {
+export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProps) {
     const { isAdmin, codCliente } = useAuth();
     const mes = useFiltersStore((state) => state.filters.mes);
     const ano = useFiltersStore((state) => state.filters.ano);

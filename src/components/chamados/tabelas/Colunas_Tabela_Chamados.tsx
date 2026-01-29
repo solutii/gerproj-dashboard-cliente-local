@@ -1,13 +1,15 @@
-// src/components/chamados/Colunas_Tabela_Chamados.tsx
+// src/components/chamados/tabelas/Colunas_Tabela_Chamados.tsx
+
+import { SLACell } from '@/components/chamados/SLACell';
+import { formatarDataHoraChamado } from '@/formatters/formatar-data';
+import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
+import { formatarNumeros, formatarPrioridade } from '@/formatters/formatar-numeros';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { ColumnDef } from '@tanstack/react-table';
+// =====================================================
 import React from 'react';
 import { BiSolidLike } from 'react-icons/bi';
 import { MdOpenInNew, MdOutlineStar } from 'react-icons/md';
-import { formatarDataHoraChamado } from '../../formatters/formatar-data';
-import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
-import { formatarNumeros, formatarPrioridade } from '../../formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { SLACell } from './SLACell';
 
 // ==================== TIPOS ====================
 export type ChamadoRowProps = {
