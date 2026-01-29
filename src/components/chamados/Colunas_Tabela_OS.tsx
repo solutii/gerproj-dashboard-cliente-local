@@ -1,20 +1,26 @@
+// src/components/chamados/Colunas_Tabela_OS.tsx
 import { ColumnDef } from '@tanstack/react-table';
+import React from 'react';
 import { FaCheck } from 'react-icons/fa';
 import { MdClose, MdOpenInNew } from 'react-icons/md';
 import { formatarDataParaBR } from '../../formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 import { formatarNumeros } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-// ==========
+
+// =====================================================
+// MODULE AUGMENTATION
+// =====================================================
 declare module '@tanstack/react-table' {
     interface TableMeta<TData> {
         handleOpenModalObs?: (os: TData) => void;
         onSelectOS?: (os: TData) => void;
     }
 }
-// ==========
 
-// ==================== INTERFACES ====================
+// =====================================================
+// INTERFACES E TIPOS
+// =====================================================
 export interface OSRowProps {
     COD_OS: number;
     NUM_OS: number;
@@ -29,328 +35,290 @@ export interface OSRowProps {
     OBSCLI_OS?: string | null;
     NOME_CLIENTE?: string | null;
 }
-// ==========
 
-// ==================== COMPONENTE DE VALIDAÇÃO ====================
-const ValidacaoBadge = ({ status }: { status?: string | null }) => {
+// =====================================================
+// CONSTANTES
+// =====================================================
+const EMPTY_VALUE = '---------------';
+
+const VALIDATION_STYLES = {
+    SIM: {
+        container: 'border-green-600 bg-green-500 text-black',
+        icon: 'text-black',
+        label: 'Aprovada',
+        Icon: FaCheck,
+    },
+    NAO: {
+        container: 'border-red-600 bg-red-500 text-white',
+        icon: 'text-white',
+        label: 'Reprovada',
+        Icon: MdClose,
+    },
+    DEFAULT: {
+        container: 'border-gray-400 bg-gray-300 text-black',
+        icon: '',
+        label: null,
+        Icon: null,
+    },
+} as const;
+
+// =====================================================
+// FUNÇÕES UTILITÁRIAS
+// =====================================================
+const setupTruncationTooltip = (el: HTMLDivElement | null, text: string) => {
+    if (!el) return;
+
+    const isTruncated = el.scrollWidth > el.clientWidth;
+    if (isTruncated) {
+        el.setAttribute('title', text);
+        el.classList.add('cursor-help');
+    } else {
+        el.removeAttribute('title');
+        el.classList.remove('cursor-help');
+    }
+};
+
+const formatNomeRecurso = (value: string): string => {
+    const correctedText = corrigirTextoCorrompido(value);
+    const parts = correctedText.trim().split(/\s+/).filter(Boolean);
+    return parts.length <= 2 ? parts.join(' ') : parts.slice(0, 2).join(' ');
+};
+
+const normalizeValidationStatus = (status?: string | null): keyof typeof VALIDATION_STYLES => {
     const statusNormalized = (status ?? 'SIM').toString().toUpperCase().trim();
+    if (statusNormalized === 'NAO') return 'NAO';
+    if (statusNormalized === 'SIM') return 'SIM';
+    return 'DEFAULT';
+};
 
-    if (statusNormalized === 'SIM') {
-        return (
-            <div className="flex items-center justify-center gap-2 rounded border border-green-600 bg-green-500 px-4 py-1.5 text-sm font-extrabold tracking-widest text-black shadow-sm shadow-black select-none">
-                <FaCheck className="text-black" size={18} />
-                Aprovada
-            </div>
-        );
-    }
+// =====================================================
+// COMPONENTES AUXILIARES
+// =====================================================
+interface ValidacaoBadgeProps {
+    status?: string | null;
+}
 
-    if (statusNormalized === 'NAO') {
-        return (
-            <div className="flex items-center justify-center gap-2 rounded border border-red-600 bg-red-500 px-4 py-1.5 text-sm font-extrabold tracking-widest text-white shadow-sm shadow-black select-none">
-                <MdClose className="text-white" size={18} />
-                Reprovada
-            </div>
-        );
-    }
+const ValidacaoBadge = React.memo(function ValidacaoBadge({ status }: ValidacaoBadgeProps) {
+    const statusKey = normalizeValidationStatus(status);
+    const config = VALIDATION_STYLES[statusKey];
+    const IconComponent = config.Icon;
 
     return (
-        <div className="flex items-center justify-center gap-2 rounded border border-gray-400 bg-gray-300 px-4 py-1.5 text-sm font-extrabold tracking-widest text-black shadow-sm shadow-black select-none">
-            {status ?? '---------------'}
+        <div
+            className={`flex items-center justify-center gap-2 rounded border px-4 py-1.5 text-sm font-extrabold tracking-widest shadow-sm shadow-black select-none ${config.container}`}
+        >
+            {IconComponent && <IconComponent className={config.icon} size={18} />}
+            {config.label || status || EMPTY_VALUE}
         </div>
     );
-};
-// ==========
+});
 
-// ==================== COMPONENTE PRINCIPAL ====================
+interface ActionButtonOSProps {
+    onClick: (e: React.MouseEvent) => void;
+    title: string;
+}
+
+const ActionButtonOS = React.memo(function ActionButtonOS({ onClick, title }: ActionButtonOSProps) {
+    return (
+        <button onClick={onClick} title={title}>
+            <MdOpenInNew
+                className="cursor-pointer text-purple-600 transition-all duration-200 hover:scale-140 hover:-rotate-45 active:scale-95"
+                size={28}
+            />
+        </button>
+    );
+});
+
+interface CellHeaderOSProps {
+    children: React.ReactNode;
+}
+
+const CellHeaderOS = React.memo(function CellHeaderOS({ children }: CellHeaderOSProps) {
+    return (
+        <div className="text-center text-sm font-extrabold tracking-widest text-white select-none">
+            {children}
+        </div>
+    );
+});
+
+interface CellTextOSProps {
+    value: string | number;
+    className?: string;
+}
+
+const CellTextOS = React.memo(function CellTextOS({ value, className = '' }: CellTextOSProps) {
+    return (
+        <div
+            className={`text-center text-sm font-semibold tracking-widest text-black select-none ${className}`}
+        >
+            {value}
+        </div>
+    );
+});
+
+interface TruncatedCellOSProps {
+    value: string;
+    className?: string;
+}
+
+const TruncatedCellOS = React.memo(function TruncatedCellOS({
+    value,
+    className = '',
+}: TruncatedCellOSProps) {
+    return (
+        <div
+            ref={(el) => setupTruncationTooltip(el, value)}
+            className={`flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none ${className}`}
+        >
+            {value}
+        </div>
+    );
+});
+
+// =====================================================
+// DEFINIÇÃO DAS COLUNAS
+// =====================================================
 export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
     return [
-        // NÚMERO OS
+        // ==================== NÚMERO OS ====================
         {
             accessorKey: 'NUM_OS',
             id: 'NUM_OS',
-            header: () => (
-                <div className="text-center text-sm font-extrabold tracking-widest text-white select-none">
-                    NÚM. OS
-                </div>
-            ),
+            header: () => <CellHeaderOS>NÚM. OS</CellHeaderOS>,
             cell: ({ getValue, row, table }) => {
-                const value = (getValue() as number) ?? '---------------';
-
-                // Acessa a função onSelectOS do meta
+                const value = (getValue() as number) ?? EMPTY_VALUE;
                 const onSelectOS = table.options.meta?.onSelectOS;
 
                 return (
                     <div className="flex items-center gap-2">
-                        {/* Botão para abrir detalhes da OS */}
-                        <button
+                        <ActionButtonOS
                             onClick={(e) => {
                                 e.stopPropagation();
-                                if (onSelectOS) {
-                                    onSelectOS(row.original);
-                                }
+                                onSelectOS?.(row.original);
                             }}
                             title="Validação OS"
-                        >
-                            <MdOpenInNew
-                                className="cursor-pointer text-purple-600 transition-all duration-200 hover:scale-140 hover:-rotate-45 active:scale-95"
-                                size={28}
-                            />
-                        </button>
-
-                        {/* Número da OS */}
-                        <div className="flex-1 text-center text-sm font-semibold tracking-widest text-black select-none">
-                            {formatarNumeros(value)}
+                        />
+                        <div className="flex-1">
+                            <CellTextOS value={formatarNumeros(value)} />
                         </div>
                     </div>
                 );
             },
         },
-        // ==========
 
-        // DATA INÍCIO OS
+        // ==================== DATA INÍCIO ====================
         {
             accessorKey: 'DTINI_OS',
             id: 'DTINI_OS',
-            header: () => (
-                <div className="text-center text-sm font-extrabold tracking-widest text-white select-none">
-                    DATA
-                </div>
-            ),
+            header: () => <CellHeaderOS>DATA</CellHeaderOS>,
             cell: ({ getValue }) => {
                 const value = getValue() as string;
-                return (
-                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                        {formatarDataParaBR(value)}
-                    </div>
-                );
+                return <CellTextOS value={formatarDataParaBR(value)} />;
             },
         },
-        // =========
 
-        // HR. INÍCIO OS
+        // ==================== HORA INÍCIO ====================
         {
             accessorKey: 'HRINI_OS',
             id: 'HRINI_OS',
-            header: () => (
-                <div className="text-center text-sm font-extrabold tracking-widest text-white select-none">
-                    HR. INÍCIO
-                </div>
-            ),
+            header: () => <CellHeaderOS>HR. INÍCIO</CellHeaderOS>,
             cell: ({ getValue }) => {
                 const value = getValue() as string;
-                return (
-                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                        {formatarHora(value)}
-                    </div>
-                );
+                return <CellTextOS value={formatarHora(value)} />;
             },
         },
-        // =========
 
-        // HR. FIM OS
+        // ==================== HORA FIM ====================
         {
             accessorKey: 'HRFIM_OS',
             id: 'HRFIM_OS',
-            header: () => (
-                <div className="text-center text-sm font-extrabold tracking-widest text-white select-none">
-                    HR. FIM
-                </div>
-            ),
+            header: () => <CellHeaderOS>HR. FIM</CellHeaderOS>,
             cell: ({ getValue }) => {
                 const value = getValue() as string;
-                return (
-                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                        {formatarHora(value)}
-                    </div>
-                );
+                return <CellTextOS value={formatarHora(value)} />;
             },
         },
-        // =========
 
-        // TOTAL HORAS OS
+        // ==================== TOTAL HORAS ====================
         {
             accessorKey: 'TOTAL_HORAS_OS',
             id: 'TOTAL_HORAS_OS',
-            header: () => (
-                <div className="text-center text-sm font-extrabold tracking-widest text-white select-none">
-                    TOTAL HORAS
-                </div>
-            ),
+            header: () => <CellHeaderOS>TOTAL HORAS</CellHeaderOS>,
             cell: ({ getValue }) => {
                 const value = getValue() as number;
-                return (
-                    <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                        {formatarHorasTotaisSufixo(value)}
-                    </div>
-                );
+                return <CellTextOS value={formatarHorasTotaisSufixo(value)} />;
             },
         },
-        // =========
 
-        // OBSERVAÇÃO OS
+        // ==================== OBSERVAÇÃO ====================
         {
             accessorKey: 'OBS',
             id: 'OBS',
-            header: () => (
-                <div className="text-center text-sm font-extrabold tracking-widest text-white select-none">
-                    OBSERVAÇÃO
-                </div>
-            ),
+            header: () => <CellHeaderOS>OBSERVAÇÃO</CellHeaderOS>,
             cell: ({ getValue, row, table }) => {
                 const value = getValue() as string | null;
-                const correctedTextValue = corrigirTextoCorrompido(value);
-                const hasObservacao = value && value !== '---------------';
-
-                // Pega a função do meta para abrir o modal
+                const correctedText = corrigirTextoCorrompido(value);
+                const hasObservacao = value && value !== EMPTY_VALUE;
                 const handleOpenModalObs = table.options.meta?.handleOpenModalObs;
 
                 return (
                     <div className="flex w-full items-center gap-4">
-                        {/* Botão para abrir modal */}
                         {hasObservacao && handleOpenModalObs && (
-                            <button
+                            <ActionButtonOS
                                 onClick={(e) => {
                                     e.stopPropagation();
                                     handleOpenModalObs(row.original);
                                 }}
                                 title="Visualizar observação completa"
-                            >
-                                <MdOpenInNew
-                                    className="cursor-pointer text-purple-600 transition-all duration-200 hover:scale-140 hover:-rotate-45 active:scale-95"
-                                    size={28}
-                                />
-                            </button>
+                            />
                         )}
-
-                        {/* Texto da observação - com tooltip nativo */}
-                        <div
-                            ref={(el) => {
-                                if (el) {
-                                    const isTruncated = el.scrollWidth > el.clientWidth;
-                                    if (isTruncated) {
-                                        el.setAttribute('title', correctedTextValue);
-                                        el.classList.add('cursor-help');
-                                    } else {
-                                        el.removeAttribute('title');
-                                        el.classList.remove('cursor-help');
-                                    }
-                                }
-                            }}
-                            className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        >
-                            {correctedTextValue}
-                        </div>
+                        <TruncatedCellOS value={correctedText} />
                     </div>
                 );
             },
         },
-        // =========
 
-        // RECURSO OS
+        // ==================== CONSULTOR ====================
         {
             accessorKey: 'NOME_RECURSO',
             id: 'NOME_RECURSO',
-            header: () => (
-                <div className="text-center text-sm font-extrabold tracking-widest text-white select-none">
-                    CONSULTOR
-                </div>
-            ),
+            header: () => <CellHeaderOS>CONSULTOR</CellHeaderOS>,
             cell: ({ getValue }) => {
-                const value = (getValue() as string) ?? '---------------';
-                const isSemRecurso = value === '---------------';
+                const value = (getValue() as string) ?? EMPTY_VALUE;
 
-                if (isSemRecurso) {
-                    return (
-                        <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                            {value}
-                        </div>
-                    );
+                if (value === EMPTY_VALUE) {
+                    return <CellTextOS value={value} />;
                 }
 
-                const correctedTextValue = corrigirTextoCorrompido(value);
-                const parts = correctedTextValue.trim().split(/\s+/).filter(Boolean);
-                const display = parts.length <= 2 ? parts.join(' ') : parts.slice(0, 2).join(' ');
-
-                return (
-                    <div
-                        ref={(el) => {
-                            if (el) {
-                                const isTruncated = el.scrollWidth > el.clientWidth;
-                                if (isTruncated) {
-                                    el.setAttribute('title', correctedTextValue);
-                                    el.classList.add('cursor-help');
-                                } else {
-                                    el.removeAttribute('title');
-                                    el.classList.remove('cursor-help');
-                                }
-                            }
-                        }}
-                        className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                    >
-                        {display}
-                    </div>
-                );
+                const displayName = formatNomeRecurso(value);
+                return <TruncatedCellOS value={displayName} />;
             },
         },
-        // =========
 
-        // NOME TAREFA OS
+        // ==================== ENTREGÁVEL ====================
         {
             accessorKey: 'NOME_TAREFA',
             id: 'NOME_TAREFA',
-            header: () => (
-                <div className="text-center text-sm font-extrabold tracking-widest text-white select-none">
-                    ENTREGÁVEL
-                </div>
-            ),
+            header: () => <CellHeaderOS>ENTREGÁVEL</CellHeaderOS>,
             cell: ({ getValue }) => {
-                const value = (getValue() as string) ?? '---------------';
-                const isSemNomeTarefa = value === '---------------';
+                const value = (getValue() as string) ?? EMPTY_VALUE;
 
-                if (isSemNomeTarefa) {
-                    return (
-                        <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                            {value}
-                        </div>
-                    );
+                if (value === EMPTY_VALUE) {
+                    return <CellTextOS value={value} />;
                 }
 
-                const correctedTextValue = corrigirTextoCorrompido(value);
-
-                return (
-                    <div
-                        ref={(el) => {
-                            if (el) {
-                                const isTruncated = el.scrollWidth > el.clientWidth;
-                                if (isTruncated) {
-                                    el.setAttribute('title', correctedTextValue);
-                                    el.classList.add('cursor-help');
-                                } else {
-                                    el.removeAttribute('title');
-                                    el.classList.remove('cursor-help');
-                                }
-                            }
-                        }}
-                        className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                    >
-                        {correctedTextValue}
-                    </div>
-                );
+                const correctedText = corrigirTextoCorrompido(value);
+                return <TruncatedCellOS value={correctedText} />;
             },
         },
-        // =========
 
-        // VALIDAÇÃO OS
+        // ==================== VALIDAÇÃO ====================
         {
             accessorKey: 'VALCLI_OS',
             id: 'VALCLI_OS',
-            header: () => (
-                <div className="text-center text-sm font-extrabold tracking-widest text-white select-none">
-                    VALIDAÇÃO
-                </div>
-            ),
+            header: () => <CellHeaderOS>VALIDAÇÃO</CellHeaderOS>,
             cell: ({ getValue }) => {
-                const value = (getValue() as string) ?? '---------------';
+                const value = (getValue() as string) ?? EMPTY_VALUE;
                 return (
                     <div className="flex w-full justify-center">
                         <ValidacaoBadge status={value} />
@@ -358,6 +326,5 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                 );
             },
         },
-        // =========
     ];
 };

@@ -294,29 +294,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         });
     }, [dadosFiltradosPorRecurso, columnFilters]);
 
-    const dadosPaginados = useMemo(() => dadosCompletosFiltrados, [dadosCompletosFiltrados]);
-
     // =====================================================
     // TOTALIZADORES
     // =====================================================
-    const totaisRecalculados = useMemo(
-        () => ({
-            totalChamados: dadosFiltradosPorRecurso.length,
-            totalOS: dadosFiltradosPorRecurso.filter((c) => c.TEM_OS).length,
-            totalHoras: dadosFiltradosPorRecurso.reduce(
-                (sum, c) => sum + (c.TOTAL_HORAS_OS || 0),
-                0
-            ),
-        }),
-        [dadosFiltradosPorRecurso]
-    );
-
-    const totalGeralChamados = useMemo(() => apiData?.data.length ?? 0, [apiData?.data]);
-    const totalGeralChamadosAPI = useMemo(
-        () => apiData?.totalChamados ?? 0,
-        [apiData?.totalChamados]
-    );
-
     const totalChamadosNaoFinalizados = useMemo(() => {
         const chamados = apiData?.data ?? [];
         if (isAdmin && !status) {
@@ -326,12 +306,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         }
         return chamados.length;
     }, [apiData?.data, isAdmin, status]);
-
-    const totalChamadosFinalizados = useMemo(() => {
-        const statusUpper = status?.trim().toUpperCase();
-        if (statusUpper !== 'FINALIZADO') return 0;
-        return apiData?.totalChamados ?? 0;
-    }, [status, apiData?.totalChamados]);
 
     const paginacaoServidor = useMemo(() => {
         if (!apiData?.pagination) {
@@ -446,7 +420,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     );
 
     const table = useReactTable<ChamadoRowProps>({
-        data: dadosPaginados,
+        data: dadosCompletosFiltrados,
         columns,
         getCoreRowModel: getCoreRowModel(),
         state: { columnFilters },
@@ -474,7 +448,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // =====================================================
     return (
         <>
-            <div className="relative flex h-full w-full flex-col overflow-hidden border border-b-slate-500 bg-white shadow-md shadow-black">
+            <div className="relative flex h-full w-full flex-col overflow-hidden bg-white">
                 <Header
                     isAdmin={isAdmin}
                     totalChamadosFiltrados={apiData?.totalChamados || 0}
@@ -486,21 +460,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                     mes={String(mes)}
                     ano={String(ano)}
                     codCliente={codCliente}
-                    onRefresh={() => {
-                        clearAllFilters();
-                        setPage(1);
-                        setTimeout(() => window.location.reload(), 100);
-                    }}
                     totalChamadosNaoFinalizados={totalChamadosNaoFinalizados}
-                    totalChamadosFinalizados={totalChamadosFinalizados}
-                    totalGeralChamados={totalGeralChamados}
-                    totalGeralChamadosAPI={totalGeralChamadosAPI}
+                    totalGeralChamadosAPI={apiData?.totalChamados ?? 0}
                     status={status}
-                    cliente={''}
-                    recurso={''}
-                    totalChamados={0}
-                    totalOS={0}
-                    totalHorasOS={0}
                 />
 
                 <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
@@ -514,7 +476,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                         >
                             <TableHeader
                                 table={table}
-                                isAdmin={isAdmin}
                                 columnWidths={columnWidths}
                                 handleMouseDown={handleMouseDown}
                                 handleDoubleClick={handleDoubleClick}
@@ -523,7 +484,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                             <TableBody
                                 table={table}
                                 columns={columns}
-                                isAdmin={isAdmin}
                                 clearAllFilters={clearAllFilters}
                                 columnWidths={columnWidths}
                             />
@@ -595,7 +555,7 @@ interface PaginationControlsProps {
     limit: number;
 }
 
-function PaginationControls({
+const PaginationControls = React.memo(function PaginationControls({
     currentPage,
     totalPages,
     hasNextPage,
@@ -609,7 +569,7 @@ function PaginationControls({
     const startRecord = (currentPage - 1) * limit + 1;
     const endRecord = Math.min(currentPage * limit, totalChamados);
 
-    const getPageNumbers = () => {
+    const pageNumbers = useMemo(() => {
         const pages: (number | string)[] = [];
         const maxPagesToShow = 7;
 
@@ -642,7 +602,7 @@ function PaginationControls({
         }
 
         return pages;
-    };
+    }, [currentPage, totalPages]);
 
     return (
         <div className="flex items-center justify-between border-t border-b border-black bg-gray-200 px-10 py-2 shadow-inner">
@@ -677,7 +637,7 @@ function PaginationControls({
                 </button>
 
                 <div className="flex items-center gap-4">
-                    {getPageNumbers().map((pageNum, idx) => {
+                    {pageNumbers.map((pageNum, idx) => {
                         if (pageNum === '...') {
                             return (
                                 <span
@@ -699,7 +659,7 @@ function PaginationControls({
                                     e.stopPropagation();
                                     onGoToPage(pageNum as number);
                                 }}
-                                disabled={pageNum === currentPage}
+                                disabled={isCurrentPage}
                                 className={`min-w-[40px] rounded-md px-4 py-1 text-base font-semibold tracking-widest shadow-md shadow-black transition-all duration-200 select-none ${
                                     isCurrentPage
                                         ? 'cursor-default border border-purple-900 bg-purple-600 text-white'
@@ -739,18 +699,12 @@ function PaginationControls({
             </div>
         </div>
     );
-}
+});
 
 interface HeaderProps {
-    cliente: string;
-    recurso: string;
-    status: string;
     isAdmin: boolean;
-    totalChamados: number;
     totalChamadosFiltrados: number;
-    totalOS: number;
     totalOSFiltrados: number;
-    totalHorasOS: number;
     totalHorasFiltradas: number;
     hasActiveFilters: boolean;
     clearAllFilters: () => void;
@@ -758,14 +712,12 @@ interface HeaderProps {
     mes: string;
     ano: string;
     codCliente: string | null;
-    onRefresh: () => void;
     totalChamadosNaoFinalizados: number;
-    totalChamadosFinalizados: number;
-    totalGeralChamados: number;
-    totalGeralChamadosAPI: number; // ✅ ADICIONAR ESTA LINHA
+    totalGeralChamadosAPI: number;
+    status: string;
 }
 
-function Header({
+const Header = React.memo(function Header({
     isAdmin,
     totalChamadosFiltrados,
     totalOSFiltrados,
@@ -777,38 +729,33 @@ function Header({
     ano,
     codCliente,
     totalChamadosNaoFinalizados,
-    totalChamadosFinalizados,
-    totalGeralChamados,
-    totalGeralChamadosAPI, // ✅ ADICIONAR ESTA LINHA
+    totalGeralChamadosAPI,
     status,
 }: HeaderProps) {
-    const mesAnoTexto = mes && ano ? ` - ${mes}/${ano}` : '';
+    const { contagemExibida, labelContagem } = useMemo(() => {
+        const statusUpper = status?.trim().toUpperCase();
+        const filtrandoPorFinalizado = statusUpper === 'FINALIZADO';
+        const semFiltroStatus = !status || status.trim() === '';
 
-    // ✅ LÓGICA CORRIGIDA DE EXIBIÇÃO
-    const statusUpper = status?.trim().toUpperCase();
-    const filtrandoPorFinalizado = statusUpper === 'FINALIZADO';
-    const semFiltroStatus = !status || status.trim() === '';
+        let contagem: number;
+        let label: string;
 
-    // Determina qual contagem e label exibir
-    let contagemExibida: number;
-    let labelContagem: string;
+        if (filtrandoPorFinalizado) {
+            contagem = totalGeralChamadosAPI;
+            label = 'FINALIZADOS';
+        } else if (isAdmin && semFiltroStatus) {
+            contagem = totalGeralChamadosAPI;
+            label = 'TOTAL GERAL';
+        } else {
+            contagem = totalChamadosNaoFinalizados;
+            label = 'ATIVOS';
+        }
 
-    if (filtrandoPorFinalizado) {
-        // Filtrando por FINALIZADO - usa total da API
-        contagemExibida = totalGeralChamadosAPI;
-        labelContagem = 'FINALIZADOS';
-    } else if (isAdmin && semFiltroStatus) {
-        // Admin SEM filtro de status = TOTAL GERAL da API
-        contagemExibida = totalGeralChamadosAPI;
-        labelContagem = 'TOTAL GERAL';
-    } else {
-        // Demais casos = apenas ATIVOS (não finalizados)
-        contagemExibida = totalChamadosNaoFinalizados;
-        labelContagem = 'ATIVOS';
-    }
+        return { contagemExibida: contagem, labelContagem: label };
+    }, [status, isAdmin, totalGeralChamadosAPI, totalChamadosNaoFinalizados]);
 
     return (
-        <header className="flex items-center justify-between gap-4 bg-purple-900 p-6">
+        <header className="flex items-center justify-between gap-4 rounded-tl-4xl rounded-tr-4xl bg-purple-900 p-6">
             <div className="flex items-center gap-4">
                 <IoCall className="text-white" size={50} />
                 <div className="flex items-center gap-10">
@@ -878,22 +825,23 @@ function Header({
             </div>
         </header>
     );
+});
+
+interface TableHeaderProps {
+    table: any;
+    columnWidths: Record<string, number>;
+    handleMouseDown: (e: React.MouseEvent, columnId: string) => void;
+    handleDoubleClick: (columnId: string) => void;
+    resizingColumn: string | null;
 }
 
-function TableHeader({
+const TableHeader = React.memo(function TableHeader({
     table,
     columnWidths,
     handleMouseDown,
     handleDoubleClick,
     resizingColumn,
-}: {
-    table: any;
-    isAdmin: boolean;
-    columnWidths: Record<string, number>;
-    handleMouseDown: (e: React.MouseEvent, columnId: string) => void;
-    handleDoubleClick: (columnId: string) => void;
-    resizingColumn: string | null;
-}) {
+}: TableHeaderProps) {
     return (
         <thead className="sticky top-0 z-20">
             {table.getHeaderGroups().map((headerGroup: any) => (
@@ -901,7 +849,7 @@ function TableHeader({
                     {headerGroup.headers.map((header: any, idx: number) => (
                         <th
                             key={header.id}
-                            className="relative bg-teal-700 p-4 shadow-sm shadow-black"
+                            className="relative bg-teal-600 p-4 shadow-md shadow-black"
                             style={{ width: `${columnWidths[header.id]}px` }}
                         >
                             {header.isPlaceholder
@@ -920,23 +868,19 @@ function TableHeader({
                     ))}
                 </tr>
             ))}
-            <tr className="bg-teal-700 shadow-sm shadow-black">
+            <tr className="bg-teal-600">
                 {table.getAllColumns().map((column: any, idx: number) => (
                     <th
                         key={column.id}
-                        className="relative p-1 lg:p-3"
+                        className="relative px-3 pt-4 pb-3"
                         style={{ width: `${columnWidths[column.id]}px` }}
                     >
                         <div>
-                            {column.id === 'TOTAL_HORAS_OS' ? (
-                                <div className="h-[34px] lg:h-[38px]" />
-                            ) : (
-                                <FiltroHeaderChamados
-                                    value={(column.getFilterValue() as string) ?? ''}
-                                    onChange={(value: string) => column.setFilterValue(value)}
-                                    columnId={column.id}
-                                />
-                            )}
+                            <FiltroHeaderChamados
+                                value={(column.getFilterValue() as string) ?? ''}
+                                onChange={(value: string) => column.setFilterValue(value)}
+                                columnId={column.id}
+                            />
                         </div>
 
                         {idx < table.getAllColumns().length - 1 && (
@@ -952,24 +896,28 @@ function TableHeader({
             </tr>
         </thead>
     );
-}
+});
 
 interface TableBodyProps {
     table: any;
     columns: any;
-    isAdmin: boolean;
     clearAllFilters: () => void;
     columnWidths: Record<string, number>;
 }
 
-function TableBody({ table, columns, clearAllFilters, columnWidths }: TableBodyProps) {
+const TableBody = React.memo(function TableBody({
+    table,
+    columns,
+    clearAllFilters,
+    columnWidths,
+}: TableBodyProps) {
     const rows = table.getRowModel().rows;
 
     if (rows.length === 0) {
         return (
             <tbody>
                 <tr>
-                    <td colSpan={columns.length} className="py-20 text-center lg:py-40">
+                    <td colSpan={columns.length} className="py-40 text-center">
                         <EmptyState clearAllFilters={clearAllFilters} />
                     </td>
                 </tr>
@@ -979,38 +927,42 @@ function TableBody({ table, columns, clearAllFilters, columnWidths }: TableBodyP
 
     return (
         <tbody className="relative">
-            {rows.map((row: any, rowIndex: number) => {
-                return (
-                    <tr
-                        key={row.id}
-                        data-chamado-id={row.original.COD_CHAMADO}
-                        className={`relative cursor-default transition-all ${
-                            rowIndex % 2 === 0
-                                ? 'bg-gray-100 hover:bg-teal-200'
-                                : 'bg-white hover:bg-teal-200'
-                        }`}
-                    >
-                        {row.getVisibleCells().map((cell: any, cellIndex: number) => (
-                            <td
-                                key={cell.id}
-                                style={{
-                                    width: `${columnWidths[cell.column.id]}px`,
-                                }}
-                                className={`border-b border-gray-500 px-2 py-3 transition-all ${
-                                    cellIndex === 0 ? 'pl-2 lg:pl-3' : ''
-                                } ${cellIndex === row.getVisibleCells().length - 1 ? 'pr-2 lg:pr-4' : ''}`}
-                            >
-                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                            </td>
-                        ))}
-                    </tr>
-                );
-            })}
+            {rows.map((row: any, rowIndex: number) => (
+                <tr
+                    key={row.id}
+                    data-chamado-id={row.original.COD_CHAMADO}
+                    className={`transition-all ${
+                        rowIndex % 2 === 0 ? 'bg-white' : 'bg-white'
+                    } hover:bg-teal-200`}
+                >
+                    {row.getVisibleCells().map((cell: any, cellIndex: number) => (
+                        <td
+                            key={cell.id}
+                            style={{
+                                width: `${columnWidths[cell.column.id]}px`,
+                            }}
+                            className={`border-b border-gray-400 px-2 py-3 transition-all ${
+                                cellIndex === 0 ? 'border-l border-l-gray-400 pl-4' : ''
+                            } ${
+                                cellIndex === row.getVisibleCells().length - 1
+                                    ? 'border-r border-r-gray-400'
+                                    : ''
+                            }`}
+                        >
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                    ))}
+                </tr>
+            ))}
         </tbody>
     );
-}
+});
 
-function EmptyState({ clearAllFilters }: { clearAllFilters: () => void }) {
+const EmptyState = React.memo(function EmptyState({
+    clearAllFilters,
+}: {
+    clearAllFilters: () => void;
+}) {
     return (
         <div className="flex flex-col items-center justify-center">
             <TbMoodEmptyFilled className="mb-6 text-gray-600" size={120} />
@@ -1029,4 +981,4 @@ function EmptyState({ clearAllFilters }: { clearAllFilters: () => void }) {
             </button>
         </div>
     );
-}
+});
