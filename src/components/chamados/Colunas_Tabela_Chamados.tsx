@@ -1,6 +1,6 @@
 import { ColumnDef } from '@tanstack/react-table';
 import { BiSolidLike } from 'react-icons/bi';
-import { MdInsertDriveFile, MdOutlineStar, MdVisibility } from 'react-icons/md';
+import { MdOpenInNew, MdOutlineStar } from 'react-icons/md';
 import { formatarDataHoraChamado } from '../../formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 import { formatarNumeros, formatarPrioridade } from '../../formatters/formatar-numeros';
@@ -29,7 +29,6 @@ export type ChamadoRowProps = {
     HORA_HISTCHAMADO?: string | null;
     COD_RECURSO?: number | null;
 
-    // ✅ ADICIONAR ESTES CAMPOS:
     SLA_STATUS?: string;
     SLA_PERCENTUAL?: number;
     SLA_TEMPO_DECORRIDO?: number;
@@ -42,21 +41,21 @@ export type ChamadoRowProps = {
 const getStylesStatus = (status: string | undefined) => {
     switch (status?.toUpperCase()) {
         case 'NAO FINALIZADO':
-            return 'bg-red-600 border border-red-800 text-white shadow-sm shadow-black';
+            return 'bg-red-500 border border-red-600 text-black shadow-sm shadow-black';
         case 'EM ATENDIMENTO':
-            return 'bg-blue-600 border border-blue-800 text-white shadow-sm shadow-black';
+            return 'bg-blue-500 border border-blue-600 text-white shadow-sm shadow-black';
         case 'FINALIZADO':
-            return 'bg-green-600 border border-green-800 text-white shadow-sm shadow-black';
+            return 'bg-green-500 border border-green-600 text-black shadow-sm shadow-black';
         case 'NAO INICIADO':
-            return 'bg-red-500 border border-red-700 text-white shadow-sm shadow-black';
+            return 'bg-red-500 border border-red-600 text-black shadow-sm shadow-black';
         case 'STANDBY':
-            return 'bg-orange-500 border border-orange-700 text-black shadow-sm shadow-black';
+            return 'bg-orange-500 border border-orange-600 text-white shadow-sm shadow-black';
         case 'ATRIBUIDO':
-            return 'bg-cyan-500 border border-cyan-700 text-black shadow-sm shadow-black';
+            return 'bg-cyan-500 border border-cyan-600 text-black shadow-sm shadow-black';
         case 'AGUARDANDO VALIDACAO':
-            return 'bg-yellow-500 border border-yellow-700 text-black shadow-sm shadow-black';
+            return 'bg-yellow-500 border border-yellow-600 text-black shadow-sm shadow-black';
         default:
-            return 'bg-gray-600 border border-gray-800 text-black shadow-sm shadow-black';
+            return 'bg-gray-500 border border-gray-600 text-black shadow-sm shadow-black';
     }
 };
 
@@ -83,7 +82,7 @@ const StatusBadge = ({
         <div className="flex w-full items-center gap-2">
             {/* Badge do Status */}
             <div
-                className={`flex items-center gap-2 rounded px-4 py-1.5 text-sm font-extrabold tracking-widest select-none ${styles} ${isFinalizado ? 'flex-1' : 'w-full'}`}
+                className={`flex items-center justify-center gap-2 rounded px-4 py-1.5 text-sm font-extrabold tracking-widest select-none ${styles} ${isFinalizado ? 'flex-1' : 'w-full'}`}
             >
                 {/* Texto do Status */}
                 <span className="flex-1">{status}</span>
@@ -121,10 +120,12 @@ const StatusBadge = ({
                             onAvaliar();
                         }
                     }}
-                    className="flex-shrink-0 cursor-pointer rounded-md bg-purple-600 p-2 shadow-xs shadow-black transition-all duration-200 hover:scale-110 hover:bg-purple-800 hover:shadow-md hover:shadow-black active:scale-95"
                     title={foiAvaliado ? 'Reavaliar chamado' : 'Avaliar chamado'}
                 >
-                    <BiSolidLike className="text-white" size={18} />
+                    <BiSolidLike
+                        className="cursor-pointer text-purple-600 transition-all duration-200 hover:scale-140 active:scale-95"
+                        size={32}
+                    />
                 </button>
             )}
         </div>
@@ -167,7 +168,7 @@ export const getColunasChamados = (
 
                 // Se TEM OS, renderiza com botão à esquerda
                 return (
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-4">
                         {/* Botão para abrir modal de OS's */}
                         <div className="flex items-center justify-center">
                             <button
@@ -177,10 +178,12 @@ export const getColunasChamados = (
                                         handleChamadoClick(row.original.COD_CHAMADO, temOS);
                                     }
                                 }}
-                                className="flex-shrink-0 cursor-pointer rounded-full bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-purple-500 hover:shadow-xl hover:shadow-black active:scale-95"
                                 title="Visualizar OS's do chamado"
                             >
-                                <MdVisibility className="text-white" size={18} />
+                                <MdOpenInNew
+                                    className="cursor-pointer text-purple-600 transition-all duration-200 hover:scale-140 hover:-rotate-45 active:scale-95"
+                                    size={32}
+                                />
                             </button>
                         </div>
 
@@ -255,17 +258,30 @@ export const getColunasChamados = (
                                     e.stopPropagation();
                                     onOpenSolicitacao(row.original);
                                 }}
-                                className="flex-shrink-0 cursor-pointer rounded-full bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-purple-500 hover:shadow-xl hover:shadow-black active:scale-95"
-                                title="Visualizar detalhes do chamado"
+                                title="Visualizar assunto e solicitação do chamado"
                             >
-                                <MdInsertDriveFile className="text-white" size={18} />
+                                <MdOpenInNew
+                                    className="cursor-pointer text-purple-600 transition-all duration-200 hover:scale-140 hover:-rotate-45 active:scale-95"
+                                    size={32}
+                                />
                             </button>
                         )}
 
-                        {/* Texto do assunto */}
+                        {/* Texto da observação - com tooltip nativo */}
                         <div
-                            className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                            title={correctedTextValue}
+                            ref={(el) => {
+                                if (el) {
+                                    const isTruncated = el.scrollWidth > el.clientWidth;
+                                    if (isTruncated) {
+                                        el.setAttribute('title', correctedTextValue);
+                                        el.classList.add('cursor-help');
+                                    } else {
+                                        el.removeAttribute('title');
+                                        el.classList.remove('cursor-help');
+                                    }
+                                }
+                            }}
+                            className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
                         >
                             {correctedTextValue}
                         </div>
@@ -299,8 +315,19 @@ export const getColunasChamados = (
 
                 return (
                     <div
-                        className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        title={value}
+                        ref={(el) => {
+                            if (el) {
+                                const isTruncated = el.scrollWidth > el.clientWidth;
+                                if (isTruncated) {
+                                    el.setAttribute('title', value);
+                                    el.classList.add('cursor-help');
+                                } else {
+                                    el.removeAttribute('title');
+                                    el.classList.remove('cursor-help');
+                                }
+                            }
+                        }}
+                        className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
                     >
                         {value}
                     </div>
@@ -324,8 +351,19 @@ export const getColunasChamados = (
 
                 return (
                     <div
-                        className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        title={correctedTextValue}
+                        ref={(el) => {
+                            if (el) {
+                                const isTruncated = el.scrollWidth > el.clientWidth;
+                                if (isTruncated) {
+                                    el.setAttribute('title', correctedTextValue);
+                                    el.classList.add('cursor-help');
+                                } else {
+                                    el.removeAttribute('title');
+                                    el.classList.remove('cursor-help');
+                                }
+                            }
+                        }}
+                        className="flex-1 truncate overflow-hidden text-center text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
                     >
                         {correctedTextValue}
                     </div>
@@ -393,8 +431,19 @@ export const getColunasChamados = (
 
                 return (
                     <div
-                        className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        title={correctedTextValue}
+                        ref={(el) => {
+                            if (el) {
+                                const isTruncated = el.scrollWidth > el.clientWidth;
+                                if (isTruncated) {
+                                    el.setAttribute('title', display);
+                                    el.classList.add('cursor-help');
+                                } else {
+                                    el.removeAttribute('title');
+                                    el.classList.remove('cursor-help');
+                                }
+                            }
+                        }}
+                        className="flex-1 truncate overflow-hidden text-center text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
                     >
                         {display}
                     </div>
@@ -440,6 +489,7 @@ export const getColunasChamados = (
             },
         },
 
+        // SLA do Chamado
         {
             id: 'SLA_INFO',
             header: () => (
@@ -511,7 +561,7 @@ export const getColunasChamados = (
                 const value = getValue() as number | null;
 
                 return (
-                    <div className="text-center text-lg font-extrabold tracking-widest text-black select-none">
+                    <div className="text-center text-base font-extrabold tracking-widest text-black select-none">
                         {formatarHorasTotaisSufixo(value)}
                     </div>
                 );

@@ -1,0 +1,149 @@
+/* ==================== TOOLTIP PERSONALIZADO ==================== */
+
+.custom-tooltip {
+    position: relative;
+}
+
+/* Conteúdo do tooltip */
+.custom-tooltip[data-tooltip]::before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-8px);
+    padding: 8px 12px;
+    background-color: #1f2937;
+    color: white;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-in-out;
+    z-index: 99999;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Seta do tooltip */
+.custom-tooltip[data-tooltip]::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-2px);
+    border: 6px solid transparent;
+    border-top-color: #1f2937;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease-in-out;
+    z-index: 99999;
+}
+
+/* Mostrar tooltip no hover */
+.custom-tooltip[data-tooltip]:hover::before,
+.custom-tooltip[data-tooltip]:hover::after {
+    opacity: 1;
+}
+
+/* ==================== VARIANTES DE POSIÇÃO ==================== */
+
+/* Tooltip abaixo (bottom) */
+.custom-tooltip-bottom[data-tooltip]::before {
+    bottom: auto;
+    top: 100%;
+    transform: translateX(-50%) translateY(8px);
+}
+
+.custom-tooltip-bottom[data-tooltip]::after {
+    bottom: auto;
+    top: 100%;
+    transform: translateX(-50%) translateY(2px);
+    border-top-color: transparent;
+    border-bottom-color: #1f2937;
+}
+
+/* Tooltip à esquerda (left) */
+.custom-tooltip-left[data-tooltip]::before {
+    bottom: 50%;
+    left: auto;
+    right: 100%;
+    transform: translateY(50%) translateX(-8px);
+}
+
+.custom-tooltip-left[data-tooltip]::after {
+    bottom: 50%;
+    left: auto;
+    right: 100%;
+    transform: translateY(50%) translateX(-2px);
+    border-top-color: transparent;
+    border-left-color: #1f2937;
+}
+
+/* Tooltip à direita (right) */
+.custom-tooltip-right[data-tooltip]::before {
+    bottom: 50%;
+    left: 100%;
+    transform: translateY(50%) translateX(8px);
+}
+
+.custom-tooltip-right[data-tooltip]::after {
+    bottom: 50%;
+    left: 100%;
+    transform: translateY(50%) translateX(2px);
+    border-top-color: transparent;
+    border-right-color: #1f2937;
+}
+
+/* ==================== VARIANTES DE COR ==================== */
+
+/* Tooltip com tema claro */
+.custom-tooltip-light[data-tooltip]::before {
+    background-color: #f3f4f6;
+    color: #1f2937;
+    border: 1px solid #d1d5db;
+}
+
+.custom-tooltip-light[data-tooltip]::after {
+    border-top-color: #f3f4f6;
+}
+
+/* Tooltip com tema de sucesso */
+.custom-tooltip-success[data-tooltip]::before {
+    background-color: #10b981;
+    color: white;
+}
+
+.custom-tooltip-success[data-tooltip]::after {
+    border-top-color: #10b981;
+}
+
+/* Tooltip com tema de erro */
+.custom-tooltip-error[data-tooltip]::before {
+    background-color: #ef4444;
+    color: white;
+}
+
+.custom-tooltip-error[data-tooltip]::after {
+    border-top-color: #ef4444;
+}
+
+/* Tooltip com tema de aviso */
+.custom-tooltip-warning[data-tooltip]::before {
+    background-color: #f59e0b;
+    color: white;
+}
+
+.custom-tooltip-warning[data-tooltip]::after {
+    border-top-color: #f59e0b;
+}
+
+/* Tooltip com tema de informação */
+.custom-tooltip-info[data-tooltip]::before {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.custom-tooltip-info[data-tooltip]::after {
+    border-top-color: #3b82f6;
+}

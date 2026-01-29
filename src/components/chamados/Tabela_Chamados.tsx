@@ -9,9 +9,11 @@ import {
     useReactTable,
 } from '@tanstack/react-table';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { BsEraserFill } from 'react-icons/bs';
 import { FaEraser } from 'react-icons/fa';
 import { IoCall } from 'react-icons/io5';
 import { MdNavigateBefore, MdNavigateNext } from 'react-icons/md';
+import { TbMoodEmptyFilled } from 'react-icons/tb';
 import { useAuth } from '../../context/AuthContext';
 import { useRedimensionarColunas } from '../../hooks/useRedimensionarColunas';
 import { useFiltrosChamado } from '../shared/Filtros_Chamado';
@@ -22,8 +24,8 @@ import { ExportaPDFChamadosButton } from './Button_PDF';
 import { ChamadoRowProps, getColunasChamados } from './Colunas_Tabela_Chamados';
 import { OSRowProps } from './Colunas_Tabela_OS';
 import { FiltroHeaderChamados } from './Filtro_Header_Tabela_Chamados';
+import { ModalAssuntoSolicitacaoChamado } from './Modal_Assunto_Solicitacao_Chamado';
 import { ModalAvaliarChamado } from './Modal_Avaliar_Chamado';
-import { ModalSolicitacaoChamado } from './Modal_Solicitacao_Chamado';
 import { ModalTabelaOS } from './Modal_Tabela_OS';
 import { ModalValidarOS } from './Modal_Validar_OS';
 import { RedimensionarColunas } from './Redimensionar_Colunas';
@@ -556,7 +558,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 onClose={handleCloseModalOS}
                 onSave={handleSaveValidation}
             />
-            <ModalSolicitacaoChamado
+            <ModalAssuntoSolicitacaoChamado
                 isOpen={isModalSolicitacaoOpen}
                 onClose={handleCloseSolicitacao}
                 solicitacao={selectedChamadoSolicitacao?.SOLICITACAO_CHAMADO || ''}
@@ -982,7 +984,7 @@ function TableBody({ table, columns, clearAllFilters, columnWidths }: TableBodyP
                     <tr
                         key={row.id}
                         data-chamado-id={row.original.COD_CHAMADO}
-                        className={`group relative cursor-default transition-all ${
+                        className={`relative cursor-default transition-all ${
                             rowIndex % 2 === 0
                                 ? 'bg-gray-100 hover:bg-teal-200'
                                 : 'bg-white hover:bg-teal-200'
@@ -994,7 +996,7 @@ function TableBody({ table, columns, clearAllFilters, columnWidths }: TableBodyP
                                 style={{
                                     width: `${columnWidths[cell.column.id]}px`,
                                 }}
-                                className={`border-b border-gray-500 p-2 transition-all ${
+                                className={`border-b border-gray-500 px-2 py-3 transition-all ${
                                     cellIndex === 0 ? 'pl-2 lg:pl-3' : ''
                                 } ${cellIndex === row.getVisibleCells().length - 1 ? 'pr-2 lg:pr-4' : ''}`}
                             >
@@ -1010,18 +1012,19 @@ function TableBody({ table, columns, clearAllFilters, columnWidths }: TableBodyP
 
 function EmptyState({ clearAllFilters }: { clearAllFilters: () => void }) {
     return (
-        <div className="flex flex-col items-center justify-center gap-3 px-4 lg:gap-4">
-            <FaEraser className="mb-3 text-slate-300 lg:mb-6" size={60} />
-            <div className="text-center text-xl font-extrabold tracking-widest text-black select-none lg:text-3xl">
+        <div className="flex flex-col items-center justify-center">
+            <TbMoodEmptyFilled className="mb-6 text-gray-600" size={120} />
+            <div className="mb-2 text-center text-4xl font-extrabold tracking-widest text-gray-500 select-none">
                 Nenhum resultado encontrado
             </div>
-            <div className="mb-3 text-center text-base font-semibold tracking-widest text-slate-600 italic select-none lg:mb-6 lg:text-lg">
+            <div className="mb-20 text-center font-semibold tracking-widest text-gray-400 italic select-none">
                 Tente ajustar os filtros para encontrar o que procura
             </div>
             <button
-                className="group cursor-pointer rounded-md border-none bg-gradient-to-br from-red-600 to-red-700 px-4 py-2 text-base font-extrabold tracking-widest text-white shadow-md shadow-black transition-all hover:scale-110 active:scale-95 lg:px-6 lg:py-3 lg:text-lg"
+                className="flex cursor-pointer items-center justify-center gap-2 rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-6 py-3 text-lg font-extrabold tracking-widest text-white shadow-md shadow-black transition-all hover:-translate-y-1 active:scale-95"
                 onClick={clearAllFilters}
             >
+                <BsEraserFill className="text-white" size={24} />
                 Limpar Filtros
             </button>
         </div>

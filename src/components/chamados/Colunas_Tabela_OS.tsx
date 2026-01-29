@@ -1,17 +1,18 @@
 import { ColumnDef } from '@tanstack/react-table';
-import { FaTimesCircle } from 'react-icons/fa';
-import { MdCheck, MdCheckCircle, MdInsertDriveFile } from 'react-icons/md';
+import { FaCheck } from 'react-icons/fa';
+import { MdClose, MdOpenInNew } from 'react-icons/md';
 import { formatarDataParaBR } from '../../formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
 import { formatarNumeros } from '../../formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-
+// ==========
 declare module '@tanstack/react-table' {
     interface TableMeta<TData> {
         handleOpenModalObs?: (os: TData) => void;
         onSelectOS?: (os: TData) => void;
     }
 }
+// ==========
 
 // ==================== INTERFACES ====================
 export interface OSRowProps {
@@ -28,6 +29,7 @@ export interface OSRowProps {
     OBSCLI_OS?: string | null;
     NOME_CLIENTE?: string | null;
 }
+// ==========
 
 // ==================== COMPONENTE DE VALIDAÇÃO ====================
 const ValidacaoBadge = ({ status }: { status?: string | null }) => {
@@ -35,8 +37,8 @@ const ValidacaoBadge = ({ status }: { status?: string | null }) => {
 
     if (statusNormalized === 'SIM') {
         return (
-            <div className="inline-flex items-center gap-2 rounded-md border-t border-green-600 bg-green-600 px-6 py-1.5 text-sm font-extrabold tracking-widest text-white shadow-md shadow-black select-none">
-                <MdCheckCircle className="text-white" size={16} />
+            <div className="flex items-center justify-center gap-2 rounded border border-green-600 bg-green-500 px-4 py-1.5 text-sm font-extrabold tracking-widest text-black shadow-sm shadow-black select-none">
+                <FaCheck className="text-black" size={18} />
                 Aprovada
             </div>
         );
@@ -44,26 +46,25 @@ const ValidacaoBadge = ({ status }: { status?: string | null }) => {
 
     if (statusNormalized === 'NAO') {
         return (
-            <div className="inline-flex items-center gap-2 rounded border border-red-800 bg-red-600 px-3 py-1.5 text-sm font-extrabold tracking-widest text-white select-none">
-                <FaTimesCircle className="text-white" size={16} />
-                Recusada
+            <div className="flex items-center justify-center gap-2 rounded border border-red-600 bg-red-500 px-4 py-1.5 text-sm font-extrabold tracking-widest text-white shadow-sm shadow-black select-none">
+                <MdClose className="text-white" size={18} />
+                Reprovada
             </div>
         );
     }
 
     return (
-        <div className="inline-flex items-center gap-2 rounded border border-gray-400 bg-gray-300 px-3 py-1.5 text-sm font-extrabold tracking-widest text-black italic select-none">
+        <div className="flex items-center justify-center gap-2 rounded border border-gray-400 bg-gray-300 px-4 py-1.5 text-sm font-extrabold tracking-widest text-black shadow-sm shadow-black select-none">
             {status ?? '---------------'}
         </div>
     );
 };
+// ==========
 
-// ================================================================================
-// COMPONENTE PRINCIPAL
-// ================================================================================
+// ==================== COMPONENTE PRINCIPAL ====================
 export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
     return [
-        // Número da OS
+        // NÚMERO OS
         {
             accessorKey: 'NUM_OS',
             id: 'NUM_OS',
@@ -88,10 +89,12 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                                     onSelectOS(row.original);
                                 }
                             }}
-                            className="flex-shrink-0 cursor-pointer rounded-full bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-purple-500 hover:shadow-xl hover:shadow-black active:scale-95"
-                            title="Aprovação da OS"
+                            title="Validação OS"
                         >
-                            <MdCheck className="text-white" size={18} />
+                            <MdOpenInNew
+                                className="cursor-pointer text-purple-600 transition-all duration-200 hover:scale-140 hover:-rotate-45 active:scale-95"
+                                size={28}
+                            />
                         </button>
 
                         {/* Número da OS */}
@@ -102,8 +105,9 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                 );
             },
         },
+        // ==========
 
-        // Data de Início da OS
+        // DATA INÍCIO OS
         {
             accessorKey: 'DTINI_OS',
             id: 'DTINI_OS',
@@ -121,8 +125,9 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                 );
             },
         },
+        // =========
 
-        // Hora de Início da OS
+        // HR. INÍCIO OS
         {
             accessorKey: 'HRINI_OS',
             id: 'HRINI_OS',
@@ -140,8 +145,9 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                 );
             },
         },
+        // =========
 
-        // Hora Fim da OS
+        // HR. FIM OS
         {
             accessorKey: 'HRFIM_OS',
             id: 'HRFIM_OS',
@@ -159,8 +165,9 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                 );
             },
         },
+        // =========
 
-        // Total de Horas da OS
+        // TOTAL HORAS OS
         {
             accessorKey: 'TOTAL_HORAS_OS',
             id: 'TOTAL_HORAS_OS',
@@ -178,8 +185,9 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                 );
             },
         },
+        // =========
 
-        // OBSERVAÇÃO
+        // OBSERVAÇÃO OS
         {
             accessorKey: 'OBS',
             id: 'OBS',
@@ -205,17 +213,30 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                                     e.stopPropagation();
                                     handleOpenModalObs(row.original);
                                 }}
-                                className="flex-shrink-0 cursor-pointer rounded-full bg-purple-600 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-purple-500 hover:shadow-xl hover:shadow-black active:scale-95"
                                 title="Visualizar observação completa"
                             >
-                                <MdInsertDriveFile className="text-white" size={18} />
+                                <MdOpenInNew
+                                    className="cursor-pointer text-purple-600 transition-all duration-200 hover:scale-140 hover:-rotate-45 active:scale-95"
+                                    size={28}
+                                />
                             </button>
                         )}
 
                         {/* Texto da observação - com tooltip nativo */}
                         <div
-                            className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                            title={correctedTextValue}
+                            ref={(el) => {
+                                if (el) {
+                                    const isTruncated = el.scrollWidth > el.clientWidth;
+                                    if (isTruncated) {
+                                        el.setAttribute('title', correctedTextValue);
+                                        el.classList.add('cursor-help');
+                                    } else {
+                                        el.removeAttribute('title');
+                                        el.classList.remove('cursor-help');
+                                    }
+                                }
+                            }}
+                            className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
                         >
                             {correctedTextValue}
                         </div>
@@ -223,8 +244,9 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                 );
             },
         },
+        // =========
 
-        // Consultor da OS
+        // RECURSO OS
         {
             accessorKey: 'NOME_RECURSO',
             id: 'NOME_RECURSO',
@@ -251,16 +273,28 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
 
                 return (
                     <div
-                        className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        title={correctedTextValue}
+                        ref={(el) => {
+                            if (el) {
+                                const isTruncated = el.scrollWidth > el.clientWidth;
+                                if (isTruncated) {
+                                    el.setAttribute('title', correctedTextValue);
+                                    el.classList.add('cursor-help');
+                                } else {
+                                    el.removeAttribute('title');
+                                    el.classList.remove('cursor-help');
+                                }
+                            }
+                        }}
+                        className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
                     >
                         {display}
                     </div>
                 );
             },
         },
+        // =========
 
-        // Nome da Tarefa
+        // NOME TAREFA OS
         {
             accessorKey: 'NOME_TAREFA',
             id: 'NOME_TAREFA',
@@ -285,16 +319,28 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
 
                 return (
                     <div
-                        className="flex-1 cursor-help truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
-                        title={correctedTextValue}
+                        ref={(el) => {
+                            if (el) {
+                                const isTruncated = el.scrollWidth > el.clientWidth;
+                                if (isTruncated) {
+                                    el.setAttribute('title', correctedTextValue);
+                                    el.classList.add('cursor-help');
+                                } else {
+                                    el.removeAttribute('title');
+                                    el.classList.remove('cursor-help');
+                                }
+                            }
+                        }}
+                        className="flex-1 truncate overflow-hidden text-sm font-semibold tracking-widest whitespace-nowrap text-black select-none"
                     >
                         {correctedTextValue}
                     </div>
                 );
             },
         },
+        // =========
 
-        // Validação da OS
+        // VALIDAÇÃO OS
         {
             accessorKey: 'VALCLI_OS',
             id: 'VALCLI_OS',
@@ -312,5 +358,6 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                 );
             },
         },
+        // =========
     ];
 };

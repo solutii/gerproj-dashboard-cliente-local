@@ -356,7 +356,7 @@ const DropdownWithFilter = memo(({ value, onChange, columnId }: DropdownFilterPr
                         : 'border border-teal-950 bg-teal-900 text-white'
                 }`}
             >
-                <span className={`truncate ${!value ? 'text-gray-400 italic' : ''}`}>
+                <span className={`truncate ${!value ? 'text-gray-300 italic' : ''}`}>
                     {isLoading ? 'Carregando...' : displayedName || placeholder}
                 </span>
 
@@ -371,7 +371,7 @@ const DropdownWithFilter = memo(({ value, onChange, columnId }: DropdownFilterPr
                     )}
                     <span
                         className={`transition-all ${isOpen ? 'rotate-180' : ''} ${
-                            value ? 'text-gray-800' : 'text-gray-400'
+                            value ? 'text-gray-800' : 'text-gray-300'
                         }`}
                     >
                         <IoIosArrowDown size={20} />
@@ -385,7 +385,7 @@ const DropdownWithFilter = memo(({ value, onChange, columnId }: DropdownFilterPr
                     <div className="border-b border-slate-200 bg-slate-50 p-2">
                         <div className="relative">
                             <FiSearch
-                                className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400"
+                                className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-500"
                                 size={16}
                             />
                             <input
@@ -470,7 +470,7 @@ const COLUMN_MAX_LENGTH: Record<string, number> = {
     ASSUNTO_CHAMADO: 15,
     EMAIL_CHAMADO: 15,
     DTENVIO_CHAMADO: 10,
-    CONCLUSAO_CHAMADO: 10,
+    DATA_HISTCHAMADO: 10,
 };
 
 // Função para aplicar máscara de data dd/mm/yyyy
@@ -566,7 +566,7 @@ const InputFilterDate = memo(
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
                     placeholder="Filtrar..."
-                    className={`w-full rounded-md px-3 py-2 text-sm font-bold transition-all select-none placeholder:text-gray-400 placeholder:italic hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-pink-600 focus:outline-none active:scale-95 ${
+                    className={`w-full cursor-pointer rounded-md px-3 py-2 text-sm font-bold transition-all select-none placeholder:text-gray-300 placeholder:italic hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-pink-600 focus:outline-none active:scale-95 ${
                         localValue
                             ? 'bg-white text-black ring-2 ring-pink-600'
                             : 'border border-teal-950 bg-teal-900 text-white'
@@ -674,7 +674,7 @@ const InputFilterNumber = memo(
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
                     placeholder="Filtrar..."
-                    className={`w-full rounded-md px-3 py-2 text-sm font-bold transition-all select-none placeholder:text-gray-400 placeholder:italic hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-pink-600 focus:outline-none active:scale-95 ${
+                    className={`w-full cursor-pointer rounded-md px-3 py-2 text-sm font-bold transition-all select-none placeholder:text-gray-300 placeholder:italic hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-pink-600 focus:outline-none active:scale-95 ${
                         localValue
                             ? 'bg-white text-black ring-2 ring-pink-600'
                             : 'border border-teal-950 bg-teal-900 text-white'
@@ -785,7 +785,7 @@ const InputFilterPriority = memo(
                     onChange={handleChange}
                     onKeyDown={handleKeyDown}
                     placeholder="Filtrar..."
-                    className={`w-full rounded-md px-3 py-2 text-sm font-bold transition-all select-none placeholder:text-gray-400 placeholder:italic hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-pink-600 focus:outline-none active:scale-95 ${
+                    className={`w-full cursor-pointer rounded-md px-3 py-2 text-sm font-bold transition-all select-none placeholder:text-gray-300 placeholder:italic hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-pink-600 focus:outline-none active:scale-95 ${
                         localValue
                             ? 'bg-white text-black ring-2 ring-pink-600'
                             : 'border border-teal-950 bg-teal-900 text-white'
@@ -893,7 +893,7 @@ const InputFilterWithDebounce = memo(({ value, onChange, columnId }: InputFilter
                 onChange={handleChange}
                 onKeyDown={handleKeyDown}
                 placeholder="Filtrar..."
-                className={`w-full rounded-md px-3 py-2 text-sm font-bold transition-all select-none placeholder:text-gray-400 placeholder:italic hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-pink-600 focus:outline-none active:scale-95 ${
+                className={`w-full cursor-pointer rounded-md px-3 py-2 text-sm font-bold transition-all select-none placeholder:text-gray-300 placeholder:italic hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-pink-600 focus:outline-none active:scale-95 ${
                     localValue
                         ? 'bg-white text-black ring-2 ring-pink-600'
                         : 'border border-teal-950 bg-teal-900 text-white'
@@ -921,12 +921,13 @@ const InputFilterWithDebounce = memo(({ value, onChange, columnId }: InputFilter
 InputFilterWithDebounce.displayName = 'InputFilterWithDebounce';
 
 export const FiltroHeaderChamados = memo(({ value, onChange, columnId }: InputFilterProps) => {
-    // Status, Cliente, Recurso e Classificação usam dropdown com busca e API
-    if (
-        columnId === 'NOME_CLASSIFICACAO' ||
-        columnId === 'NOME_RECURSO' ||
-        columnId === 'STATUS_CHAMADO'
-    ) {
+    // Sem filtro para NOME_RECURSO
+    if (columnId === 'NOME_RECURSO' || columnId === 'STATUS_CHAMADO' || columnId === 'SLA_INFO') {
+        return null;
+    }
+
+    // Status e Classificação usam dropdown com busca e API
+    if (columnId === 'NOME_CLASSIFICACAO') {
         return (
             <DropdownWithFilter
                 value={value}
@@ -955,7 +956,7 @@ export const FiltroHeaderChamados = memo(({ value, onChange, columnId }: InputFi
         return <InputFilterDate value={value} onChange={onChange} />;
     }
 
-    if (columnId === 'CONCLUSAO_CHAMADO') {
+    if (columnId === 'DATA_HISTCHAMADO') {
         return <InputFilterDate value={value} onChange={onChange} />;
     }
 
@@ -970,7 +971,7 @@ FiltroHeaderChamados.displayName = 'FiltroHeaderChamados';
 // ================================================================================
 
 // Constantes fora do hook para evitar recriação
-const DATE_COLUMNS = new Set(['DATA_CHAMADO', 'DTENVIO_CHAMADO', 'CONCLUSAO_CHAMADO']);
+const DATE_COLUMNS = new Set(['DATA_CHAMADO', 'DTENVIO_CHAMADO', 'DATA_HISTCHAMADO']);
 const NUMERIC_COLUMNS = new Set(['COD_CHAMADO', 'PRIOR_CHAMADO', 'CLASSIFICACAO_CHAMADO']);
 // ===============
 
@@ -1058,8 +1059,8 @@ export const useFiltrosChamados = () => {
             return normalizedCell.includes(normalizedFilter);
         }
 
-        // Tratamento especial para CONCLUSAO_CHAMADO
-        if (columnId === 'CONCLUSAO_CHAMADO') {
+        // Tratamento especial para DATA_HISTCHAMADO
+        if (columnId === 'DATA_HISTCHAMADO') {
             // Se o valor já estiver formatado (DD/MM/YYYY), usa direto
             // Se não, formata primeiro
             const dataFormatada = cellString.includes('/')

@@ -10,6 +10,8 @@ interface LoadingOverlayProps {
 export function IsLoading({ isLoading, title, icon }: LoadingOverlayProps) {
     if (!isLoading) return null;
 
+    const text = 'aguarde, carregando informações';
+
     return (
         <div className="animate-in fade-in fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm duration-200">
             <div className="flex flex-col items-center justify-center gap-6">
@@ -31,8 +33,20 @@ export function IsLoading({ isLoading, title, icon }: LoadingOverlayProps) {
                     </h1>
 
                     <div className="flex items-center justify-center gap-1">
-                        <span className="text-xl font-semibold tracking-widest text-white italic select-none">
-                            aguarde, carregando informações
+                        <span className="flex text-xl font-semibold tracking-widest text-white italic select-none">
+                            {text.split('').map((char, index) => (
+                                <span
+                                    key={index}
+                                    className="animate-[bounce_1s_ease-in-out_infinite]"
+                                    style={{
+                                        animationDelay: `${index * 0.05}s`,
+                                        display: 'inline-block',
+                                        minWidth: char === ' ' ? '0.25em' : 'auto',
+                                    }}
+                                >
+                                    {char === ' ' ? '\u00A0' : char}
+                                </span>
+                            ))}
                         </span>
                         <div className="flex items-center justify-center gap-1">
                             <span className="h-2 w-2 animate-[bounce_1s_ease-in-out_infinite] rounded-full bg-white"></span>

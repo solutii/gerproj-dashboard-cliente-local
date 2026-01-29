@@ -5,7 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { memo, useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { BsChatSquareTextFill } from 'react-icons/bs';
-import { FaCalendar, FaClock, FaExclamationTriangle, FaHashtag, FaUser } from 'react-icons/fa';
+import { FaCalendar, FaClock, FaHashtag, FaUser } from 'react-icons/fa';
 import {
     FaFileWaveform,
     FaRegCircleCheck,
@@ -17,7 +17,7 @@ import {
 } from 'react-icons/fa6';
 import { IoIosSave } from 'react-icons/io';
 import { IoClose } from 'react-icons/io5';
-import { TbAlertOctagonFilled } from 'react-icons/tb';
+import { LuTriangleAlert } from 'react-icons/lu';
 import { useAuth } from '../../context/AuthContext';
 import { formatarDataParaBR } from '../../formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
@@ -26,11 +26,13 @@ import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corromp
 import { removerAcentos } from '../../formatters/remover-acentuacao';
 import { LoadingButton } from '../shared/Loading_Button';
 import { OSRowProps } from './Colunas_Tabela_OS';
+// ==========
 
 interface ModalDataProps {
     concordaPagar: boolean;
     observacao: string;
 }
+// ==========
 
 interface ModalValidacaoOSProps {
     isOpen: boolean;
@@ -38,9 +40,9 @@ interface ModalValidacaoOSProps {
     onClose: () => void;
     onSave: (updatedRow: OSRowProps) => void;
 }
-// ====================
+// ==========
 
-//  Objeto de configuração para status e seus ícones/cores
+//  ================== CONFIGURAÇÃO DE STATUS ====================
 const STATUS_CONFIG = {
     finalizado: {
         icon: FaRegCircleCheck,
@@ -73,9 +75,9 @@ const STATUS_CONFIG = {
         border: 'border-blue-500',
     },
 } as const;
-// ====================
+// ==========
 
-// Objeto padrão para status desconhecidos
+//
 const DEFAULT_STATUS = {
     icon: FaRegCircleXmark,
     color: 'text-slate-700',
@@ -128,24 +130,27 @@ const InfoCard = memo(
         label,
         value,
         fullWidth = false,
+        span = 1,
         tooltip = false,
         fullValue,
         minHeight,
+        maxHeight,
     }: {
         icon: any;
         label: string;
         value: string;
         fullWidth?: boolean;
+        span?: 1 | 2 | 3 | 4;
         tooltip?: boolean;
         fullValue?: string;
         minHeight?: string;
+        maxHeight?: string;
     }) => {
-        const [showTooltip, setShowTooltip] = useState(false);
         const [isTruncated, setIsTruncated] = useState(false);
 
         const contentRef = useCallback(
             (node: HTMLDivElement | null) => {
-                if (node) {
+                if (node && tooltip) {
                     // Para texto de largura completa, verifica se está truncado verticalmente
                     if (fullWidth) {
                         const isOverflowing = node.scrollHeight > node.clientHeight;
@@ -157,39 +162,45 @@ const InfoCard = memo(
                     }
                 }
             },
-            [fullWidth]
+            [fullWidth, tooltip]
         );
 
-        const shouldShowTooltip = tooltip && showTooltip && fullValue && isTruncated;
+        // Mapeamento explícito das classes
+        const spanClass = fullWidth
+            ? 'col-span-full'
+            : span === 2
+              ? 'col-span-2'
+              : span === 3
+                ? 'col-span-3'
+                : span === 4
+                  ? 'col-span-4'
+                  : '';
+
+        // Só adiciona cursor-help se tooltip estiver habilitado E o texto estiver truncado
+        const shouldShowTooltip = tooltip && isTruncated && fullValue;
 
         return (
             <div
-                className={`group relative rounded-md border bg-gradient-to-br from-slate-50 to-white px-3 py-2 shadow-xs shadow-black transition-all sm:px-4 ${fullWidth ? 'col-span-full' : ''}`}
-                style={{ minHeight }}
-                onMouseEnter={() => tooltip && setShowTooltip(true)}
-                onMouseLeave={() => tooltip && setShowTooltip(false)}
+                className={`group relative rounded-md border-t border-gray-200 bg-white p-6 shadow-sm shadow-black transition-all duration-200 ${spanClass}`}
+                style={{ minHeight, maxHeight }}
             >
                 <div className="mb-2 flex items-center gap-2">
-                    <Icon className="text-slate-800" size={14} />
-                    <span className="text-[10px] font-bold tracking-widest text-slate-800 select-none sm:text-xs">
+                    <Icon className="text-black" size={14} />
+                    <span className="text-sm font-bold tracking-widest text-black select-none">
                         {label}
                     </span>
                 </div>
                 <div
                     ref={contentRef}
-                    className={`text-justify text-sm font-bold tracking-widest text-slate-800 select-none sm:text-base ${fullWidth ? 'line-clamp-5 break-words whitespace-normal' : 'truncate overflow-hidden whitespace-nowrap'}`}
+                    className={`text-justify font-bold tracking-widest text-black select-none ${
+                        fullWidth
+                            ? 'line-clamp-5 break-words whitespace-normal'
+                            : 'truncate overflow-hidden whitespace-nowrap'
+                    } ${shouldShowTooltip ? 'cursor-help' : ''}`}
+                    title={shouldShowTooltip ? fullValue : undefined}
                 >
                     {value}
                 </div>
-
-                {/* Tooltip - só aparece se o texto estiver truncado */}
-                {shouldShowTooltip && (
-                    <div className="animate-in fade-in slide-in-from-bottom-2 absolute bottom-full left-1/2 z-[80] mb-2 w-max max-w-[90vw] -translate-x-1/2 rounded-lg bg-slate-800 px-4 py-2 text-xs font-semibold text-white shadow-lg sm:max-w-lg sm:text-sm">
-                        <div className="break-words whitespace-normal">{fullValue}</div>
-                        {/* Seta do tooltip */}
-                        <div className="absolute top-full left-1/2 h-0 w-0 -translate-x-1/2 border-t-8 border-r-8 border-l-8 border-transparent border-t-slate-800"></div>
-                    </div>
-                )}
             </div>
         );
     }
@@ -274,13 +285,13 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
     });
     // ====================
 
-    // Handler para mudança do checkbox
-    const handleCheckboxChange = useCallback((checked: boolean) => {
+    // Handler para mudança do radio
+    const handleRadioChange = useCallback((approved: boolean) => {
         setModalData((prev) => ({
             ...prev,
-            concordaPagar: checked,
+            concordaPagar: approved,
         }));
-        if (checked) setValidationError('');
+        if (approved) setValidationError('');
     }, []);
     // ===================
 
@@ -313,7 +324,7 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
 
         if (!modalData.concordaPagar && modalData.observacao.trim() === '') {
             setValidationError(
-                'Para salvar a discordância e/ou fechar o formulário, você deve informar o motivo na observação, ou aprovar a OS.'
+                'Em caso de OS Reprovada, informe o motivo no campo de observação para salvar a validação ou fechar o formulário.'
             );
             return;
         }
@@ -376,260 +387,278 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
 
     // =================== RENDERIZAÇÃO PRINCIPAL ===================
     return (
-        <>
-            <div className="animate-in fade-in fixed inset-0 z-[70] flex items-center justify-center p-2 sm:p-4">
-                <div className="absolute inset-0 bg-black/70 backdrop-blur-md" />
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out">
+            {/* Overlay */}
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-                <div className="animate-in slide-in-from-bottom-4 relative z-10 flex h-full max-h-[100vh] w-full max-w-7xl flex-col overflow-hidden rounded-xl bg-white transition-all ease-out">
-                    {/* Header fixo */}
-                    <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 px-4 py-2 shadow-md shadow-black sm:px-6 sm:py-3">
-                        <div className="flex items-center justify-center gap-3 sm:gap-6">
-                            <FaFileWaveform className="text-white" size={40} />
-                            <div className="flex flex-col">
-                                <h1 className="text-lg font-extrabold tracking-widest text-gray-200 select-none sm:text-2xl">
-                                    DETALHES DA OS
-                                </h1>
-                                <p className="text-sm font-extrabold tracking-widest text-gray-200 select-none sm:text-lg">
-                                    Revise e Valide a OS
-                                </p>
-                            </div>
+            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex max-w-7xl flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
+                {/* ========== HEADER ========== */}
+                <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
+                    <div className="flex items-center gap-6">
+                        <FaFileWaveform className="flex-shrink-0 text-white" size={60} />
+                        <div className="flex flex-col gap-1 tracking-widest text-white select-none">
+                            <h1 className="text-3xl font-extrabold">VALIDAÇÃO OS</h1>
+                            <p className="text-lg font-semibold">Aprovação | Reprovação</p>
                         </div>
-                        <button
-                            onClick={handleClose}
-                            disabled={saveValidationMutation.isPending}
-                            className="group cursor-pointer rounded-full bg-white/20 p-2 shadow-md shadow-black transition-all hover:scale-125 hover:bg-red-500 active:scale-95 sm:p-3"
-                        >
-                            <IoClose
-                                className="text-white group-hover:scale-125 group-active:scale-95"
-                                size={18}
-                            />
-                        </button>
-                    </header>
+                    </div>
+                    {/* = */}
 
-                    {/* Conteúdo com scroll */}
-                    <div className="flex-1 overflow-y-auto rounded-b-2xl bg-white p-3 shadow-2xl sm:p-4">
-                        <div className="mb-4 grid grid-cols-2 gap-2 sm:mb-6 sm:grid-cols-4">
-                            <InfoCard
-                                icon={FaHashtag}
-                                label="Número OS"
-                                value={formatarNumeros(selectedRow.NUM_OS ?? '---------------')}
-                            />
+                    <button
+                        onClick={handleClose}
+                        disabled={saveValidationMutation.isPending || !!validationError}
+                        className="mr-2 flex-shrink-0 cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:from-red-500 hover:to-red-600 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none disabled:hover:scale-100 disabled:hover:from-red-600 disabled:hover:to-red-700"
+                    >
+                        <IoClose className="text-white" size={36} />
+                    </button>
+                </header>
+                {/* ========== */}
 
-                            {isAdmin && selectedRow.NOME_CLIENTE && (
-                                <InfoCard
-                                    icon={FaUser}
-                                    label="Cliente"
-                                    value={corrigirTextoCorrompido(selectedRow.NOME_CLIENTE)}
-                                />
-                            )}
+                {/* ========== CONTEÚDO ========== */}
+                <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-stone-300 px-6 py-10">
+                    {/* ===== CARDS INFORMAÇÕES ===== */}
+                    <div className="grid grid-cols-4 gap-4">
+                        <InfoCard
+                            icon={FaHashtag}
+                            label="Número OS"
+                            value={formatarNumeros(selectedRow.NUM_OS ?? '---------------')}
+                        />
 
-                            <InfoCard
-                                icon={FaCalendar}
-                                label="Data Início"
-                                value={formatarDataParaBR(selectedRow.DTINI_OS)}
-                            />
-
-                            <InfoCard
-                                icon={FaClock}
-                                label="Hora Início"
-                                value={formatarHora(selectedRow.HRINI_OS)}
-                            />
-
-                            <InfoCard
-                                icon={FaClock}
-                                label="Hora Fim"
-                                value={formatarHora(selectedRow.HRFIM_OS)}
-                            />
-
-                            <InfoCard
-                                icon={FaClock}
-                                label="Total Horas"
-                                value={formatarHorasTotaisSufixo(selectedRow.TOTAL_HORAS_OS)}
-                            />
-
+                        {isAdmin && selectedRow.NOME_CLIENTE && (
                             <InfoCard
                                 icon={FaUser}
-                                label="Consultor(a)"
-                                value={corrigirTextoCorrompido(
-                                    getPrimeirosDoisNomes(selectedRow.NOME_RECURSO ?? '')
-                                )}
-                                tooltip={true}
-                                fullValue={corrigirTextoCorrompido(selectedRow.NOME_RECURSO ?? '')}
+                                label="Cliente"
+                                value={corrigirTextoCorrompido(selectedRow.NOME_CLIENTE)}
                             />
+                        )}
 
-                            <InfoCard
-                                icon={FaCalendar}
-                                label="Entregável"
-                                value={formatarDataParaBR(selectedRow.NOME_TAREFA)}
-                                tooltip={true}
-                                fullValue={formatarDataParaBR(selectedRow.NOME_TAREFA)}
-                            />
+                        <InfoCard
+                            icon={FaCalendar}
+                            label="Data Início"
+                            value={formatarDataParaBR(selectedRow.DTINI_OS)}
+                        />
 
-                            <InfoCard
-                                icon={BsChatSquareTextFill}
-                                label="Descrição da OS"
-                                value={corrigirTextoCorrompido(
-                                    selectedRow.OBS ?? '---------------'
-                                )}
-                                fullWidth
-                                tooltip={true}
-                                fullValue={corrigirTextoCorrompido(
-                                    selectedRow.OBS ?? '---------------'
-                                )}
-                                minHeight="170px"
-                            />
-                        </div>
+                        <InfoCard
+                            icon={FaClock}
+                            label="Hora Início"
+                            value={formatarHora(selectedRow.HRINI_OS)}
+                        />
 
-                        <div className="flex flex-col gap-3 sm:gap-4">
-                            <div className="relative">
-                                <div className="absolute inset-0 flex items-center">
-                                    <div className="w-full border-t border-slate-400"></div>
-                                </div>
-                                <div className="relative flex justify-center">
-                                    <span className="bg-white px-4 text-sm font-extrabold tracking-widest text-slate-800 select-none sm:text-base">
-                                        Validação
-                                    </span>
-                                </div>
+                        <InfoCard
+                            icon={FaClock}
+                            label="Hora Fim"
+                            value={formatarHora(selectedRow.HRFIM_OS)}
+                        />
+
+                        <InfoCard
+                            icon={FaClock}
+                            label="Total Horas"
+                            value={formatarHorasTotaisSufixo(selectedRow.TOTAL_HORAS_OS)}
+                        />
+
+                        <InfoCard
+                            icon={FaUser}
+                            label="Consultor(a)"
+                            value={corrigirTextoCorrompido(
+                                getPrimeirosDoisNomes(selectedRow.NOME_RECURSO ?? '')
+                            )}
+                            tooltip={true}
+                            fullValue={corrigirTextoCorrompido(selectedRow.NOME_RECURSO ?? '')}
+                        />
+
+                        <InfoCard
+                            icon={FaCalendar}
+                            label="Entregável"
+                            value={formatarDataParaBR(selectedRow.NOME_TAREFA)}
+                            tooltip={true}
+                            fullValue={formatarDataParaBR(selectedRow.NOME_TAREFA)}
+                            span={2}
+                        />
+
+                        <InfoCard
+                            icon={BsChatSquareTextFill}
+                            label="Descrição da OS"
+                            value={corrigirTextoCorrompido(selectedRow.OBS ?? '---------------')}
+                            fullWidth
+                            tooltip={true}
+                            fullValue={corrigirTextoCorrompido(
+                                selectedRow.OBS ?? '---------------'
+                            )}
+                            minHeight="150px"
+                            maxHeight="400px"
+                        />
+                    </div>
+                    {/* ===== */}
+
+                    {/* ===== VALIDAÇÃO ========*/}
+                    <div className="flex flex-col gap-6">
+                        {/* === LINHA SEPARADORA | TÍTULO === */}
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-slate-400"></div>
                             </div>
+                            {/* = */}
+                            <div className="relative flex justify-center">
+                                <span className="bg-stone-300 px-4 font-extrabold tracking-widest text-slate-800 select-none">
+                                    VALIDAÇÃO OS
+                                </span>
+                            </div>
+                        </div>
+                        {/* === */}
 
+                        {/* === INPUTS RADIO APROVAÇÃO | REPROVAÇÃO === */}
+                        <div className="grid grid-cols-2 gap-4">
+                            {/* INPUT OS APROVADA */}
                             <div
-                                className={`group relative flex cursor-pointer items-center gap-4 rounded-md border shadow-xs shadow-black sm:gap-6 ${modalData.concordaPagar ? 'border-blue-500 bg-blue-100' : 'border-red-500 bg-red-100'} px-3 py-2 transition-all hover:shadow-lg hover:shadow-black sm:px-4`}
+                                onClick={() => handleRadioChange(true)}
+                                className={`group relative flex cursor-pointer items-center gap-4 rounded-md border-t shadow-sm shadow-black transition-all duration-200 hover:shadow-lg hover:shadow-black ${
+                                    modalData.concordaPagar
+                                        ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-500'
+                                        : 'border-blue-200 bg-white hover:bg-blue-50'
+                                } py-3 pl-4`}
                             >
                                 <div className="relative flex items-center">
                                     <input
-                                        type="checkbox"
+                                        type="radio"
+                                        name="validacao"
                                         checked={modalData.concordaPagar}
-                                        onChange={(e) => handleCheckboxChange(e.target.checked)}
+                                        onChange={() => handleRadioChange(true)}
                                         disabled={saveValidationMutation.isPending}
-                                        className="h-5 w-5 rounded-md border bg-white shadow-xs shadow-black transition-all hover:shadow-lg hover:shadow-black active:scale-85 disabled:cursor-not-allowed disabled:opacity-50"
+                                        className="h-5 w-5 cursor-pointer text-blue-600 transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                     />
                                 </div>
                                 <div className="flex-1">
                                     <span
-                                        className={`block text-base font-bold tracking-widest select-none sm:text-lg ${
+                                        className={`text-base font-bold tracking-widest select-none ${
                                             modalData.concordaPagar
-                                                ? 'font-extrabold text-blue-600'
-                                                : 'font-extrabold text-red-600'
+                                                ? 'font-extrabold text-blue-700'
+                                                : 'text-blue-600'
                                         }`}
                                     >
-                                        {modalData.concordaPagar
-                                            ? 'OS Aprovada'
-                                            : 'OS Não Aprovada'}
+                                        OS Aprovada
                                     </span>
-
-                                    {modalData.concordaPagar && (
-                                        <span className="text-[10px] font-semibold tracking-widest text-slate-700 select-none sm:text-xs">
-                                            Caso não concorde, desmarque e informe o motivo na
-                                            observação abaixo
-                                        </span>
-                                    )}
                                 </div>
                             </div>
 
-                            {!modalData.concordaPagar && (
-                                <div className="animate-in fade-in slide-in-from-top-2 rounded-md border border-amber-500 bg-amber-100 px-3 py-2 transition-all sm:px-4">
-                                    <div className="flex items-center gap-4 sm:gap-6">
-                                        <FaExclamationTriangle
-                                            className="flex-shrink-0 animate-pulse text-amber-700"
-                                            size={24}
-                                        />
-                                        <div className="flex-1">
-                                            <p className="text-sm font-bold tracking-widest text-amber-800 select-none sm:text-base">
-                                                Atenção!
-                                            </p>
-                                            <p className="mt-1 text-xs font-semibold tracking-widest text-amber-800 select-none sm:text-sm">
-                                                Você deve informar o motivo da discordância no campo
-                                                de observação
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="flex flex-col">
-                                <label
-                                    htmlFor="observacao"
-                                    className="mb-1 block text-[10px] font-bold tracking-widest text-slate-800 select-none sm:text-xs"
-                                >
-                                    {!modalData.concordaPagar ? (
-                                        <>
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-1.5 w-1.5 rounded-full bg-red-600"></div>
-                                                Observação{' '}
-                                            </div>
-                                        </>
-                                    ) : (
-                                        <>Observação (Opcional)</>
-                                    )}
-                                </label>
-                                <div className="relative">
-                                    <textarea
-                                        id="observacao"
-                                        value={modalData.observacao}
-                                        onChange={(e) => handleObservacaoChange(e.target.value)}
-                                        rows={4}
-                                        className={`w-full rounded-xl border bg-white px-3 py-2 text-sm font-semibold tracking-widest text-slate-800 shadow-xs shadow-black transition-all select-none placeholder:text-xs placeholder:font-semibold placeholder:tracking-widest placeholder:text-slate-400 hover:shadow-lg hover:shadow-black focus:ring-4 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 sm:text-base sm:placeholder:text-sm ${
-                                            !modalData.concordaPagar
-                                                ? 'border-red-500 focus:border-none focus:shadow-none focus:ring-2 focus:ring-red-600'
-                                                : 'focus:shadow-none focus:ring-2 focus:ring-blue-600'
-                                        }`}
-                                        placeholder={
-                                            !modalData.concordaPagar
-                                                ? 'Por favor, informe o motivo da Não Aprovação...'
-                                                : 'Digite uma observação, se necessário...'
-                                        }
+                            {/* INPUT OS RECUSADA */}
+                            <div
+                                onClick={() => handleRadioChange(false)}
+                                className={`group relative flex cursor-pointer items-center gap-4 rounded-md border-t shadow-sm shadow-black transition-all duration-200 hover:shadow-lg hover:shadow-black ${
+                                    !modalData.concordaPagar
+                                        ? 'border-red-500 bg-red-100 ring-2 ring-red-500'
+                                        : 'border-red-200 bg-white hover:bg-red-50'
+                                } py-3 pl-4`}
+                            >
+                                <div className="relative flex items-center">
+                                    <input
+                                        type="radio"
+                                        name="validacao"
+                                        checked={!modalData.concordaPagar}
+                                        onChange={() => handleRadioChange(false)}
                                         disabled={saveValidationMutation.isPending}
+                                        className="h-5 w-5 cursor-pointer text-red-600 transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                                     />
                                 </div>
-                            </div>
-
-                            {validationError && (
-                                <div className="animate-in fade-in slide-in-from-top-2 rounded-md border border-red-500 bg-red-100 px-3 py-2 transition-all sm:px-4">
-                                    <div className="flex items-center gap-3 sm:gap-4">
-                                        <TbAlertOctagonFilled
-                                            className="flex-shrink-0 animate-pulse text-red-600"
-                                            size={24}
-                                        />
-                                        <p className="flex-1 text-xs font-semibold tracking-widest text-red-800 select-none sm:text-sm">
-                                            {validationError}
-                                        </p>
-                                    </div>
+                                <div className="flex-1">
+                                    <span
+                                        className={`text-base font-bold tracking-widest select-none ${
+                                            !modalData.concordaPagar
+                                                ? 'font-extrabold text-red-700'
+                                                : 'text-red-600'
+                                        }`}
+                                    >
+                                        OS Reprovada
+                                    </span>
                                 </div>
-                            )}
-
-                            <div className="flex flex-col gap-3 sm:flex-row sm:justify-end">
-                                <button
-                                    type="button"
-                                    onClick={handleClose}
-                                    disabled={saveValidationMutation.isPending}
-                                    className="w-full cursor-pointer rounded-md border-none bg-gradient-to-r from-red-600 to-red-700 px-4 py-2 text-base font-extrabold tracking-widest text-white shadow-xs shadow-black transition-all hover:shadow-lg hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:w-[200px] sm:px-6 sm:text-lg"
-                                >
-                                    Cancelar
-                                </button>
-
-                                <button
-                                    type="button"
-                                    onClick={handleSubmit}
-                                    className="group relative w-full cursor-pointer overflow-hidden rounded-md border-none bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-2 text-base font-extrabold tracking-widest text-white shadow-xs shadow-black transition-all hover:shadow-lg hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 sm:w-[200px] sm:px-6 sm:text-lg"
-                                    disabled={saveValidationMutation.isPending || !isFormValid()}
-                                >
-                                    {saveValidationMutation.isPending ? (
-                                        <span className="flex items-center justify-center gap-2 sm:gap-3">
-                                            <LoadingButton size={20} />
-                                            Salvando...
-                                        </span>
-                                    ) : (
-                                        <div className="flex items-center justify-center gap-2 sm:gap-3">
-                                            <IoIosSave className="inline-block" size={20} />
-                                            <span>Salvar</span>
-                                        </div>
-                                    )}
-                                </button>
                             </div>
                         </div>
+                        {/* === */}
+
+                        {/* === OBSERVAÇÃO === */}
+                        <div className="flex flex-col">
+                            <label
+                                htmlFor="observacao"
+                                className="mb-1 block text-xs font-bold tracking-widest text-black select-none"
+                            >
+                                {!modalData.concordaPagar ? (
+                                    <>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-1.5 w-1.5 rounded-full bg-red-700"></div>
+                                            Observação obrigatória
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <div className="h-1.5 w-1.5 rounded-full bg-blue-700"></div>
+                                        Observação opcional
+                                    </div>
+                                )}
+                            </label>
+                            {/* = */}
+                            <div className="relative">
+                                <textarea
+                                    id="observacao"
+                                    value={modalData.observacao}
+                                    onChange={(e) => handleObservacaoChange(e.target.value)}
+                                    rows={4}
+                                    className={`w-full cursor-pointer rounded-xl px-4 pt-4 font-medium tracking-widest text-black shadow-sm shadow-black transition-all duration-200 select-none placeholder:text-sm placeholder:font-bold placeholder:tracking-widest placeholder:text-slate-500 hover:shadow-lg hover:shadow-black focus:ring focus:outline-none ${
+                                        !modalData.concordaPagar
+                                            ? 'border-t border-red-200 bg-red-100 focus:border-none focus:shadow-none focus:ring-2 focus:ring-red-500'
+                                            : 'border-t border-blue-200 bg-blue-100 focus:border-none focus:shadow-none focus:ring-2 focus:ring-blue-500'
+                                    }`}
+                                    placeholder={
+                                        !modalData.concordaPagar
+                                            ? 'Por favor, informe o motivo da reprovação...'
+                                            : 'Digite uma observação, se necessário...'
+                                    }
+                                    disabled={saveValidationMutation.isPending}
+                                />
+                            </div>
+                        </div>
+                        {/* === */}
+
+                        {/* === ALERTA === */}
+                        {validationError && (
+                            <div className="animate-in fade-in slide-in-from-top-2 rounded-md border-t border-yellow-200 bg-yellow-100 py-1 pl-4 shadow-sm shadow-black transition-all duration-200">
+                                <div className="flex items-center justify-center gap-2">
+                                    <LuTriangleAlert
+                                        className="flex-shrink-0 text-yellow-700"
+                                        size={20}
+                                    />
+                                    <p className="flex-1 text-sm font-bold tracking-widest text-yellow-700 select-none">
+                                        {validationError}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+                        {/* === */}
+
+                        {/* === BOTÃO SALVAR === */}
+                        <div className="flex items-center justify-end">
+                            <button
+                                type="button"
+                                onClick={handleSubmit}
+                                disabled={saveValidationMutation.isPending || !isFormValid()}
+                                className="flex cursor-pointer items-center justify-center gap-2 rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-6 py-3 text-lg font-extrabold tracking-widest text-white shadow-md shadow-black transition-all duration-200 select-none hover:-translate-y-1 hover:from-blue-500 hover:to-blue-600 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {saveValidationMutation.isPending ? (
+                                    <>
+                                        <LoadingButton size={24} />
+                                        <span>Salvando...</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <IoIosSave className="text-white" size={24} />
+                                        <span>Salvar</span>
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                        {/* === */}
                     </div>
+                    {/* ========== */}
                 </div>
+                {/* ========== */}
             </div>
-        </>
+        </div>
     );
 }

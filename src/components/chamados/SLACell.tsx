@@ -42,70 +42,64 @@ export const SLACell: React.FC<SLACellProps> = ({
     const statusConfig = {
         OK: {
             bg: 'bg-green-500',
-            border: 'border-green-700',
-            icon: '✓',
-            ring: 'ring-green-300',
+            border: 'border border-green-600',
+            shadow: 'shadow-sm shadow-black',
+            textTooltip: 'text-green-600',
+            text: 'text-black',
         },
         ALERTA: {
             bg: 'bg-yellow-500',
-            border: 'border-yellow-700',
-            icon: '⚠',
-            ring: 'ring-yellow-300',
+            border: 'border border-yellow-600',
+            shadow: 'shadow-sm shadow-black',
+            textTooltip: 'text-yellow-600',
+            text: 'text-black',
         },
         CRITICO: {
             bg: 'bg-orange-500',
-            border: 'border-orange-700',
-            icon: '⚠',
-            ring: 'ring-orange-300',
+            border: 'border border-orange-600',
+            shadow: 'shadow-sm shadow-black',
+            textTooltip: 'text-orange-600',
+            text: 'text-white',
         },
         VENCIDO: {
-            bg: 'bg-red-600',
-            border: 'border-red-800',
-            icon: '✗',
-            ring: 'ring-red-300',
+            bg: 'bg-red-500',
+            border: 'border border-red-600',
+            shadow: 'shadow-sm shadow-black',
+            textTooltip: 'text-red-600',
+            text: 'text-white',
         },
     };
 
     const config = statusConfig[sla.status] || {
-        bg: 'bg-gray-400',
-        border: 'border-gray-600',
-        icon: '?',
-        ring: 'ring-gray-300',
+        bg: 'bg-gray-500',
+        border: 'border border-gray-600',
+        shadow: 'shadow-sm shadow-black',
+        textTooltip: 'text-gray-600',
     };
 
     return (
         <div className="group relative flex cursor-help items-center justify-center">
             {/* Badge Principal */}
-            <div
-                className={`${config.bg} ${config.border} flex items-center gap-2 rounded-lg border-2 px-3 py-1.5 shadow-sm transition-all group-hover:scale-110 group-hover:shadow-md group-hover:${config.ring} group-hover:ring-2`}
-            >
-                <span className="text-sm font-bold text-white select-none">{config.icon}</span>
-                <span className="text-xs font-semibold text-white select-none">
+            <div className={`${config.bg} ${config.border} rounded px-4 py-0.5 ${config.shadow}`}>
+                <span
+                    className={`${config.text} text-center font-extrabold tracking-widest select-none`}
+                >
                     {sla.percentualUsado.toFixed(0)}%
                 </span>
             </div>
 
             {/* Tooltip Rico */}
-            <div className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden -translate-x-1/2 rounded-lg bg-black p-3 text-xs whitespace-nowrap text-white shadow-xl group-hover:block">
-                <div className="space-y-1">
-                    <div className="mb-1 border-b border-gray-700 pb-1 font-bold">
-                        Status SLA: {sla.status}
-                    </div>
-                    <div>
-                        <strong>Tempo Decorrido:</strong> {sla.tempoDecorrido.toFixed(1)}h
-                    </div>
-                    <div>
-                        <strong>Tempo Restante:</strong> {sla.tempoRestante.toFixed(1)}h
-                    </div>
-                    <div>
-                        <strong>Prazo Total:</strong> {sla.prazoTotal}h
-                    </div>
-                    <div className="mt-1 border-t border-gray-700 pt-1">
-                        <strong>Utilização:</strong> {sla.percentualUsado.toFixed(1)}%
-                    </div>
+            <div className="pointer-events-none absolute bottom-full left-3/2 z-50 hidden -translate-x-1/2 space-y-1 rounded-lg border bg-white px-4 py-2 text-sm tracking-widest whitespace-nowrap text-slate-800 shadow-xl shadow-black select-none group-hover:block">
+                <div
+                    className={`mb-1 border-b border-black pb-1 text-center text-base font-extrabold ${config.textTooltip}`}
+                >
+                    {sla.status}
                 </div>
-                {/* Seta do tooltip */}
-                <div className="absolute top-full left-1/2 -mt-1 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+                <div className="font-semibold">
+                    Tempo Decorrido: {sla.tempoDecorrido.toFixed(1)}h
+                </div>
+                <div className="font-semibold">Tempo Restante: {sla.tempoRestante.toFixed(1)}h</div>
+                <div className="font-semibold">Prazo Total: {sla.prazoTotal}h</div>
             </div>
         </div>
     );

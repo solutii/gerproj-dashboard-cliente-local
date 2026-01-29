@@ -172,53 +172,51 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
 
     if (!isOpen || codChamado === null) return null;
 
-    // ================================================================================
-    // RENDERIZAÇÃO PRINCIPAL
-    // ================================================================================
+    // =================== RENDERIZAÇÃO PRINCIPAL ===================
     return (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out">
-            {/* Overlay */}
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ease-out">
+            {/* OVERLAY */}
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-            {/* Modal Container */}
-            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[2200px] flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
-                {/* Header */}
+            {/* ==================== CONTAINER ==================== */}
+            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[2000px] flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black transition-all duration-200 ease-out">
+                {/* ========== HEADER ========== */}
                 <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
                     <div className="flex items-center gap-6">
                         <TbFileInvoice className="flex-shrink-0 text-white" size={60} />
                         <div className="flex flex-col gap-1 tracking-widest text-white select-none">
-                            <h1 className="text-2xl font-extrabold">ORDENS DE SERVIÇO</h1>
-                            <p className="text-base font-semibold">
+                            <h1 className="text-3xl font-extrabold">OS CHAMADO</h1>
+                            <p className="text-lg font-semibold">
                                 Chamado #{formatarNumeros(codChamado)} - {dataChamado}
                             </p>
                         </div>
                     </div>
+                    {/* = */}
+
                     <button
                         onClick={onClose}
-                        className="group flex-shrink-0 cursor-pointer rounded-full border border-red-600 bg-red-500 p-3 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:shadow-xl hover:shadow-black active:scale-95"
+                        className="mr-2 flex-shrink-0 cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-red-500 hover:shadow-xl hover:shadow-black active:scale-95"
                         aria-label="Fechar modal"
                     >
-                        <IoClose
-                            className="text-white group-hover:scale-125 group-active:scale-95"
-                            size={20}
-                        />
+                        <IoClose className="text-white" size={36} />
                     </button>
                 </header>
-                {/* ==================== */}
+                {/* ========== */}
 
-                {/* Body */}
-                <div className="flex flex-col gap-6 px-6 py-6 pb-10">
+                {/* ========== CONTEÚDO ========== */}
+                <div className="flex flex-1 flex-col overflow-y-auto bg-stone-300 px-6 py-10">
                     {!isLoading && !error && osData.length > 0 && (
                         <>
-                            {/* Tabela de OS's com altura fixa */}
+                            {/* CONTAINER TABELA */}
                             <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
                                 <div
                                     className="scrollbar-thin scrollbar-track-purple-100 scrollbar-thumb-purple-600 hover:scrollbar-thumb-purple-800 flex-1 overflow-x-auto overflow-y-auto"
-                                    style={{
-                                        maxHeight: MAX_HEIGHT,
-                                        minHeight: MIN_HEIGHT,
-                                    }}
+                                    // style={{
+                                    //     maxHeight: MAX_HEIGHT,
+                                    //     minHeight: MIN_HEIGHT,
+                                    // }}
                                 >
+                                    {/* TABELA */}
                                     <table
                                         className="w-full border-separate border-spacing-0"
                                         style={{
@@ -226,14 +224,14 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
                                             minWidth: '1400px',
                                         }}
                                     >
-                                        {/* Thead com ResizeHandle */}
+                                        {/* TABLE HEADER */}
                                         <thead className="sticky top-0 z-20">
                                             {table.getHeaderGroups().map((headerGroup) => (
                                                 <tr key={headerGroup.id}>
                                                     {headerGroup.headers.map((header, idx) => (
                                                         <th
                                                             key={header.id}
-                                                            className={`relative bg-purple-700 p-4 shadow-sm shadow-black ${
+                                                            className={`relative bg-purple-600 p-4 shadow-md shadow-black ${
                                                                 idx === 0 ? 'rounded-tl-2xl' : ''
                                                             } ${
                                                                 idx ===
@@ -268,14 +266,15 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
                                                 </tr>
                                             ))}
                                         </thead>
+                                        {/* = */}
 
-                                        {/* Tbody com larguras dinâmicas */}
+                                        {/* TABLE BODY */}
                                         <tbody>
                                             {table.getRowModel().rows.map((row, idx) => (
                                                 <tr
                                                     key={row.id}
                                                     className={`transition-all ${
-                                                        idx % 2 === 0 ? 'bg-white' : 'bg-gray-100'
+                                                        idx % 2 === 0 ? 'bg-white' : 'bg-white'
                                                     } hover:bg-teal-200`}
                                                 >
                                                     {row
@@ -286,14 +285,14 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
                                                                 style={{
                                                                     width: `${columnWidths[cell.column.id]}px`,
                                                                 }}
-                                                                className={`border-b border-gray-200 p-2 transition-all ${
+                                                                className={`border-b border-gray-400 px-2 py-4 transition-all ${
                                                                     cellIndex === 0
-                                                                        ? 'border-l border-l-gray-200 pl-4'
+                                                                        ? 'border-l border-l-gray-400 pl-4'
                                                                         : ''
                                                                 } ${
                                                                     cellIndex ===
                                                                     row.getVisibleCells().length - 1
-                                                                        ? 'border-r border-r-gray-200'
+                                                                        ? 'border-r border-r-gray-400'
                                                                         : ''
                                                                 }`}
                                                             >
@@ -307,12 +306,17 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
                                             ))}
                                         </tbody>
                                     </table>
+                                    {/* ========== */}
                                 </div>
                             </div>
                         </>
                     )}
                 </div>
+                {/* ========== */}
             </div>
+            {/* ==================== */}
+
+            {/* ==================== MODAL OBSERVAÇÃO OS ==================== */}
             <ModalObservacaoOS
                 isOpen={isModalObsOpen}
                 onClose={() => {
@@ -332,6 +336,7 @@ export function ModalTabelaOS({ isOpen, codChamado, onClose, onSelectOS }: Modal
                         : undefined
                 }
             />
+            {/* ==================== */}
         </div>
     );
 }
