@@ -1,14 +1,17 @@
+// src/app/paginas/chamados/componentes/Filtros_Header_Tabela_Chamados.tsx
+
 'use client';
 
+import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
+import { useFiltersStore } from '@/store/useFiltersStore';
 import { useQuery } from '@tanstack/react-query';
+// =====================================================
 import { debounce } from 'lodash';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FiSearch } from 'react-icons/fi';
 import { IoIosArrowDown } from 'react-icons/io';
 import { IoClose } from 'react-icons/io5';
-import { formatarDataParaBR } from '../../formatters/formatar-data';
-import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { useFiltersStore } from '../../store/useFiltersStore';
 
 // ================================================================================
 // INTERFACES
@@ -920,51 +923,57 @@ const InputFilterWithDebounce = memo(({ value, onChange, columnId }: InputFilter
 
 InputFilterWithDebounce.displayName = 'InputFilterWithDebounce';
 
-export const FiltroHeaderChamados = memo(({ value, onChange, columnId }: InputFilterProps) => {
-    // Sem filtro para NOME_RECURSO
-    if (columnId === 'NOME_RECURSO' || columnId === 'STATUS_CHAMADO' || columnId === 'SLA_INFO') {
-        return null;
+export const FiltrosHeaderTabelaChamados = memo(
+    ({ value, onChange, columnId }: InputFilterProps) => {
+        // Sem filtro para NOME_RECURSO
+        if (
+            columnId === 'NOME_RECURSO' ||
+            columnId === 'STATUS_CHAMADO' ||
+            columnId === 'SLA_INFO'
+        ) {
+            return null;
+        }
+
+        // Status e Classificação usam dropdown com busca e API
+        if (columnId === 'NOME_CLASSIFICACAO') {
+            return (
+                <DropdownWithFilter
+                    value={value}
+                    onChange={onChange}
+                    columnId={columnId as 'NOME_CLASSIFICACAO' | 'NOME_RECURSO' | 'STATUS_CHAMADO'}
+                />
+            );
+        }
+
+        //  COD_CHAMADO usa input com separador de milhares
+        if (columnId === 'COD_CHAMADO') {
+            return <InputFilterNumber value={value} onChange={onChange} />;
+        }
+
+        //  PRIOR_CHAMADO usa input com formatação P-
+        if (columnId === 'PRIOR_CHAMADO') {
+            return <InputFilterPriority value={value} onChange={onChange} />;
+        }
+
+        // DATA_CHAMADO usa input com máscara de data
+        if (columnId === 'DATA_CHAMADO') {
+            return <InputFilterDate value={value} onChange={onChange} />;
+        }
+
+        if (columnId === 'DTENVIO_CHAMADO') {
+            return <InputFilterDate value={value} onChange={onChange} />;
+        }
+
+        if (columnId === 'DATA_HISTCHAMADO') {
+            return <InputFilterDate value={value} onChange={onChange} />;
+        }
+
+        // Outros campos usam input com debounce
+        return <InputFilterWithDebounce value={value} onChange={onChange} columnId={columnId} />;
     }
+);
 
-    // Status e Classificação usam dropdown com busca e API
-    if (columnId === 'NOME_CLASSIFICACAO') {
-        return (
-            <DropdownWithFilter
-                value={value}
-                onChange={onChange}
-                columnId={columnId as 'NOME_CLASSIFICACAO' | 'NOME_RECURSO' | 'STATUS_CHAMADO'}
-            />
-        );
-    }
-
-    //  COD_CHAMADO usa input com separador de milhares
-    if (columnId === 'COD_CHAMADO') {
-        return <InputFilterNumber value={value} onChange={onChange} />;
-    }
-
-    //  PRIOR_CHAMADO usa input com formatação P-
-    if (columnId === 'PRIOR_CHAMADO') {
-        return <InputFilterPriority value={value} onChange={onChange} />;
-    }
-
-    // DATA_CHAMADO usa input com máscara de data
-    if (columnId === 'DATA_CHAMADO') {
-        return <InputFilterDate value={value} onChange={onChange} />;
-    }
-
-    if (columnId === 'DTENVIO_CHAMADO') {
-        return <InputFilterDate value={value} onChange={onChange} />;
-    }
-
-    if (columnId === 'DATA_HISTCHAMADO') {
-        return <InputFilterDate value={value} onChange={onChange} />;
-    }
-
-    // Outros campos usam input com debounce
-    return <InputFilterWithDebounce value={value} onChange={onChange} columnId={columnId} />;
-});
-
-FiltroHeaderChamados.displayName = 'FiltroHeaderChamados';
+FiltrosHeaderTabelaChamados.displayName = 'FiltrosHeaderTabelaChamados';
 
 // ================================================================================
 // HOOK PERSONALIZADO PARA FUNÇÕES DE FILTRO

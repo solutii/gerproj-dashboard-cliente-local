@@ -1,16 +1,16 @@
-// src/components/chamados/tabelas/Tabela_Chamados.tsx
+// src/app/paginas/chamados/tabelas/Tabela_Chamados.tsx
 
 'use client';
 
-import { ExportaExcelChamadosButton } from '@/components/chamados/Button_Excel';
-import { ExportaPDFChamadosButton } from '@/components/chamados/Button_PDF';
-import { FiltroHeaderChamados } from '@/components/chamados/Filtro_Header_Tabela_Chamados';
-import { ModalAssuntoSolicitacaoChamado } from '@/components/chamados/modais/Modal_Assunto_Solicitacao_Chamado';
-import { ModalAvaliarChamado } from '@/components/chamados/modais/Modal_Avaliar_Chamado';
-import { ModalValidarOS } from '@/components/chamados/modais/Modal_Validar_OS';
-import { RedimensionarColunas } from '@/components/chamados/Redimensionar_Colunas';
-import { OSRowProps } from '@/components/chamados/tabelas/Colunas_Tabela_OS';
-import { TabelaOS } from '@/components/chamados/tabelas/Tabela_OS';
+import { ExportaPDFChamados } from '@/app/paginas/chamados/componentes/Exporta_PDF_Chamados';
+import { ExportaExcelChamados } from '@/app/paginas/chamados/componentes/Exportar_Excel_Chamados';
+import { FiltrosHeaderTabelaChamados } from '@/app/paginas/chamados/componentes/Filtros_Header_Tabela_Chamados';
+import { RedimensionarColunas } from '@/app/paginas/chamados/componentes/Redimensionar_Colunas';
+import { ModalAssuntoSolicitacaoChamado } from '@/app/paginas/chamados/modais/Modal_Assunto_Solicitacao_Chamado';
+import { ModalAvaliarChamado } from '@/app/paginas/chamados/modais/Modal_Avaliar_Chamado';
+import { ModalValidarOS } from '@/app/paginas/chamados/modais/Modal_Validar_OS';
+import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
+import { TabelaOS } from '@/app/paginas/chamados/tabelas/Tabela_OS';
 import { useFiltrosChamado } from '@/components/shared/Filtros_Chamado';
 import { IsError } from '@/components/shared/IsError';
 import { IsLoading } from '@/components/shared/IsLoading';
@@ -786,7 +786,7 @@ const Header = React.memo(function Header({
                     </button>
                 )}
 
-                <ExportaExcelChamadosButton
+                <ExportaExcelChamados
                     data={filteredData}
                     isAdmin={isAdmin}
                     codCliente={codCliente}
@@ -801,7 +801,7 @@ const Header = React.memo(function Header({
                     disabled={filteredData.length === 0}
                 />
 
-                <ExportaPDFChamadosButton
+                <ExportaPDFChamados
                     data={filteredData}
                     isAdmin={isAdmin}
                     codCliente={codCliente}
@@ -878,7 +878,7 @@ const TableHeader = React.memo(function TableHeader({
                         style={{ width: `${columnWidths[column.id]}px` }}
                     >
                         <div>
-                            <FiltroHeaderChamados
+                            <FiltrosHeaderTabelaChamados
                                 value={(column.getFilterValue() as string) ?? ''}
                                 onChange={(value: string) => column.setFilterValue(value)}
                                 columnId={column.id}

@@ -1,8 +1,8 @@
-// src/components/chamados/modais/Modal_Validar_OS.tsx
+// src/app/paginas/chamados/modais/Modal_Validar_OS.tsx
 
 'use client';
 
-import { OSRowProps } from '@/components/chamados/tabelas/Colunas_Tabela_OS';
+import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { LoadingButton } from '@/components/shared/Loading_Button';
 import { useAuth } from '@/context/AuthContext';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
@@ -11,6 +11,7 @@ import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { removerAcentos } from '@/formatters/remover-acentuacao';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+// =====================================================
 import { memo, useCallback, useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { BsChatSquareTextFill } from 'react-icons/bs';

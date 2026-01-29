@@ -1,10 +1,12 @@
+// src/app/paginas/chamados/page.tsx
+
 'use client';
 
 import { useEffect, useState } from 'react';
-import { LayoutPaginaChamados } from '../../../components/chamados/Layout_Pagina_Chamados';
-import { ChamadoRowProps } from '../../../components/chamados/tabelas/Colunas_Tabela_Chamados';
-import { TabelaChamados } from '../../../components/chamados/tabelas/Tabela_Chamados';
 import { FiltrosChamado } from '../../../components/shared/Filtros_Chamado';
+import { LayoutPaginaChamados } from './Layout_Pagina_Chamados';
+import { ChamadoRowProps } from './tabelas/Colunas_Tabela_Chamados';
+import { TabelaChamados } from './tabelas/Tabela_Chamados';
 
 export default function ChamadosPage() {
     const [dadosChamados, setDadosChamados] = useState<ChamadoRowProps[]>([]);

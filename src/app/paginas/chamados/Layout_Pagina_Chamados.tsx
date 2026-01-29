@@ -1,9 +1,11 @@
-// src/components/chamados/Layout_Tabela_Chamados.tsx
+// src/app/paginas/chamados/Layout_Pagina_Chamados.tsx
+
 'use client';
 
+import { ProtecaoRotas } from '@/components/shared/ProtecaoRotas';
+import { Sidebar } from '@/components/shared/Sidebar';
+// =====================================================
 import { ReactNode } from 'react';
-import { ProtecaoRotas } from '../shared/ProtecaoRotas';
-import { Sidebar } from '../shared/Sidebar';
 
 interface LayoutProps {
     children: ReactNode;

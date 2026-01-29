@@ -1,9 +1,9 @@
-// src/components/chamados/tabelas/Modal_Tabela_OS.tsx
+// src/app/paginas/chamados/tabelas/Tabela_OS.tsx
 
 'use client';
 
-import { ModalObservacaoOS } from '@/components/chamados/modais/Modal_Observacao_OS';
-import { RedimensionarColunas } from '@/components/chamados/Redimensionar_Colunas';
+import { RedimensionarColunas } from '@/app/paginas/chamados/componentes/Redimensionar_Colunas';
+import { ModalObservacaoOS } from '@/app/paginas/chamados/modais/Modal_Observacao_OS';
 import { IsError } from '@/components/shared/IsError';
 import { IsLoading } from '@/components/shared/IsLoading';
 import { useAuth } from '@/context/AuthContext';

@@ -1,16 +1,19 @@
+// src/app/paginas/chamados/componentes/Exporta_PDF_Chamados.tsx
+
 'use client';
 
+import type { ChamadoRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_Chamados';
+import type { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
+import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
+import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
+import { renderizarDoisPrimeirosNomes } from '@/formatters/remover-acentuacao';
+// =====================================================
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useState } from 'react';
 import { FaFilePdf } from 'react-icons/fa';
-import { formatarDataParaBR } from '../../formatters/formatar-data';
-import { formatarHora, formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
-import { formatarNumeros } from '../../formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { renderizarDoisPrimeirosNomes } from '../../formatters/remover-acentuacao';
-import type { ChamadoRowProps } from '../chamados/tabelas/Colunas_Tabela_Chamados';
-import type { OSRowProps } from '../chamados/tabelas/Colunas_Tabela_OS';
 
 // ================================================================================
 // INTERFACES E TIPOS
@@ -148,7 +151,7 @@ function obterNomeMes(mes: string): string {
 // ================================================================================
 // COMPONENTE PRINCIPAL
 // ================================================================================
-export function ExportaPDFChamadosButton({
+export function ExportaPDFChamados({
     data,
     filtros,
     isAdmin,

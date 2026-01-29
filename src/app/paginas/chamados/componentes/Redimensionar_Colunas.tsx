@@ -1,3 +1,5 @@
+// src/components/chamados/Redimensionar_Colunas.tsx
+
 import React from 'react';
 
 interface ResizeHandleProps {

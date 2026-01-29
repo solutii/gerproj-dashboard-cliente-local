@@ -1,7 +1,9 @@
-// src/components/chamados/SLACell.tsx
+// src/app/paginas/chamados/componentes/SLA_Cell.tsx
+
 'use client';
 
 import { useSLADinamico } from '@/hooks/useSLADinamico';
+// =====================================================
 import React from 'react';
 
 interface SLACellProps {

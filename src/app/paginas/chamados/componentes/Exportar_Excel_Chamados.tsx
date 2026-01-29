@@ -1,16 +1,19 @@
+// src/app/paginas/chamados/componentes/Exporta_PDF_Chamados.tsx
+
 'use client';
 
+import type { ChamadoRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_Chamados';
+import type { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
+import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
+import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
+import { renderizarDoisPrimeirosNomes } from '@/formatters/remover-acentuacao';
+// =====================================================
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { useState } from 'react';
 import { RiFileExcel2Fill } from 'react-icons/ri';
-import { formatarDataParaBR } from '../../formatters/formatar-data';
-import { formatarHora, formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
-import { formatarNumeros } from '../../formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { renderizarDoisPrimeirosNomes } from '../../formatters/remover-acentuacao';
-import type { ChamadoRowProps } from '../chamados/tabelas/Colunas_Tabela_Chamados';
-import type { OSRowProps } from '../chamados/tabelas/Colunas_Tabela_OS';
 
 // ================================================================================
 // INTERFACES E TIPOS
@@ -160,7 +163,7 @@ function aplicarBordas(cell: ExcelJS.Cell) {
 // ================================================================================
 // COMPONENTE PRINCIPAL
 // ================================================================================
-export function ExportaExcelChamadosButton({
+export function ExportaExcelChamados({
     data,
     filtros,
     isAdmin,

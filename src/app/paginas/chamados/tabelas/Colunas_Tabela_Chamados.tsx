@@ -1,6 +1,6 @@
-// src/components/chamados/tabelas/Colunas_Tabela_Chamados.tsx
+// src/app/paginas/chamados/tabelas/Colunas_Tabela_Chamados.tsx
 
-import { SLACell } from '@/components/chamados/SLACell';
+import { SLACell } from '@/app/paginas/chamados/componentes/SLA_Cell';
 import { formatarDataHoraChamado } from '@/formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros, formatarPrioridade } from '@/formatters/formatar-numeros';
