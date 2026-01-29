@@ -1,7 +1,12 @@
-// src/components/shared/Filtros_Chamado.tsx
+// src/app/paginas/chamados/componentes/Filtros_Chamado.tsx
+
 'use client';
 
+import { Relogio } from '@/components/shared/Relogio';
+import { useAuth } from '@/context/AuthContext';
+import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { useQuery } from '@tanstack/react-query';
+// =====================================================
 import {
     createContext,
     ReactNode,
@@ -12,9 +17,6 @@ import {
     useState,
 } from 'react';
 import { MdCalendarMonth, MdClose, MdFilterAlt, MdFilterAltOff } from 'react-icons/md';
-import { useAuth } from '../../context/AuthContext';
-import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
-import { Relogio } from './Relogio';
 
 // ==================== CONSTANTES ====================
 const ANOS_DISPONIVEIS_FINALIZADOS = [2024, 2025, 2026];
@@ -368,7 +370,7 @@ function SelectWithClear({
 }
 
 // ==================== COMPONENTE PRINCIPAL ====================
-export function FiltrosChamado({ children, dadosChamados = [] }: FiltrosChamadoProps) {
+export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosChamadoProps) {
     const { isAdmin, codCliente } = useAuth();
     const { hoje, anoAtual, mesAtual } = useDataAtual();
 

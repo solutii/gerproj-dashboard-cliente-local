@@ -3,15 +3,15 @@
 'use client';
 
 import { ExportaPDFChamados } from '@/app/paginas/chamados/componentes/Exporta_PDF_Chamados';
-import { ExportaExcelChamados } from '@/app/paginas/chamados/componentes/Exportar_Excel_Chamados';
+import { ExportarExcelTabelaChamados } from '@/app/paginas/chamados/componentes/Exportar_Excel_Tabela_Chamados';
 import { FiltrosHeaderTabelaChamados } from '@/app/paginas/chamados/componentes/Filtros_Header_Tabela_Chamados';
+import { useFiltrosChamado } from '@/app/paginas/chamados/componentes/Filtros_Tabela_Chamados';
 import { RedimensionarColunas } from '@/app/paginas/chamados/componentes/Redimensionar_Colunas';
 import { ModalAssuntoSolicitacaoChamado } from '@/app/paginas/chamados/modais/Modal_Assunto_Solicitacao_Chamado';
 import { ModalAvaliarChamado } from '@/app/paginas/chamados/modais/Modal_Avaliar_Chamado';
 import { ModalValidarOS } from '@/app/paginas/chamados/modais/Modal_Validar_OS';
 import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { TabelaOS } from '@/app/paginas/chamados/tabelas/Tabela_OS';
-import { useFiltrosChamado } from '@/components/shared/Filtros_Chamado';
 import { IsError } from '@/components/shared/IsError';
 import { IsLoading } from '@/components/shared/IsLoading';
 import { useAuth } from '@/context/AuthContext';
@@ -428,6 +428,10 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         state: { columnFilters },
         onColumnFiltersChange: setColumnFilters,
         meta: { handleChamadoClick },
+        // ✅ ADICIONE ESTAS OPÇÕES:
+        enableColumnFilters: true,
+        manualFiltering: false, // ✅ Força re-render quando data muda
+        autoResetAll: false, // ✅ Evita reset indesejado
     });
 
     // =====================================================
@@ -786,7 +790,7 @@ const Header = React.memo(function Header({
                     </button>
                 )}
 
-                <ExportaExcelChamados
+                <ExportarExcelTabelaChamados
                     data={filteredData}
                     isAdmin={isAdmin}
                     codCliente={codCliente}
@@ -794,9 +798,6 @@ const Header = React.memo(function Header({
                         ano,
                         mes,
                         status: '',
-                        totalChamados: totalChamadosFiltrados,
-                        totalOS: totalOSFiltrados,
-                        totalHorasOS: totalHorasFiltradas,
                     }}
                     disabled={filteredData.length === 0}
                 />
@@ -809,9 +810,6 @@ const Header = React.memo(function Header({
                         ano,
                         mes,
                         status: '',
-                        totalChamados: totalChamadosFiltrados,
-                        totalOS: totalOSFiltrados,
-                        totalHorasOS: totalHorasFiltradas,
                     }}
                     disabled={filteredData.length === 0}
                 />

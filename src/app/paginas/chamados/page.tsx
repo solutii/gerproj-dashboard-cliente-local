@@ -2,30 +2,46 @@
 
 'use client';
 
-import { useEffect, useState } from 'react';
-import { FiltrosChamado } from '../../../components/shared/Filtros_Chamado';
+import { useEffect, useMemo, useState } from 'react';
+import { FiltrosTabelaChamados, useFiltrosChamado } from './componentes/Filtros_Tabela_Chamados';
 import { LayoutPaginaChamados } from './Layout_Pagina_Chamados';
 import { ChamadoRowProps } from './tabelas/Colunas_Tabela_Chamados';
 import { TabelaChamados } from './tabelas/Tabela_Chamados';
 
-export default function ChamadosPage() {
+// ✅ CRIE UM COMPONENTE INTERNO QUE USA O CONTEXTO
+function TabelaComFiltros() {
     const [dadosChamados, setDadosChamados] = useState<ChamadoRowProps[]>([]);
+    const filtros = useFiltrosChamado();
 
-    // ✅ Log para debug
+    // ✅ Crie uma key única baseada nos filtros
+    const tableKey = useMemo(() => {
+        return `${filtros.ano}-${filtros.mes}-${filtros.cliente}-${filtros.recurso}-${filtros.status}-${Date.now()}`;
+    }, [filtros.ano, filtros.mes, filtros.cliente, filtros.recurso, filtros.status]);
+
     useEffect(() => {
         console.log('🎯 ChamadosPage: dadosChamados atualizados:', dadosChamados.length);
-    }, [dadosChamados]);
+        console.log('🔑 Table Key:', tableKey);
+    }, [dadosChamados, tableKey]);
 
+    return (
+        <div className="flex h-full flex-col overflow-hidden">
+            <div className="min-h-0 flex-1">
+                <TabelaChamados
+                    key={tableKey} // ✅ FORÇA RE-RENDER
+                    onDataChange={setDadosChamados}
+                />
+            </div>
+        </div>
+    );
+}
+
+export default function ChamadosPage() {
     return (
         <LayoutPaginaChamados pageTitle="Chamados">
             <div className="flex h-full flex-col gap-10 overflow-hidden">
-                <FiltrosChamado dadosChamados={dadosChamados}>
-                    <div className="flex h-full flex-col overflow-hidden">
-                        <div className="min-h-0 flex-1">
-                            <TabelaChamados onDataChange={setDadosChamados} />
-                        </div>
-                    </div>
-                </FiltrosChamado>
+                <FiltrosTabelaChamados dadosChamados={[]}>
+                    <TabelaComFiltros />
+                </FiltrosTabelaChamados>
             </div>
         </LayoutPaginaChamados>
     );
