@@ -1,7 +1,4 @@
 // src/app/paginas/chamados/componentes/Exporta_PDF_Chamados.tsx
-// ============================================================
-// PARTE 1: IMPORTS, TIPOS, INTERFACES E FUNÇÕES AUXILIARES
-// ============================================================
 
 'use client';
 
@@ -169,10 +166,6 @@ function obterNomeMes(mes: string): string {
     return meses[mes] || mes;
 }
 
-// ============================================================
-// PARTE 2: FUNÇÕES DE GERAÇÃO DO PDF
-// ============================================================
-
 /**
  * Adiciona cabeçalho comum ao PDF
  */
@@ -204,27 +197,43 @@ function adicionarCabecalhoPDF(
     });
     yPos += 12;
 
-    // ✅ PERÍODO (CONDICIONAL) - Só mostra se houver mês OU ano
-    const temPeriodoFiltrado = Boolean(filtros?.mes || filtros?.ano);
+    // ✅ PERÍODO (CONDICIONAL) - Só mostra se houver mês OU ano válidos
+    // Validação rigorosa: verifica undefined, null, string vazia e string literal "undefined"
+    const mesValido =
+        filtros?.mes &&
+        String(filtros.mes).trim() !== '' &&
+        filtros.mes !== 'undefined' &&
+        filtros.mes !== undefined;
 
-    if (temPeriodoFiltrado) {
-        const nomeMes = filtros?.mes ? obterNomeMes(filtros.mes) : 'TODOS';
-        const ano = filtros?.ano || 'TODOS';
+    const anoValido =
+        filtros?.ano &&
+        String(filtros.ano).trim() !== '' &&
+        filtros.ano !== 'undefined' &&
+        filtros.ano !== undefined;
 
-        doc.setFillColor(cor[0], cor[1], cor[2]);
-        doc.rect(10, yPos, pageWidth - 20, 10, 'F');
-        doc.setFontSize(14);
-        doc.setFont('helvetica', 'bold');
-        if (!nomeMes && !ano) {
-            doc.text(`PERÍODO: N/A`, pageWidth / 2, yPos + 7, { align: 'center' });
-        }
+    const mes = mesValido ? String(filtros.mes).trim() : null;
+    const ano = anoValido ? String(filtros.ano).trim() : null;
+
+    if (mes || ano) {
+        const nomeMes = mes ? obterNomeMes(mes) : null;
+
+        // Determinar texto do período
+        let textoPeriodo = '';
         if (nomeMes && ano) {
-            doc.text(`PERÍODO: ${nomeMes}/${ano}`, pageWidth / 2, yPos + 7, { align: 'center' });
+            textoPeriodo = `PERÍODO: ${nomeMes}/${ano}`;
+        } else if (ano && !nomeMes) {
+            textoPeriodo = `PERÍODO: ${ano}`;
         }
-        if (!nomeMes && ano) {
-            doc.text(`PERÍODO: ${ano}`, pageWidth / 2, yPos + 7, { align: 'center' });
+
+        // Só renderiza se houver texto válido
+        if (textoPeriodo) {
+            doc.setFillColor(cor[0], cor[1], cor[2]);
+            doc.rect(10, yPos, pageWidth - 20, 10, 'F');
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text(textoPeriodo, pageWidth / 2, yPos + 7, { align: 'center' });
+            yPos += 14;
         }
-        yPos += 14;
     }
 
     return yPos;
@@ -439,10 +448,6 @@ function gerarPaginaOS(
         margin: { left: 10, right: 10 },
     });
 }
-
-// ============================================================
-// PARTE 3: COMPONENTE PRINCIPAL
-// ============================================================
 
 /**
  * Componente principal de exportação para PDF

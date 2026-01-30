@@ -1,7 +1,4 @@
 // src/app/paginas/chamados/componentes/Exporta_Excel_Chamados.tsx
-// ============================================================
-// PARTE 1: IMPORTS, TIPOS, INTERFACES E FUNÇÕES AUXILIARES
-// ============================================================
 
 'use client';
 
@@ -21,8 +18,8 @@ import { RiFileExcel2Fill } from 'react-icons/ri';
 // INTERFACES E TIPOS
 // ================================================================================
 interface FiltrosRelatorio {
-    ano: string;
-    mes: string;
+    ano?: string;
+    mes?: string;
     cliente?: string;
     recurso?: string;
     status?: string;
@@ -52,7 +49,6 @@ interface OSFetchResult {
 
 /**
  * Busca OS de um chamado específico
- * Otimizado para não incluir mes/ano quando não necessário
  */
 async function fetchOSByChamado(
     codChamado: number,
@@ -67,11 +63,8 @@ async function fetchOSByChamado(
             params.append('codCliente', codCliente);
         }
 
-        // ✅ OTIMIZAÇÃO: Não enviar mes/ano - deixar a API buscar todas as OS do chamado
-        // A API já filtra por FATURADO_OS <> 'NAO' e EXIBECHAM_TAREFA = 1
-
         const response = await fetch(`/api/chamados/${codChamado}/os?${params.toString()}`, {
-            signal: AbortSignal.timeout(10000), // Timeout de 10s
+            signal: AbortSignal.timeout(10000),
         });
 
         if (!response.ok) return [];
@@ -90,7 +83,6 @@ async function fetchOSByChamado(
 
 /**
  * Busca todas as OS em lotes paralelos otimizados
- * Reduz o número de requisições e melhora performance
  */
 async function fetchAllOS(
     chamados: ChamadoRowProps[],
@@ -103,8 +95,7 @@ async function fetchAllOS(
 
     if (chamadosComOS.length === 0) return osMap;
 
-    // ✅ OTIMIZAÇÃO: Lotes maiores para menos overhead de rede
-    const BATCH_SIZE = 10; // Aumentado de 5 para 10
+    const BATCH_SIZE = 10;
     const batches: ChamadoRowProps[][] = [];
 
     for (let i = 0; i < chamadosComOS.length; i += BATCH_SIZE) {
@@ -113,8 +104,6 @@ async function fetchAllOS(
 
     let processed = 0;
 
-    // ✅ OTIMIZAÇÃO: Processar lotes em paralelo com Promise.allSettled
-    // para não falhar todo o processo se um chamado der erro
     for (const batch of batches) {
         const promises = batch.map((chamado) =>
             fetchOSByChamado(
@@ -204,26 +193,20 @@ function aplicarBordas(cell: ExcelJS.Cell) {
     };
 }
 
-// ============================================================
-// PARTE 2: FUNÇÕES DE GERAÇÃO DAS ABAS DO EXCEL (VERSÃO FINAL)
-// ============================================================
-
 /**
- * Gera a aba de CHAMADOS
- * Exporta EXATAMENTE o que está visível na tabela no momento da exportação
+ * Gera a aba de CHAMADOS (versão simplificada - sem separação de chamados com/sem OS)
  */
 function gerarAbaChamados(
     workbook: ExcelJS.Workbook,
     data: ChamadoRowProps[],
-    filtros: FiltrosRelatorio | undefined,
-    isAdmin: boolean
+    filtros: FiltrosRelatorio | undefined
 ): void {
     const ws = workbook.addWorksheet('Chamados');
     ws.views = [{ showGridLines: false }];
     let row = 1;
 
     // ===== TÍTULO =====
-    ws.mergeCells('A1:K1');
+    ws.mergeCells('A1:H1');
     const title = ws.getCell('A1');
     title.value = 'RELATÓRIO DE CHAMADOS';
     title.font = { bold: true, size: 22, color: { argb: 'FFFFFFFF' } };
@@ -238,7 +221,7 @@ function gerarAbaChamados(
     row = 2;
 
     // ===== DATA DE GERAÇÃO =====
-    ws.mergeCells('A2:K2');
+    ws.mergeCells('A2:H2');
     const date = ws.getCell('A2');
     date.value = `Gerado em: ${new Date().toLocaleString('pt-BR')}`;
     date.font = { italic: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -252,179 +235,137 @@ function gerarAbaChamados(
     ws.getRow(2).height = 25;
     row = 4;
 
-    // ===== PERÍODO (CONDICIONAL) =====
-    // ✅ Só mostra se houver filtro de mês OU ano aplicado
-    const temPeriodoFiltrado = filtros?.mes || filtros?.ano;
+    // ===== PERÍODO (CONDICIONAL) - MESMA LÓGICA DO PDF =====
+    // Validação rigorosa: verifica undefined, null, string vazia e string literal "undefined"
+    const mesValido =
+        filtros?.mes &&
+        String(filtros.mes).trim() !== '' &&
+        filtros.mes !== 'undefined' &&
+        filtros.mes !== undefined;
 
-    if (temPeriodoFiltrado) {
-        ws.mergeCells(`A${row}:K${row}`);
-        const periodo = ws.getCell(`A${row}`);
-        const nomeMes = filtros?.mes ? obterNomeMes(filtros.mes) : 'TODOS';
-        const ano = filtros?.ano || 'TODOS';
-        periodo.value = `PERÍODO: ${nomeMes}/${ano}`;
-        periodo.font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
-        periodo.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FF6B21A8' },
-        };
-        periodo.alignment = { horizontal: 'center', vertical: 'middle' };
-        aplicarBordas(periodo);
-        ws.getRow(row).height = 28;
-        row += 2;
-    }
+    const anoValido =
+        filtros?.ano &&
+        String(filtros.ano).trim() !== '' &&
+        filtros.ano !== 'undefined' &&
+        filtros.ano !== undefined;
 
-    // ===== TOTALIZADORES =====
-    const totais = [
-        ['TOTAL CHAMADOS', filtros?.totalChamados ?? data.length, '6B21A8'],
-        ["TOTAL OS's", filtros?.totalOS ?? 0, '0891B2'],
-        ['TOTAL HORAS', formatarHorasTotaisSufixo(filtros?.totalHorasOS ?? 0), '059669'],
-    ];
+    const mes = mesValido ? String(filtros.mes).trim() : null;
+    const ano = anoValido ? String(filtros.ano).trim() : null;
 
-    totais.forEach(([label, value, color]) => {
-        ws.mergeCells(`A${row}:B${row}`);
-        ws.mergeCells(`C${row}:D${row}`);
+    if (mes || ano) {
+        const nomeMes = mes ? obterNomeMes(mes) : null;
 
-        const lblCell = ws.getCell(`A${row}`);
-        lblCell.value = label;
-        lblCell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
-        lblCell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: color as string },
-        };
-        lblCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        aplicarBordas(lblCell);
+        // Determinar texto do período
+        let textoPeriodo = '';
+        if (nomeMes && ano) {
+            textoPeriodo = `PERÍODO: ${nomeMes}/${ano}`;
+        } else if (ano && !nomeMes) {
+            textoPeriodo = `PERÍODO: ${ano}`;
+        }
 
-        const valCell = ws.getCell(`C${row}`);
-        valCell.value = value;
-        valCell.font = { size: 11, bold: true };
-        valCell.alignment = { horizontal: 'center', vertical: 'middle' };
-        aplicarBordas(valCell);
-
-        ws.getRow(row).height = 22;
-        row++;
-    });
-
-    row += 2;
-
-    // ===== SEPARAR CHAMADOS COM E SEM OS =====
-    const chamadosSemOS = data.filter((c) => !c.TEM_OS);
-    const chamadosComOS = data.filter((c) => c.TEM_OS);
-
-    // ===== FUNÇÃO PARA RENDERIZAR SEÇÃO DE CHAMADOS =====
-    const renderSecao = (titulo: string, chamados: ChamadoRowProps[]) => {
-        if (chamados.length === 0) return;
-
-        // Título da seção
-        ws.mergeCells(`A${row}:K${row}`);
-        const secTitle = ws.getCell(`A${row}`);
-        secTitle.value = titulo;
-        secTitle.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
-        secTitle.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FF6B21A8' },
-        };
-        secTitle.alignment = { horizontal: 'center', vertical: 'middle' };
-        aplicarBordas(secTitle);
-        ws.getRow(row).height = 28;
-        row++;
-
-        // Cabeçalhos
-        const headers = [
-            'CHAMADO',
-            'DATA',
-            'PRIORIDADE',
-            'ASSUNTO',
-            'EMAIL SOLICITANTE',
-            'CLASSIFICAÇÃO',
-            'DATA/HORA ATRIBUIÇÃO',
-            'CONSULTOR(A)',
-            'STATUS',
-            'DATA CONCLUSÃO',
-            'TOTAL HORAS',
-        ];
-
-        headers.forEach((h, i) => {
-            const cell = ws.getCell(row, i + 1);
-            cell.value = h;
-            cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-            cell.fill = {
+        // Só renderiza se houver texto válido
+        if (textoPeriodo) {
+            ws.mergeCells(`A${row}:H${row}`);
+            const periodo = ws.getCell(`A${row}`);
+            periodo.value = textoPeriodo;
+            periodo.font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+            periodo.fill = {
                 type: 'pattern',
                 pattern: 'solid',
-                fgColor: { argb: 'FF0F766E' },
+                fgColor: { argb: 'FF6B21A8' },
             };
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            periodo.alignment = { horizontal: 'center', vertical: 'middle' };
+            aplicarBordas(periodo);
+            ws.getRow(row).height = 28;
+            row += 2;
+        }
+    }
+
+    // ===== TOTAL DE CHAMADOS =====
+    ws.mergeCells(`A${row}:H${row}`);
+    const totalChamados = ws.getCell(`A${row}`);
+    totalChamados.value = `CHAMADOS — TOTAL: ${data.length}`;
+    totalChamados.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
+    totalChamados.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: 'FF6B21A8' },
+    };
+    totalChamados.alignment = { horizontal: 'center', vertical: 'middle' };
+    aplicarBordas(totalChamados);
+    ws.getRow(row).height = 28;
+    row += 2;
+
+    // ===== CABEÇALHOS =====
+    const headers = [
+        'CHAMADO',
+        'DATA',
+        'PRIOR.',
+        'ASSUNTO',
+        'CLASSIFICAÇÃO',
+        'CONSULTOR(A)',
+        'STATUS',
+        'HORAS',
+    ];
+
+    headers.forEach((h, i) => {
+        const cell = ws.getCell(row, i + 1);
+        cell.value = h;
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+        cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FF0F766E' },
+        };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        aplicarBordas(cell);
+    });
+    ws.getRow(row).height = 22;
+    row++;
+
+    // ===== DADOS DOS CHAMADOS (TODOS JUNTOS) =====
+    data.forEach((coluna) => {
+        const dados = [
+            formatarNumeros(coluna.COD_CHAMADO),
+            formatarDataParaBR(coluna.DATA_CHAMADO),
+            `P-${coluna.PRIOR_CHAMADO}`,
+            corrigirTextoCorrompido(coluna.ASSUNTO_CHAMADO).substring(0, 40),
+            corrigirTextoCorrompido(coluna.NOME_CLASSIFICACAO).substring(0, 25),
+            renderizarDoisPrimeirosNomes(corrigirTextoCorrompido(coluna.NOME_RECURSO) || '---'),
+            coluna.STATUS_CHAMADO,
+            formatarHorasTotaisSufixo(coluna.TOTAL_HORAS_OS),
+        ];
+
+        dados.forEach((val, i) => {
+            const cell = ws.getCell(row, i + 1);
+            cell.value = val;
+            cell.alignment = {
+                horizontal: [0, 1, 2, 6, 7].includes(i) ? 'center' : 'left',
+                vertical: 'middle',
+                indent: [3, 4, 5].includes(i) ? 2 : 0,
+            };
+            if (i === 0) cell.font = { bold: true, color: { argb: 'FF6B21A8' } };
             aplicarBordas(cell);
         });
         ws.getRow(row).height = 22;
         row++;
-
-        // Dados dos chamados
-        chamados.forEach((coluna) => {
-            const dados = [
-                formatarNumeros(coluna.COD_CHAMADO),
-                formatarDataParaBR(coluna.DATA_CHAMADO),
-                `P-${coluna.PRIOR_CHAMADO}`,
-                corrigirTextoCorrompido(coluna.ASSUNTO_CHAMADO),
-                coluna.EMAIL_CHAMADO || '---------------',
-                corrigirTextoCorrompido(coluna.NOME_CLASSIFICACAO),
-                formatarDataParaBR(coluna.DTENVIO_CHAMADO) || '---------------',
-                renderizarDoisPrimeirosNomes(
-                    corrigirTextoCorrompido(coluna.NOME_RECURSO) || '---------------'
-                ),
-                coluna.STATUS_CHAMADO,
-                formatarDataParaBR(coluna.CONCLUSAO_CHAMADO) || '---------------',
-                formatarHorasTotaisSufixo(coluna.TOTAL_HORAS_OS),
-            ];
-
-            dados.forEach((val, i) => {
-                const cell = ws.getCell(row, i + 1);
-                cell.value = val;
-                cell.alignment = {
-                    horizontal: [0, 1, 2, 6, 9, 10].includes(i) ? 'center' : 'left',
-                    vertical: 'middle',
-                    indent: [3, 4, 5, 7, 8].includes(i) ? 2 : 0,
-                };
-                if (i === 0) cell.font = { bold: true, color: { argb: 'FF6B21A8' } };
-                aplicarBordas(cell);
-            });
-            ws.getRow(row).height = 22;
-            row++;
-        });
-
-        row += 2;
-    };
-
-    // ✅ RENDERIZAR TODAS AS SEÇÕES QUE TIVEREM DADOS
-    if (chamadosSemOS.length > 0) {
-        renderSecao("CHAMADOS SEM OS's", chamadosSemOS);
-    }
-
-    if (chamadosComOS.length > 0) {
-        renderSecao("CHAMADOS COM OS's", chamadosComOS);
-    }
+    });
 
     // ===== CONFIGURAR LARGURAS DAS COLUNAS =====
     ws.columns = [
-        { width: 15 }, // CODIGO CHAMADO
-        { width: 15 }, // DATA CHAMADO
+        { width: 15 }, // CHAMADO
+        { width: 15 }, // DATA
         { width: 15 }, // PRIORIDADE
-        { width: 35 }, // ASSUNTO
-        { width: 35 }, // EMAIL
-        { width: 25 }, // CLASSIFICAÇÃO
-        { width: 25 }, // DATA ATRIBUIÇÃO
+        { width: 40 }, // ASSUNTO
+        { width: 30 }, // CLASSIFICAÇÃO
         { width: 25 }, // CONSULTOR
         { width: 25 }, // STATUS
-        { width: 20 }, // CONCLUSÃO
         { width: 15 }, // HORAS
     ];
 }
 
 /**
  * Gera a aba de ORDENS DE SERVIÇO
- * Exporta APENAS as OS dos chamados que estão na tabela
  */
 function gerarAbaOS(
     workbook: ExcelJS.Workbook,
@@ -437,7 +378,7 @@ function gerarAbaOS(
     let osRow = 1;
 
     // ===== TÍTULO =====
-    ws.mergeCells('A1:J1');
+    ws.mergeCells('A1:I1');
     const osTitle = ws.getCell('A1');
     osTitle.value = 'RELATÓRIO DE ORDENS DE SERVIÇO';
     osTitle.font = { bold: true, size: 22, color: { argb: 'FFFFFFFF' } };
@@ -451,7 +392,7 @@ function gerarAbaOS(
     ws.getRow(1).height = 35;
 
     // ===== DATA DE GERAÇÃO =====
-    ws.mergeCells('A2:J2');
+    ws.mergeCells('A2:I2');
     const osDate = ws.getCell('A2');
     osDate.value = `Gerado em: ${new Date().toLocaleString('pt-BR')}`;
     osDate.font = { italic: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -465,40 +406,60 @@ function gerarAbaOS(
     ws.getRow(2).height = 25;
     osRow = 4;
 
-    // ===== PERÍODO (CONDICIONAL) =====
-    // ✅ Só mostra se houver filtro de mês OU ano aplicado
-    const temPeriodoFiltrado = filtros?.mes || filtros?.ano;
+    // ===== PERÍODO (CONDICIONAL) - MESMA LÓGICA DO PDF =====
+    const mesValido =
+        filtros?.mes &&
+        String(filtros.mes).trim() !== '' &&
+        filtros.mes !== 'undefined' &&
+        filtros.mes !== undefined;
 
-    if (temPeriodoFiltrado) {
-        ws.mergeCells(`A${osRow}:J${osRow}`);
-        const osPeriodo = ws.getCell(`A${osRow}`);
-        const osNomeMes = filtros?.mes ? obterNomeMes(filtros.mes) : 'TODOS';
-        const osAno = filtros?.ano || 'TODOS';
-        osPeriodo.value = `PERÍODO: ${osNomeMes}/${osAno}`;
-        osPeriodo.font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
-        osPeriodo.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FF0891B2' },
-        };
-        osPeriodo.alignment = { horizontal: 'center', vertical: 'middle' };
-        aplicarBordas(osPeriodo);
-        ws.getRow(osRow).height = 28;
-        osRow += 2;
+    const anoValido =
+        filtros?.ano &&
+        String(filtros.ano).trim() !== '' &&
+        filtros.ano !== 'undefined' &&
+        filtros.ano !== undefined;
+
+    const mes = mesValido ? String(filtros.mes).trim() : null;
+    const ano = anoValido ? String(filtros.ano).trim() : null;
+
+    if (mes || ano) {
+        const nomeMes = mes ? obterNomeMes(mes) : null;
+
+        let textoPeriodo = '';
+        if (nomeMes && ano) {
+            textoPeriodo = `PERÍODO: ${nomeMes}/${ano}`;
+        } else if (ano && !nomeMes) {
+            textoPeriodo = `PERÍODO: ${ano}`;
+        }
+
+        if (textoPeriodo) {
+            ws.mergeCells(`A${osRow}:I${osRow}`);
+            const osPeriodo = ws.getCell(`A${osRow}`);
+            osPeriodo.value = textoPeriodo;
+            osPeriodo.font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
+            osPeriodo.fill = {
+                type: 'pattern',
+                pattern: 'solid',
+                fgColor: { argb: 'FF0891B2' },
+            };
+            osPeriodo.alignment = { horizontal: 'center', vertical: 'middle' };
+            aplicarBordas(osPeriodo);
+            ws.getRow(osRow).height = 28;
+            osRow += 2;
+        }
     }
 
     // ===== CABEÇALHOS =====
     const osHeaders = [
         'CHAMADO',
-        'NÚMERO',
-        'DATA INÍCIO',
-        'HORA INÍCIO',
-        'HORA FIM',
-        'TOTAL HORAS',
+        'Nº OS',
+        'DATA',
+        'INÍCIO',
+        'FIM',
+        'HORAS',
         'DESCRIÇÃO',
         'CONSULTOR',
-        'ENTREGÁVEL',
-        'VALIDAÇÃO',
+        'VALID.',
     ];
 
     osHeaders.forEach((h, i) => {
@@ -517,12 +478,10 @@ function gerarAbaOS(
     osRow++;
 
     // ===== DADOS DAS OS's =====
-    // ✅ Filtra apenas chamados da tabela que TEM_OS = true
     const chamadosComOS = data.filter((c) => c.TEM_OS);
 
-    // ✅ Se não houver chamados com OS, adiciona mensagem informativa
-    if (chamadosComOS.length === 0) {
-        ws.mergeCells(`A${osRow}:J${osRow}`);
+    if (chamadosComOS.length === 0 || osData.size === 0) {
+        ws.mergeCells(`A${osRow}:I${osRow}`);
         const msgCell = ws.getCell(`A${osRow}`);
         msgCell.value = 'Nenhuma Ordem de Serviço encontrada nos chamados exibidos';
         msgCell.font = { italic: true, size: 14, color: { argb: 'FF666666' } };
@@ -530,39 +489,33 @@ function gerarAbaOS(
         ws.getRow(osRow).height = 30;
         osRow++;
     } else {
-        // ✅ Processar APENAS as OS dos chamados que estão visíveis na tabela
         chamadosComOS.forEach((chamado) => {
             const osList = osData.get(chamado.COD_CHAMADO);
-
-            // ✅ Se não conseguiu buscar as OS deste chamado, pula
             if (!osList || osList.length === 0) return;
 
             osList.forEach((os) => {
                 const osRowData = [
                     formatarNumeros(chamado.COD_CHAMADO),
-                    formatarNumeros(os.NUM_OS) || '---------------',
+                    formatarNumeros(os.NUM_OS) || '---',
                     formatarDataParaBR(os.DTINI_OS),
                     formatarHora(os.HRINI_OS),
                     formatarHora(os.HRFIM_OS),
                     formatarHorasTotaisSufixo(os.TOTAL_HORAS_OS),
-                    corrigirTextoCorrompido(os.OBS) || '---------------',
-                    renderizarDoisPrimeirosNomes(
-                        corrigirTextoCorrompido(os.NOME_RECURSO) || '---------------'
-                    ),
-                    corrigirTextoCorrompido(os.NOME_TAREFA) || '---------------',
-                    os.VALCLI_OS || '---------------',
+                    corrigirTextoCorrompido(os.OBS) || '---',
+                    renderizarDoisPrimeirosNomes(corrigirTextoCorrompido(os.NOME_RECURSO) || '---'),
+                    os.VALCLI_OS || '---',
                 ];
 
                 osRowData.forEach((val, i) => {
                     const cell = ws.getCell(osRow, i + 1);
                     cell.value = val;
                     cell.alignment = {
-                        horizontal: [0, 1, 2, 3, 4, 5, 9].includes(i) ? 'center' : 'left',
+                        horizontal: [0, 1, 2, 3, 4, 5, 8].includes(i) ? 'center' : 'left',
                         vertical: 'middle',
-                        indent: [6, 7, 8].includes(i) ? 2 : 0,
+                        indent: [6, 7].includes(i) ? 2 : 0,
                     };
 
-                    if (i === 9) {
+                    if (i === 8) {
                         cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
                         cell.fill = {
                             type: 'pattern',
@@ -572,6 +525,7 @@ function gerarAbaOS(
                             },
                         };
                     }
+                    if (i === 0) cell.font = { bold: true, color: { argb: 'FF6B21A8' } };
                     aplicarBordas(cell);
                 });
                 ws.getRow(osRow).height = 20;
@@ -584,24 +538,18 @@ function gerarAbaOS(
     ws.columns = [
         { width: 15 }, // CHAMADO
         { width: 15 }, // NÚMERO
-        { width: 15 }, // DATA INÍCIO
-        { width: 15 }, // HORA INÍCIO
-        { width: 15 }, // HORA FIM
-        { width: 15 }, // TOTAL HORAS
-        { width: 45 }, // DESCRIÇÃO
+        { width: 15 }, // DATA
+        { width: 15 }, // INÍCIO
+        { width: 15 }, // FIM
+        { width: 15 }, // HORAS
+        { width: 40 }, // DESCRIÇÃO
         { width: 25 }, // CONSULTOR
-        { width: 45 }, // ENTREGÁVEL
         { width: 15 }, // VALIDAÇÃO
     ];
 }
 
-// ============================================================
-// PARTE 3: COMPONENTE PRINCIPAL E FUNÇÃO DE EXPORTAÇÃO
-// ============================================================
-
 /**
  * Componente principal de exportação para Excel
- * Otimizado para performance e com feedback visual
  */
 export function ExportarExcelTabelaChamados({
     data,
@@ -614,20 +562,14 @@ export function ExportarExcelTabelaChamados({
     const [isExporting, setIsExporting] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
 
-    // Desabilitar se não houver dados
     if (!data || data.length === 0) disabled = true;
 
-    /**
-     * Função principal de exportação
-     * Otimizada para processar grandes volumes de dados
-     */
     const exportToExcel = async () => {
         setIsExporting(true);
         setProgress({ current: 0, total: 0 });
 
         try {
-            // ===== ETAPA 1: BUSCAR OS's =====
-            console.log('🔍 Iniciando busca de OS...');
+            console.log('🔍 Iniciando busca de OS para Excel...');
             const startTime = performance.now();
 
             const osData = await fetchAllOS(data, isAdmin, codCliente, (current, total) => {
@@ -637,19 +579,15 @@ export function ExportarExcelTabelaChamados({
             const fetchTime = performance.now() - startTime;
             console.log(`✅ OS's buscadas em ${(fetchTime / 1000).toFixed(2)}s`);
 
-            // ===== ETAPA 2: CRIAR WORKBOOK =====
             console.log('📊 Criando workbook...');
             const workbook = new ExcelJS.Workbook();
 
-            // ===== ETAPA 3: GERAR ABA DE CHAMADOS =====
             console.log('📄 Gerando aba de chamados...');
-            gerarAbaChamados(workbook, data, filtros, isAdmin);
+            gerarAbaChamados(workbook, data, filtros);
 
-            // ===== ETAPA 4: GERAR ABA DE OS's =====
             console.log('📋 Gerando aba de OS...');
             gerarAbaOS(workbook, data, osData, filtros);
 
-            // ===== ETAPA 5: SALVAR ARQUIVO =====
             console.log('💾 Salvando arquivo...');
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], {
@@ -672,7 +610,6 @@ export function ExportarExcelTabelaChamados({
         }
     };
 
-    // ===== RENDERIZAÇÃO DO BOTÃO =====
     return (
         <button
             onClick={exportToExcel}
