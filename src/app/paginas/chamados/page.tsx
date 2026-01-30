@@ -2,38 +2,65 @@
 
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { FiltrosTabelaChamados, useFiltrosChamado } from './componentes/Filtros_Tabela_Chamados';
 import { LayoutPaginaChamados } from './Layout_Pagina_Chamados';
 import { ChamadoRowProps } from './tabelas/Colunas_Tabela_Chamados';
 import { TabelaChamados } from './tabelas/Tabela_Chamados';
 
-function TabelaComFiltros() {
-    const [dadosChamados, setDadosChamados] = useState<ChamadoRowProps[]>([]);
+interface TabelaComFiltrosProps {
+    onDataChange: (data: ChamadoRowProps[]) => void;
+}
+
+function TabelaComFiltros({ onDataChange }: TabelaComFiltrosProps) {
     const filtros = useFiltrosChamado();
 
-    // ✅ Crie uma key única baseada nos filtros
+    // ✅ Incluir TODOS os filtros na key
     const tableKey = useMemo(() => {
-        return `${filtros.ano}-${filtros.mes}-${filtros.cliente}-${filtros.recurso}-${filtros.status}-${Date.now()}`;
-    }, [filtros.ano, filtros.mes, filtros.cliente, filtros.recurso, filtros.status]);
-
-    useEffect(() => {}, [dadosChamados, tableKey]);
+        return [
+            filtros.ano,
+            filtros.mes,
+            filtros.cliente,
+            filtros.recurso,
+            filtros.status,
+            filtros.chamado,
+            filtros.entrada,
+            filtros.prioridade,
+            filtros.classificacao,
+            filtros.atribuicao,
+            filtros.finalizacao,
+        ].join('-');
+    }, [
+        filtros.ano,
+        filtros.mes,
+        filtros.cliente,
+        filtros.recurso,
+        filtros.status,
+        filtros.chamado,
+        filtros.entrada,
+        filtros.prioridade,
+        filtros.classificacao,
+        filtros.atribuicao,
+        filtros.finalizacao,
+    ]);
 
     return (
         <div className="flex h-full flex-col overflow-hidden">
             <div className="min-h-0 flex-1">
-                <TabelaChamados key={tableKey} onDataChange={setDadosChamados} />
+                <TabelaChamados key={tableKey} onDataChange={onDataChange} />
             </div>
         </div>
     );
 }
 
 export default function ChamadosPage() {
+    const [dadosChamados, setDadosChamados] = useState<ChamadoRowProps[]>([]);
+
     return (
         <LayoutPaginaChamados pageTitle="Chamados">
             <div className="flex h-full flex-col gap-10 overflow-hidden">
-                <FiltrosTabelaChamados dadosChamados={[]}>
-                    <TabelaComFiltros />
+                <FiltrosTabelaChamados dadosChamados={dadosChamados}>
+                    <TabelaComFiltros onDataChange={setDadosChamados} />
                 </FiltrosTabelaChamados>
             </div>
         </LayoutPaginaChamados>

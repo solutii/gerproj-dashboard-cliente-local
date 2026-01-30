@@ -4,7 +4,6 @@
 
 import { ExportarExcelTabelaChamados } from '@/app/paginas/chamados/componentes/Exportar_Excel_Tabela_Chamados';
 import { ExportarPDFTabelaChamados } from '@/app/paginas/chamados/componentes/Exportar_PDF_Tabela_Chamados';
-import { FiltrosHeaderTabelaChamados } from '@/app/paginas/chamados/componentes/Filtros_Header_Tabela_Chamados';
 import { useFiltrosChamado } from '@/app/paginas/chamados/componentes/Filtros_Tabela_Chamados';
 import { RedimensionarColunas } from '@/app/paginas/chamados/componentes/Redimensionar_Colunas';
 import { ModalAssuntoSolicitacaoChamado } from '@/app/paginas/chamados/modais/Modal_Assunto_Solicitacao_Chamado';
@@ -118,6 +117,35 @@ const serializeColumnFilters = (filters: ColumnFiltersState): string => {
     );
 };
 
+const formatarDataParaComparacao = (
+    data: string | Date | number | null | undefined
+): string | null => {
+    if (!data) return null;
+
+    // Se já é uma string formatada (dd/mm/yyyy), retorna direto
+    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(data)) {
+        return data;
+    }
+
+    let dataObj: Date | null = null;
+
+    if (typeof data === 'string') {
+        dataObj = new Date(data);
+    } else if (data instanceof Date) {
+        dataObj = data;
+    } else if (typeof data === 'number') {
+        dataObj = new Date(data);
+    }
+
+    if (!dataObj || isNaN(dataObj.getTime())) return null;
+
+    const dia = dataObj.getDate().toString().padStart(2, '0');
+    const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
+    const ano = dataObj.getFullYear();
+
+    return `${dia}/${mes}/${ano}`;
+};
+
 // =====================================================
 // API - FETCH DE DADOS
 // =====================================================
@@ -179,7 +207,19 @@ const fetchChamados = async ({
 export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const { isAdmin, codCliente, isLoggedIn } = useAuth();
     const filtros = useFiltrosChamado();
-    const { ano, mes, cliente, recurso, status } = filtros;
+    const {
+        ano,
+        mes,
+        cliente,
+        recurso,
+        status,
+        chamado,
+        entrada,
+        prioridade,
+        classificacao,
+        atribuicao,
+        finalizacao,
+    } = filtros;
 
     // Estados principais
     const [page, setPage] = useState(1);
@@ -281,10 +321,62 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         });
     }, [dadosFiltradosPorStatus, recurso]);
 
-    const dadosCompletosFiltrados = useMemo(() => {
-        if (columnFilters.length === 0) return dadosFiltradosPorRecurso;
+    // ✅ NOVOS FILTROS LOCAIS
+    const dadosFiltradosPorChamado = useMemo(() => {
+        if (!chamado) return dadosFiltradosPorRecurso;
 
-        return dadosFiltradosPorRecurso.filter((row) => {
+        return dadosFiltradosPorRecurso.filter((chamadoItem) => {
+            return chamadoItem.COD_CHAMADO?.toString() === chamado.toString();
+        });
+    }, [dadosFiltradosPorRecurso, chamado]);
+
+    const dadosFiltradosPorEntrada = useMemo(() => {
+        if (!entrada) return dadosFiltradosPorChamado;
+
+        return dadosFiltradosPorChamado.filter((chamadoItem) => {
+            const dataFormatada = formatarDataParaComparacao(chamadoItem.DATA_CHAMADO);
+            return dataFormatada === entrada;
+        });
+    }, [dadosFiltradosPorChamado, entrada]);
+
+    const dadosFiltradosPorPrioridade = useMemo(() => {
+        if (!prioridade) return dadosFiltradosPorEntrada;
+
+        return dadosFiltradosPorEntrada.filter((chamadoItem) => {
+            return chamadoItem.PRIOR_CHAMADO?.toString() === prioridade.toString();
+        });
+    }, [dadosFiltradosPorEntrada, prioridade]);
+
+    const dadosFiltradosPorClassificacao = useMemo(() => {
+        if (!classificacao) return dadosFiltradosPorPrioridade;
+
+        return dadosFiltradosPorPrioridade.filter((chamadoItem) => {
+            return chamadoItem.NOME_CLASSIFICACAO?.trim() === classificacao.trim();
+        });
+    }, [dadosFiltradosPorPrioridade, classificacao]);
+
+    const dadosFiltradosPorAtribuicao = useMemo(() => {
+        if (!atribuicao) return dadosFiltradosPorClassificacao;
+
+        return dadosFiltradosPorClassificacao.filter((chamadoItem) => {
+            const dataFormatada = formatarDataParaComparacao(chamadoItem.DTENVIO_CHAMADO);
+            return dataFormatada === atribuicao;
+        });
+    }, [dadosFiltradosPorClassificacao, atribuicao]);
+
+    const dadosFiltradosPorFinalizacao = useMemo(() => {
+        if (!finalizacao) return dadosFiltradosPorAtribuicao;
+
+        return dadosFiltradosPorAtribuicao.filter((chamadoItem) => {
+            const dataFormatada = formatarDataParaComparacao(chamadoItem.DATA_HISTCHAMADO);
+            return dataFormatada === finalizacao;
+        });
+    }, [dadosFiltradosPorAtribuicao, finalizacao]);
+
+    const dadosCompletosFiltrados = useMemo(() => {
+        if (columnFilters.length === 0) return dadosFiltradosPorFinalizacao;
+
+        return dadosFiltradosPorFinalizacao.filter((row) => {
             return columnFilters.every((filter) => {
                 if (!filter.value || (typeof filter.value === 'string' && !filter.value.trim())) {
                     return true;
@@ -294,7 +386,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 return String(cellValue).toUpperCase().includes(String(filter.value).toUpperCase());
             });
         });
-    }, [dadosFiltradosPorRecurso, columnFilters]);
+    }, [dadosFiltradosPorFinalizacao, columnFilters]);
 
     // =====================================================
     // TOTALIZADORES
@@ -334,13 +426,23 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // =====================================================
     useEffect(() => {
         if (onDataChange) {
-            onDataChange(dadosFiltradosPorRecurso);
+            onDataChange(dadosFiltradosPorFinalizacao);
         }
-    }, [dadosFiltradosPorRecurso, onDataChange]);
+    }, [dadosFiltradosPorFinalizacao, onDataChange]);
 
     useEffect(() => {
         setPage(1);
-    }, [status, recurso, columnFiltersKey]);
+    }, [
+        status,
+        recurso,
+        chamado,
+        entrada,
+        prioridade,
+        classificacao,
+        atribuicao,
+        finalizacao,
+        columnFiltersKey,
+    ]);
 
     // =====================================================
     // CALLBACKS
@@ -428,10 +530,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         state: { columnFilters },
         onColumnFiltersChange: setColumnFilters,
         meta: { handleChamadoClick },
-        // ✅ ADICIONE ESTAS OPÇÕES:
         enableColumnFilters: true,
-        manualFiltering: false, // ✅ Força re-render quando data muda
-        autoResetAll: false, // ✅ Evita reset indesejado
+        manualFiltering: false,
+        autoResetAll: false,
     });
 
     // =====================================================
@@ -868,32 +969,6 @@ const TableHeader = React.memo(function TableHeader({
                     ))}
                 </tr>
             ))}
-            <tr className="bg-teal-600">
-                {table.getAllColumns().map((column: any, idx: number) => (
-                    <th
-                        key={column.id}
-                        className="relative px-3 pt-4 pb-3"
-                        style={{ width: `${columnWidths[column.id]}px` }}
-                    >
-                        <div>
-                            <FiltrosHeaderTabelaChamados
-                                value={(column.getFilterValue() as string) ?? ''}
-                                onChange={(value: string) => column.setFilterValue(value)}
-                                columnId={column.id}
-                            />
-                        </div>
-
-                        {idx < table.getAllColumns().length - 1 && (
-                            <RedimensionarColunas
-                                columnId={column.id}
-                                onMouseDown={handleMouseDown}
-                                onDoubleClick={handleDoubleClick}
-                                isResizing={resizingColumn === column.id}
-                            />
-                        )}
-                    </th>
-                ))}
-            </tr>
         </thead>
     );
 });
