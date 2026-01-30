@@ -28,7 +28,7 @@ interface FiltrosRelatorio {
     status?: string;
 }
 
-interface ExportaPDFChamadosButtonProps {
+interface ExportarPDFTabelaChamadosButtonProps {
     data: ChamadoRowProps[];
     filtros?: FiltrosRelatorio;
     isAdmin: boolean;
@@ -447,14 +447,14 @@ function gerarPaginaOS(
 /**
  * Componente principal de exportação para PDF
  */
-export function ExportaPDFChamados({
+export function ExportarPDFTabelaChamados({
     data,
     filtros,
     isAdmin,
     codCliente,
     className = '',
     disabled = false,
-}: ExportaPDFChamadosButtonProps) {
+}: ExportarPDFTabelaChamadosButtonProps) {
     const [isExporting, setIsExporting] = useState(false);
     const [progress, setProgress] = useState({ current: 0, total: 0 });
 

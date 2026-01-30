@@ -2,8 +2,8 @@
 
 'use client';
 
-import { ExportaPDFChamados } from '@/app/paginas/chamados/componentes/Exporta_PDF_Chamados';
 import { ExportarExcelTabelaChamados } from '@/app/paginas/chamados/componentes/Exportar_Excel_Tabela_Chamados';
+import { ExportarPDFTabelaChamados } from '@/app/paginas/chamados/componentes/Exportar_PDF_Tabela_Chamados';
 import { FiltrosHeaderTabelaChamados } from '@/app/paginas/chamados/componentes/Filtros_Header_Tabela_Chamados';
 import { useFiltrosChamado } from '@/app/paginas/chamados/componentes/Filtros_Tabela_Chamados';
 import { RedimensionarColunas } from '@/app/paginas/chamados/componentes/Redimensionar_Colunas';
@@ -802,7 +802,7 @@ const Header = React.memo(function Header({
                     disabled={filteredData.length === 0}
                 />
 
-                <ExportaPDFChamados
+                <ExportarPDFTabelaChamados
                     data={filteredData}
                     isAdmin={isAdmin}
                     codCliente={codCliente}
