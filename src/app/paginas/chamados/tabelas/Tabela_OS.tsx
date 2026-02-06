@@ -65,6 +65,7 @@ interface ModalOSProps {
     codChamado: number | null;
     onClose: () => void;
     onSelectOS: (os: OSRowProps) => void;
+    dataChamado?: string | Date | null | undefined; // ✅ NOVO: Receber data do chamado (aceita qualquer formato)
 }
 
 interface FetchOSParams {
@@ -86,6 +87,44 @@ const createAuthHeaders = () => ({
     'x-cod-cliente': localStorage.getItem('codCliente') || '',
 });
 
+// ✅ NOVA FUNÇÃO: Extrair mês e ano da data do chamado
+const extrairMesAnoDeData = (data: string | Date | null | undefined): { mes: number; ano: number } => {
+    if (!data) {
+        const hoje = new Date();
+        return {
+            mes: hoje.getMonth() + 1,
+            ano: hoje.getFullYear()
+        };
+    }
+
+    let dataObj: Date;
+
+    if (typeof data === 'string') {
+        // Se for string no formato dd/mm/yyyy
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(data)) {
+            const [dia, mes, ano] = data.split('/').map(Number);
+            dataObj = new Date(ano, mes - 1, dia);
+        } else {
+            dataObj = new Date(data);
+        }
+    } else {
+        dataObj = data;
+    }
+
+    if (isNaN(dataObj.getTime())) {
+        const hoje = new Date();
+        return {
+            mes: hoje.getMonth() + 1,
+            ano: hoje.getFullYear()
+        };
+    }
+
+    return {
+        mes: dataObj.getMonth() + 1,
+        ano: dataObj.getFullYear()
+    };
+};
+
 const fetchOSByChamado = async ({
     codChamado,
     isAdmin,
@@ -103,25 +142,52 @@ const fetchOSByChamado = async ({
         params.append('codCliente', codCliente);
     }
 
+    console.log('🔍 Fetchando OS:', {
+        codChamado,
+        isAdmin,
+        codCliente,
+        mes,
+        ano,
+        url: `/api/chamados/${codChamado}/os?${params.toString()}`
+    });
+
     const response = await fetch(`/api/chamados/${codChamado}/os?${params.toString()}`, {
         headers: createAuthHeaders(),
     });
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Erro na resposta da API:', errorData);
         throw new Error(errorData.error || 'Erro ao carregar OS');
     }
 
-    return response.json();
+    const data = await response.json();
+    console.log('✅ OS carregadas:', data);
+    return data;
 };
 
 // =====================================================
 // COMPONENTE PRINCIPAL
 // =====================================================
-export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSProps) {
+export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado }: ModalOSProps) {
     const { isAdmin, codCliente } = useAuth();
-    const mes = useFiltersStore((state) => state.filters.mes);
-    const ano = useFiltersStore((state) => state.filters.ano);
+    const mesFiltro = useFiltersStore((state) => state.filters.mes);
+    const anoFiltro = useFiltersStore((state) => state.filters.ano);
+
+    // ✅ MODIFICAÇÃO PRINCIPAL: Usar data do chamado para extrair mes/ano
+    // Se não tiver dataChamado, usa os filtros ou data atual
+    const { mes: mesExtraido, ano: anoExtraido } = useMemo(() => {
+        if (dataChamado) {
+            console.log('📅 Usando data do chamado:', dataChamado);
+            return extrairMesAnoDeData(dataChamado);
+        }
+        
+        console.log('📅 Usando filtros:', { mes: mesFiltro, ano: anoFiltro });
+        return {
+            mes: mesFiltro ?? new Date().getMonth() + 1,
+            ano: anoFiltro ?? new Date().getFullYear()
+        };
+    }, [dataChamado, mesFiltro, anoFiltro]);
 
     // Estados
     const [isModalObsOpen, setIsModalObsOpen] = useState(false);
@@ -131,23 +197,50 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSPro
     const { columnWidths, handleMouseDown, handleDoubleClick, resizingColumn } =
         useRedimensionarColunas(INITIAL_COLUMN_WIDTHS);
 
+    // ✅ DEBUG: Log dos parâmetros quando o modal abre
+    React.useEffect(() => {
+        if (isOpen && codChamado) {
+            console.log('🔍 TabelaOS aberta com parâmetros:', {
+                isOpen,
+                codChamado,
+                dataChamado,
+                isAdmin,
+                codCliente,
+                mes: mesExtraido,
+                ano: anoExtraido
+            });
+        }
+    }, [isOpen, codChamado, dataChamado, isAdmin, codCliente, mesExtraido, anoExtraido]);
+
     // =====================================================
     // REACT QUERY
     // =====================================================
     const { data, isLoading, error } = useQuery({
-        queryKey: ['modal-os-lista', codChamado, isAdmin, codCliente, mes, ano],
+        queryKey: ['modal-os-lista', codChamado, isAdmin, codCliente, mesExtraido, anoExtraido],
         queryFn: () =>
             fetchOSByChamado({
                 codChamado: codChamado!,
                 isAdmin,
                 codCliente,
-                mes: mes ?? new Date().getMonth() + 1,
-                ano: ano ?? new Date().getFullYear(),
+                mes: mesExtraido,
+                ano: anoExtraido,
             }),
-        enabled: isOpen && codChamado !== null && !!mes && !!ano,
+        enabled: isOpen && codChamado !== null,
         staleTime: 5 * 60 * 1000,
         retry: 2,
     });
+
+    // ✅ DEBUG: Log do estado da query
+    React.useEffect(() => {
+        if (isOpen && codChamado) {
+            console.log('📊 Estado da Query:', {
+                isLoading,
+                error: error?.message,
+                hasData: !!data,
+                dataLength: data?.data?.length
+            });
+        }
+    }, [isOpen, codChamado, isLoading, error, data]);
 
     // =====================================================
     // MEMOIZAÇÕES
@@ -156,12 +249,19 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSPro
 
     const columns = useMemo(() => getColunasOS(), []);
 
-    const dataChamado = useMemo(() => {
+    const dataChamadoFormatada = useMemo(() => {
         if (data?.dataChamado) {
             return formatarDataParaBR(data.dataChamado);
         }
-        return `${mes}/${ano}`;
-    }, [data?.dataChamado, mes, ano]);
+        if (dataChamado) {
+            if (typeof dataChamado === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(dataChamado)) {
+                return dataChamado;
+            }
+            const dataChamadoString = typeof dataChamado === 'string' ? dataChamado : dataChamado.toISOString();
+            return formatarDataParaBR(dataChamadoString);
+        }
+        return `${mesExtraido}/${anoExtraido}`;
+    }, [data?.dataChamado, dataChamado, mesExtraido, anoExtraido]);
 
     const observacaoModalData = useMemo(
         () => ({
@@ -219,9 +319,22 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSPro
     if (error) {
         return (
             <ModalOverlay>
-                <IsError isError={!!error} error={error as Error} title="Erro ao Carregar OS's" />
+                <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[800px] flex-col overflow-hidden rounded-xl bg-white p-8 shadow-md shadow-black">
+                    <IsError isError={!!error} error={error as Error} title="Erro ao Carregar OS's" />
+                    <button
+                        onClick={onClose}
+                        className="mt-4 cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 px-6 py-2 text-white shadow-md shadow-black transition-all hover:scale-105 active:scale-95"
+                    >
+                        Fechar
+                    </button>
+                </div>
             </ModalOverlay>
         );
+    }
+
+    // ✅ DEBUG: Verificar se não há dados
+    if (osData.length === 0) {
+        console.warn('⚠️ Nenhuma OS encontrada para o chamado', codChamado);
     }
 
     // =====================================================
@@ -233,12 +346,12 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSPro
                 <ModalContainer>
                     <ModalHeader
                         codChamado={codChamado}
-                        dataChamado={dataChamado}
+                        dataChamado={dataChamadoFormatada}
                         onClose={onClose}
                     />
 
                     <ModalContent>
-                        {osData.length > 0 && (
+                        {osData.length > 0 ? (
                             <TableContainer>
                                 <OSTable
                                     table={table}
@@ -248,6 +361,15 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS }: ModalOSPro
                                     resizingColumn={resizingColumn}
                                 />
                             </TableContainer>
+                        ) : (
+                            <div className="flex flex-col items-center justify-center py-20">
+                                <p className="text-2xl font-bold text-gray-600">
+                                    Nenhuma OS encontrada para este chamado
+                                </p>
+                                <p className="mt-2 text-gray-500">
+                                    Período: {mesExtraido}/{anoExtraido}
+                                </p>
+                            </div>
                         )}
                     </ModalContent>
                 </ModalContainer>

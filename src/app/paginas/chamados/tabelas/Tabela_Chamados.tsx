@@ -618,6 +618,10 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 codChamado={selectedChamado}
                 onClose={handleCloseModalListaOS}
                 onSelectOS={handleOSSelect}
+                dataChamado={
+                    dadosCompletosFiltrados.find((c) => c.COD_CHAMADO === selectedChamado)
+                        ?.DATA_CHAMADO
+                }
             />
             <ModalValidarOS
                 isOpen={isModalOSOpen}
