@@ -20,6 +20,7 @@ export type ChamadoRowProps = {
     CONCLUSAO_CHAMADO: string | null;
     STATUS_CHAMADO: string;
     DTENVIO_CHAMADO: string | null;
+    DTINI_CHAMADO: string | null;
     ASSUNTO_CHAMADO: string | null;
     EMAIL_CHAMADO: string | null;
     PRIOR_CHAMADO: number;
@@ -412,7 +413,7 @@ export const getColunasChamados = (
                     HORA_CHAMADO,
                     PRIOR_CHAMADO,
                     STATUS_CHAMADO,
-                    CONCLUSAO_CHAMADO,
+                    DTINI_CHAMADO, // ✅ ADICIONAR
                 } = row.original;
 
                 return (
@@ -421,7 +422,7 @@ export const getColunasChamados = (
                         horaChamado={HORA_CHAMADO}
                         prioridade={PRIOR_CHAMADO}
                         statusChamado={STATUS_CHAMADO}
-                        dataConclusao={CONCLUSAO_CHAMADO}
+                        dataInicioAtendimento={DTINI_CHAMADO}
                     />
                 );
             },

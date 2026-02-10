@@ -13,6 +13,7 @@ export interface Chamado {
     CONCLUSAO_CHAMADO: Date | null;
     STATUS_CHAMADO: string;
     DTENVIO_CHAMADO: string | null;
+    DTINI_CHAMADO: string | null; // ✅ ADICIONAR
     ASSUNTO_CHAMADO: string | null;
     EMAIL_CHAMADO: string | null;
     PRIOR_CHAMADO: number;
@@ -27,7 +28,6 @@ export interface Chamado {
     DATA_HISTCHAMADO?: Date | null;
     HORA_HISTCHAMADO?: string | null;
 
-    // ✅ ADICIONAR CAMPOS SLA
     SLA_STATUS?: string;
     SLA_PERCENTUAL?: number;
     SLA_TEMPO_DECORRIDO?: number;
@@ -58,6 +58,7 @@ interface ChamadoRaw {
     CONCLUSAO_CHAMADO: Date | null;
     STATUS_CHAMADO: string;
     DTENVIO_CHAMADO: string | null;
+    DTINI_CHAMADO: string | null; // ✅ ADICIONAR
     ASSUNTO_CHAMADO: string | null;
     EMAIL_CHAMADO: string | null;
     PRIOR_CHAMADO: number;
@@ -106,6 +107,7 @@ const CAMPOS_CHAMADO_BASE = `CHAMADO.COD_CHAMADO,
     CHAMADO.CONCLUSAO_CHAMADO,
     CHAMADO.STATUS_CHAMADO,
     CHAMADO.DTENVIO_CHAMADO,
+    CHAMADO.DTINI_CHAMADO,
     CHAMADO.ASSUNTO_CHAMADO,
     CHAMADO.EMAIL_CHAMADO,
     CHAMADO.PRIOR_CHAMADO,
@@ -592,7 +594,6 @@ const buscarNomes = async (
 // ==================== PROCESSAMENTO ====================
 const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado[] => {
     return chamados.map((c) => {
-        // Dados base do chamado
         const chamadoBase: Chamado = {
             COD_CHAMADO: c.COD_CHAMADO,
             DATA_CHAMADO: c.DATA_CHAMADO,
@@ -601,6 +602,7 @@ const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado
             CONCLUSAO_CHAMADO: c.CONCLUSAO_CHAMADO || null,
             STATUS_CHAMADO: c.STATUS_CHAMADO,
             DTENVIO_CHAMADO: c.DTENVIO_CHAMADO || null,
+            DTINI_CHAMADO: c.DTINI_CHAMADO || null, // ✅ ADICIONAR
             ASSUNTO_CHAMADO: c.ASSUNTO_CHAMADO || null,
             EMAIL_CHAMADO: c.EMAIL_CHAMADO || null,
             PRIOR_CHAMADO: c.PRIOR_CHAMADO ?? 100,
@@ -616,19 +618,19 @@ const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado
             HORA_HISTCHAMADO: c.HORA_HISTCHAMADO || null,
         };
 
-        // ✅ Se incluirSLA = false OU chamado está finalizado, retorna sem SLA
-        if (!incluirSLA || c.STATUS_CHAMADO?.toUpperCase() === 'FINALIZADO') {
+        // ✅ Se incluirSLA = false OU já iniciou atendimento, retorna sem SLA
+        if (!incluirSLA || c.DTINI_CHAMADO) {
             return chamadoBase;
         }
 
-        // ✅ Calcular SLA para chamados não finalizados
+        // ✅ Calcular SLA apenas para chamados que ainda não iniciaram atendimento
         try {
             const sla = calcularStatusSLA(
                 c.DATA_CHAMADO,
                 c.HORA_CHAMADO ?? '00:00',
                 c.PRIOR_CHAMADO ?? 100,
                 c.STATUS_CHAMADO,
-                c.CONCLUSAO_CHAMADO,
+                c.DTINI_CHAMADO ? new Date(c.DTINI_CHAMADO) : null, // ✅ USAR DTINI_CHAMADO
                 'resolucao'
             );
 

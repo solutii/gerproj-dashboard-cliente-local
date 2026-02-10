@@ -134,7 +134,7 @@ function calcularStatusSLA(
     horaChamado: string,
     prioridade: number,
     statusChamado: string,
-    dataConclusao?: Date | null,
+    dataInicioAtendimento?: Date | null,
     tipoSLA: 'resposta' | 'resolucao' = 'resolucao'
 ): SLAStatus {
     const config = SLA_CONFIGS[prioridade] || SLA_CONFIGS[100];
@@ -145,7 +145,8 @@ function calcularStatusSLA(
     const dataAbertura = new Date(dataChamado);
     dataAbertura.setHours(horas, minutos, 0, 0);
 
-    const dataReferencia = dataConclusao || new Date();
+    // ✅ MUDANÇA: Usar dataInicioAtendimento se existir, senão usa data atual
+    const dataReferencia = dataInicioAtendimento || new Date();
 
     const tempoDecorrido = calcularHorasUteis(dataAbertura, dataReferencia);
     const tempoRestante = Math.max(0, prazoTotal - tempoDecorrido);
@@ -174,32 +175,28 @@ function calcularStatusSLA(
 
 /**
  * Hook para calcular SLA com atualização automática
+ * Calcula o tempo entre a abertura do chamado e o início do atendimento
+ *
  * @param dataChamado Data de abertura do chamado
  * @param horaChamado Hora de abertura (formato "HHMM" ou "HH:MM")
  * @param prioridade Prioridade do chamado (1-4 ou 100)
  * @param statusChamado Status atual do chamado
- * @param dataConclusao Data de conclusão (se houver)
+ * @param dataInicioAtendimento Data de início do atendimento (DTINI_CHAMADO)
  * @param intervalMs Intervalo de atualização em milissegundos (padrão: 60000 = 1 minuto)
- * @returns SLAStatus atualizado dinamicamente
+ * @returns SLAStatus atualizado dinamicamente ou null se dados inválidos
  */
 export function useSLADinamico(
     dataChamado: Date | string | null,
     horaChamado: string | null,
     prioridade: number,
     statusChamado: string,
-    dataConclusao?: Date | string | null,
+    dataInicioAtendimento?: Date | string | null,
     intervalMs: number = 60000 // Atualiza a cada 1 minuto por padrão
 ): SLAStatus | null {
     const [sla, setSLA] = useState<SLAStatus | null>(null);
 
     useEffect(() => {
-        // Não calcula SLA para chamados finalizados
-        if (statusChamado?.toUpperCase() === 'FINALIZADO') {
-            setSLA(null);
-            return;
-        }
-
-        // Validações
+        // Validações básicas
         if (!dataChamado || !horaChamado) {
             setSLA(null);
             return;
@@ -209,10 +206,12 @@ export function useSLADinamico(
         const atualizarSLA = () => {
             try {
                 const data = typeof dataChamado === 'string' ? new Date(dataChamado) : dataChamado;
-                const conclusao = dataConclusao
-                    ? typeof dataConclusao === 'string'
-                        ? new Date(dataConclusao)
-                        : dataConclusao
+
+                // ✅ Converter dataInicioAtendimento se existir
+                const inicioAtendimento = dataInicioAtendimento
+                    ? typeof dataInicioAtendimento === 'string'
+                        ? new Date(dataInicioAtendimento)
+                        : dataInicioAtendimento
                     : null;
 
                 const slaCalculado = calcularStatusSLA(
@@ -220,7 +219,7 @@ export function useSLADinamico(
                     horaChamado,
                     prioridade,
                     statusChamado,
-                    conclusao,
+                    inicioAtendimento, // ✅ Passa a data de início se existir
                     'resolucao'
                 );
 
@@ -234,7 +233,12 @@ export function useSLADinamico(
         // Calcula imediatamente
         atualizarSLA();
 
-        // Apenas configura intervalo se estiver em horário comercial
+        // ✅ Se já tem dataInicioAtendimento, não precisa atualizar dinamicamente
+        if (dataInicioAtendimento) {
+            return; // SLA está "congelado" na data de início do atendimento
+        }
+
+        // ✅ Apenas configura intervalo se NÃO tiver início de atendimento e estiver em horário comercial
         const agora = new Date();
         if (isDentroHorarioComercial(agora)) {
             const intervalo = setInterval(atualizarSLA, intervalMs);
@@ -254,14 +258,18 @@ export function useSLADinamico(
         ); // 5 minutos
 
         return () => clearInterval(intervaloChecagem);
-    }, [dataChamado, horaChamado, prioridade, statusChamado, dataConclusao, intervalMs]);
+    }, [dataChamado, horaChamado, prioridade, statusChamado, dataInicioAtendimento, intervalMs]);
 
     return sla;
 }
 
 /**
- * Hook simplificado que retorna apenas se deve mostrar o SLA
+ * Hook simplificado que retorna se deve mostrar o SLA
+ * ✅ ATUALIZADO: Sempre retorna true (mostra para todos os status)
  */
-export function useDeveMostrarSLA(statusChamado: string): boolean {
-    return statusChamado?.toUpperCase() !== 'FINALIZADO';
+export function useDeveMostrarSLA(
+    statusChamado: string,
+    dataInicioAtendimento?: Date | string | null
+): boolean {
+    return true; // ✅ Sempre mostra SLA
 }
