@@ -58,6 +58,7 @@ interface Filtros {
     classificacao: string;
     atribuicao: string;
     finalizacao: string;
+    inicio: string;
 }
 
 interface FiltrosChamadoProps {
@@ -74,6 +75,7 @@ interface FiltrosChamadoProps {
         DTENVIO_CHAMADO?: string | null;
         DATA_HISTCHAMADO?: string | null;
         HORA_HISTCHAMADO?: string | null;
+        DTINI_CHAMADO?: string | null;
         [key: string]: any;
     }>;
 }
@@ -154,37 +156,66 @@ function extrairMesDeData(dataChamado: string | Date | number | null | undefined
 function formatarData(data: string | Date | number | null | undefined): string | null {
     if (!data) return null;
 
-    // Se já é uma string formatada (dd/mm/yyyy), retorna direto
-    if (typeof data === 'string') {
-        // Verifica se é uma string no formato dd/mm/yyyy
-        if (/^\d{2}\/\d{2}\/\d{4}$/.test(data)) {
+    try {
+        // Tipo 1: String já formatada dd/mm/yyyy
+        if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(data)) {
             return data;
         }
-        // Senão, tenta converter para Date
-        const dataObj = new Date(data);
-        if (isNaN(dataObj.getTime())) return null;
 
-        const dia = dataObj.getDate().toString().padStart(2, '0');
-        const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
-        const ano = dataObj.getFullYear();
-        return `${dia}/${mes}/${ano}`;
+        // Tipo 2: String com traço dd/mm/yyyy - hh:mm
+        if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} - \d{2}:\d{2}$/.test(data)) {
+            return data.split(' - ')[0];
+        }
+
+        // Tipo 3: String com espaço dd/mm/yyyy hh:mm:ss ou dd/mm/yyyy hh:mm
+        if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/.test(data)) {
+            return data.split(' ')[0];
+        }
+
+        // Tipo 4: String ISO completa (yyyy-mm-ddThh:mm:ss.sssZ) - USAR HORA LOCAL
+        if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(data)) {
+            const dataObj = new Date(data);
+            if (isNaN(dataObj.getTime())) return null;
+            // 🔧 CONSISTENTE: Usar hora LOCAL
+            const dia = dataObj.getDate().toString().padStart(2, '0');
+            const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
+            const ano = dataObj.getFullYear();
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        // Tipo 5: String ISO simples (yyyy-mm-dd sem hora)
+        if (typeof data === 'string') {
+            const isoMatch = data.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (isoMatch) {
+                const [, ano, mes, dia] = isoMatch;
+                return `${dia}/${mes}/${ano}`;
+            }
+        }
+
+        // Tipo 6: Date object - USAR HORA LOCAL
+        if (data instanceof Date) {
+            if (isNaN(data.getTime())) return null;
+            const dia = data.getDate().toString().padStart(2, '0');
+            const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+            const ano = data.getFullYear();
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        // Tipo 7: Timestamp - USAR HORA LOCAL
+        if (typeof data === 'number') {
+            const dataObj = new Date(data);
+            if (isNaN(dataObj.getTime())) return null;
+            const dia = dataObj.getDate().toString().padStart(2, '0');
+            const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
+            const ano = dataObj.getFullYear();
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        return null;
+    } catch (error) {
+        console.error('Erro ao formatar data:', error);
+        return null;
     }
-
-    let dataObj: Date | null = null;
-
-    if (data instanceof Date) {
-        dataObj = data;
-    } else if (typeof data === 'number') {
-        dataObj = new Date(data);
-    }
-
-    if (!dataObj || isNaN(dataObj.getTime())) return null;
-
-    const dia = dataObj.getDate().toString().padStart(2, '0');
-    const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
-    const ano = dataObj.getFullYear();
-
-    return `${dia}/${mes}/${ano}`;
 }
 
 // ==================== API FETCHERS ====================
@@ -366,6 +397,37 @@ function useEntradasLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) 
         const datasUnicas = new Set<string>();
         dadosChamados.forEach((chamado) => {
             const dataFormatada = formatarData(chamado.DATA_CHAMADO);
+            if (dataFormatada) {
+                datasUnicas.add(dataFormatada);
+            }
+        });
+
+        return Array.from(datasUnicas)
+            .sort((a, b) => {
+                const [diaA, mesA, anoA] = a.split('/').map(Number);
+                const [diaB, mesB, anoB] = b.split('/').map(Number);
+                const dataA = new Date(anoA, mesA - 1, diaA);
+                const dataB = new Date(anoB, mesB - 1, diaB);
+                return dataB.getTime() - dataA.getTime();
+            })
+            .map((data) => ({ value: data, label: data }));
+    }, [dadosChamados]);
+}
+
+function useIniciosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+    return useMemo(() => {
+        if (!dadosChamados?.length) return [];
+
+        // 🔍 DEBUG TEMPORÁRIO
+        const amostra = dadosChamados.find((c) => c.DTINI_CHAMADO);
+        if (amostra) {
+            console.log('🔍 DTINI_CHAMADO raw:', JSON.stringify(amostra.DTINI_CHAMADO));
+            console.log('🔍 typeof:', typeof amostra.DTINI_CHAMADO);
+        }
+
+        const datasUnicas = new Set<string>();
+        dadosChamados.forEach((chamado) => {
+            const dataFormatada = formatarData(chamado.DTINI_CHAMADO);
             if (dataFormatada) {
                 datasUnicas.add(dataFormatada);
             }
@@ -572,6 +634,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const [classificacaoTemp, setClassificacaoTemp] = useState('');
     const [atribuicaoTemp, setAtribuicaoTemp] = useState('');
     const [finalizacaoTemp, setFinalizacaoTemp] = useState('');
+    const [inicioTemp, setInicioTemp] = useState('');
 
     // Estados aplicados
     const [ano, setAno] = useState<number | undefined>(isAdmin ? anoAtual : undefined);
@@ -585,6 +648,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const [classificacaoSelecionada, setClassificacaoSelecionada] = useState('');
     const [atribuicaoSelecionada, setAtribuicaoSelecionada] = useState('');
     const [finalizacaoSelecionada, setFinalizacaoSelecionada] = useState('');
+    const [inicioSelecionado, setInicioSelecionado] = useState('');
 
     const [isInitialized, setIsInitialized] = useState(false);
     const [filtrosForamAlterados, setFiltrosForamAlterados] = useState(false);
@@ -599,6 +663,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const classificacoesLocais = useClassificacoesLocais(dadosChamados);
     const atribuicoesLocais = useAtribuicoesLocais(dadosChamados);
     const finalizacoesLocais = useFinalizacoesLocais(dadosChamados);
+    const iniciosLocais = useIniciosLocais(dadosChamados);
 
     // Debug: Verificar dados recebidos
     useEffect(() => {
@@ -742,6 +807,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             classificacaoTemp !== classificacaoSelecionada,
             atribuicaoTemp !== atribuicaoSelecionada,
             finalizacaoTemp !== finalizacaoSelecionada,
+            inicioTemp !== inicioSelecionado,
         ].filter(Boolean).length;
     }, [
         anoTemp,
@@ -766,7 +832,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         atribuicaoSelecionada,
         finalizacaoTemp,
         finalizacaoSelecionada,
-        isAdmin,
+        inicioTemp,
     ]);
 
     const temMudancas = mudancasCount > 0;
@@ -784,6 +850,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         const temClassificacao = classificacaoSelecionada;
         const temAtribuicao = atribuicaoSelecionada;
         const temFinalizacao = finalizacaoSelecionada;
+        const temInicio = inicioSelecionado;
 
         return (
             temAnoMesDiferente ||
@@ -795,7 +862,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             temPrioridade ||
             temClassificacao ||
             temAtribuicao ||
-            temFinalizacao
+            temFinalizacao ||
+            temInicio
         );
     }, [
         ano,
@@ -809,7 +877,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         classificacaoSelecionada,
         atribuicaoSelecionada,
         finalizacaoSelecionada,
-        isAdmin,
+        inicioSelecionado,
         valoresPadrao,
     ]);
 
@@ -826,6 +894,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         setClassificacaoSelecionada(classificacaoTemp);
         setAtribuicaoSelecionada(atribuicaoTemp);
         setFinalizacaoSelecionada(finalizacaoTemp);
+        setInicioSelecionado(inicioTemp);
 
         if (
             anoTemp !== valoresPadrao.ano ||
@@ -838,7 +907,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             prioridadeTemp ||
             classificacaoTemp ||
             atribuicaoTemp ||
-            finalizacaoTemp
+            finalizacaoTemp ||
+            inicioTemp
         ) {
             setFiltrosForamAlterados(true);
         }
@@ -854,7 +924,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         classificacaoTemp,
         atribuicaoTemp,
         finalizacaoTemp,
-        valoresPadrao,
+        inicioTemp,
     ]);
 
     const limparAnoMes = useCallback(() => {
@@ -890,6 +960,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                 | 'classificacao'
                 | 'atribuicao'
                 | 'finalizacao'
+                | 'inicio'
         ) => {
             switch (campo) {
                 case 'ano':
@@ -941,6 +1012,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                 case 'finalizacao':
                     setFinalizacaoTemp('');
                     setFinalizacaoSelecionada('');
+                    break;
+                case 'inicio':
+                    setInicioTemp('');
+                    setInicioSelecionado('');
                     break;
             }
 
@@ -1039,6 +1114,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         setClassificacaoTemp('');
         setAtribuicaoTemp('');
         setFinalizacaoTemp('');
+        setInicioTemp('');
 
         setAno(valoresPadrao.ano);
         setMes(valoresPadrao.mes);
@@ -1051,6 +1127,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         setClassificacaoSelecionada('');
         setAtribuicaoSelecionada('');
         setFinalizacaoSelecionada('');
+        setInicioSelecionado('');
         setFiltrosForamAlterados(false);
     }, [valoresPadrao, isAdmin]);
 
@@ -1111,6 +1188,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             classificacao: classificacaoSelecionada,
             atribuicao: atribuicaoSelecionada,
             finalizacao: finalizacaoSelecionada,
+            inicio: inicioSelecionado,
         }),
         [
             ano,
@@ -1124,6 +1202,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             classificacaoSelecionada,
             atribuicaoSelecionada,
             finalizacaoSelecionada,
+            inicioSelecionado,
         ]
     );
 
@@ -1165,7 +1244,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                 options={years.map((y) => ({ value: y, label: String(y) }))}
                                 placeholder={
                                     anoDesabilitado
-                                        ? 'Aplique o filtro p/ selecionar ano'
+                                        ? 'Aplique o filtro p/ selecionar o ano'
                                         : 'Selecione o ano'
                                 }
                                 className={selectClassName}
@@ -1180,9 +1259,9 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                 options={mesesDisponiveis}
                                 placeholder={
                                     anoDesabilitado
-                                        ? 'Aplique o filtro p/ selecionar mês'
+                                        ? 'Aplique o filtro p/ selecionar o mês'
                                         : !anoTemp
-                                          ? 'Selecione o ano p/ selecionar mês'
+                                          ? 'Selecione o ano p/ selecionar o mês'
                                           : mesesDisponiveis.length === 0
                                             ? 'Nenhum mês disponível'
                                             : 'Selecione o mês'
@@ -1216,12 +1295,12 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                 }))}
                                 placeholder={
                                     recursoDesabilitadoPorStatus
-                                        ? 'Aplique o filtro p/ selecionar recurso'
+                                        ? 'Aplique o filtro p/ selecionar o consultor'
                                         : isLoadingRecursos
                                           ? 'Carregando...'
                                           : recursosLocais.length === 0
-                                            ? 'Nenhum recurso disponível'
-                                            : 'Selecione o recurso'
+                                            ? 'Nenhum consultor disponível'
+                                            : 'Selecione o consultor'
                                 }
                                 className={selectClassName}
                             />
@@ -1239,7 +1318,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         </div>
 
                         {/* SEGUNDA LINHA - Novos Filtros Locais */}
-                        <div className="grid grid-cols-6 gap-6">
+                        <div className="grid grid-cols-7 gap-6">
                             <SelectWithClear
                                 value={chamadoTemp}
                                 valorAplicado={chamadoSelecionado}
@@ -1265,7 +1344,37 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                 placeholder={
                                     entradasLocais.length === 0
                                         ? 'Nenhuma entrada disponível'
-                                        : 'Selecione a entrada'
+                                        : 'Selecione a data de entrada'
+                                }
+                                className={selectClassName}
+                            />
+
+                            <SelectWithClear
+                                value={inicioTemp}
+                                valorAplicado={inicioSelecionado}
+                                onChange={setInicioTemp}
+                                onClearImmediate={() => limparFiltroIndividual('inicio')}
+                                disabled={iniciosLocais.length === 0}
+                                options={iniciosLocais}
+                                placeholder={
+                                    iniciosLocais.length === 0
+                                        ? 'Nenhum início disponível'
+                                        : 'Selecione o início'
+                                }
+                                className={selectClassName}
+                            />
+
+                            <SelectWithClear
+                                value={atribuicaoTemp}
+                                valorAplicado={atribuicaoSelecionada}
+                                onChange={setAtribuicaoTemp}
+                                onClearImmediate={() => limparFiltroIndividual('atribuicao')}
+                                disabled={atribuicoesLocais.length === 0}
+                                options={atribuicoesLocais}
+                                placeholder={
+                                    atribuicoesLocais.length === 0
+                                        ? 'Nenhuma atribuição disponível'
+                                        : 'Selecione a atribuição'
                                 }
                                 className={selectClassName}
                             />
@@ -1296,21 +1405,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                     classificacoesLocais.length === 0
                                         ? 'Nenhuma classificação disponível'
                                         : 'Selecione a classificação'
-                                }
-                                className={selectClassName}
-                            />
-
-                            <SelectWithClear
-                                value={atribuicaoTemp}
-                                valorAplicado={atribuicaoSelecionada}
-                                onChange={setAtribuicaoTemp}
-                                onClearImmediate={() => limparFiltroIndividual('atribuicao')}
-                                disabled={atribuicoesLocais.length === 0}
-                                options={atribuicoesLocais}
-                                placeholder={
-                                    atribuicoesLocais.length === 0
-                                        ? 'Nenhuma atribuição disponível'
-                                        : 'Selecione a atribuição'
                                 }
                                 className={selectClassName}
                             />

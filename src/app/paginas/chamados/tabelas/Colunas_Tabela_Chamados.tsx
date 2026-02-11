@@ -1,7 +1,7 @@
 // src/app/paginas/chamados/tabelas/Colunas_Tabela_Chamados.tsx
 
 import { SLACell } from '@/app/paginas/chamados/componentes/SLA_Cell';
-import { formatarDataHoraChamado } from '@/formatters/formatar-data';
+import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros, formatarPrioridade } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
@@ -260,7 +260,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== DATA/HORA DO CHAMADO ====================
+        // ==================== DATA/HORA DE ABERTURADO DO CHAMADO ====================
         {
             id: 'DATA_CHAMADO',
             header: () => <CellHeader>ENTRADA</CellHeader>,
@@ -275,76 +275,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== PRIORIDADE ====================
-        {
-            accessorKey: 'PRIOR_CHAMADO',
-            id: 'PRIOR_CHAMADO',
-            header: () => <CellHeader>PRIOR.</CellHeader>,
-            cell: ({ getValue }) => {
-                const value = getValue() as number;
-                return <CellText value={formatarPrioridade(value)} />;
-            },
-            enableColumnFilter: true,
-        },
-
-        // ==================== ASSUNTO ====================
-        {
-            accessorKey: 'ASSUNTO_CHAMADO',
-            id: 'ASSUNTO_CHAMADO',
-            header: () => <CellHeader>ASSUNTO</CellHeader>,
-            cell: ({ getValue, row }) => {
-                const value = getValue() as string | null;
-                const correctedText = corrigirTextoCorrompido(value);
-
-                return (
-                    <div className="flex w-full items-center gap-4">
-                        {onOpenSolicitacao && (
-                            <ActionButton
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onOpenSolicitacao(row.original);
-                                }}
-                                title="Visualizar assunto e solicitação do chamado"
-                            />
-                        )}
-                        <TruncatedCell value={correctedText} />
-                    </div>
-                );
-            },
-            enableColumnFilter: true,
-        },
-
-        // ==================== EMAIL ====================
-        {
-            accessorKey: 'EMAIL_CHAMADO',
-            id: 'EMAIL_CHAMADO',
-            header: () => <CellHeader>EMAIL</CellHeader>,
-            cell: ({ getValue }) => {
-                const value = (getValue() as string) ?? EMPTY_VALUE;
-
-                if (value === EMPTY_VALUE) {
-                    return <CellText value={value} />;
-                }
-
-                return <TruncatedCell value={value} />;
-            },
-            enableColumnFilter: true,
-        },
-
-        // ==================== CLASSIFICAÇÃO ====================
-        {
-            accessorKey: 'NOME_CLASSIFICACAO',
-            id: 'NOME_CLASSIFICACAO',
-            header: () => <CellHeader>CLASSIFICAÇÃO</CellHeader>,
-            cell: ({ getValue }) => {
-                const value = getValue() as string | null;
-                const correctedText = corrigirTextoCorrompido(value);
-                return <TruncatedCell value={correctedText} centered />;
-            },
-            enableColumnFilter: true,
-        },
-
-        // ==================== DATA DE ATRIBUIÇÃO ====================
+        // ==================== DATA/HORA DE ATRIBUIÇÃO DO CHAMADO ====================
         {
             accessorKey: 'DTENVIO_CHAMADO',
             id: 'DTENVIO_CHAMADO',
@@ -356,51 +287,29 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== CONSULTOR ====================
+        // ==================== DATA/HORA DE INÍCIO DO CHAMADO ====================
         {
-            accessorKey: 'NOME_RECURSO',
-            id: 'NOME_RECURSO',
-            header: () => <CellHeader>CONSULTOR</CellHeader>,
+            accessorKey: 'DTINI_CHAMADO',
+            id: 'DTINI_CHAMADO',
+            header: () => <CellHeader>INÍCIO</CellHeader>,
             cell: ({ getValue }) => {
-                const value = (getValue() as string) ?? EMPTY_VALUE;
+                const value = getValue() as string | null;
 
-                if (value === EMPTY_VALUE) {
-                    return <CellText value={value} />;
+                if (!value) {
+                    return <CellText value={EMPTY_VALUE} />;
                 }
 
-                const displayName = formatNomeRecurso(value);
-                return <TruncatedCell value={displayName} centered />;
+                // Extrai data e hora independente do formato
+                const separator = value.includes('T') ? 'T' : ' ';
+                const [data, hora] = value.split(separator);
+
+                if (data && hora) {
+                    return <CellText value={formatarDataHoraChamado(data, hora)} />;
+                }
+
+                return <CellText value={formatarDataParaBR(data || value)} />;
             },
             enableColumnFilter: true,
-        },
-
-        // ==================== STATUS ====================
-        {
-            accessorKey: 'STATUS_CHAMADO',
-            id: 'STATUS_CHAMADO',
-            header: () => <CellHeader>STATUS</CellHeader>,
-            cell: ({ getValue, row }) => {
-                const value = getValue() as string;
-                const avaliacao = row.original.AVALIA_CHAMADO;
-
-                return (
-                    <StatusBadge
-                        status={value}
-                        avaliacao={avaliacao}
-                        onAvaliar={() => onOpenAvaliacao?.(row.original)}
-                    />
-                );
-            },
-            enableColumnFilter: true,
-            filterFn: (row, _columnId, filterValue) => {
-                if (!filterValue) return true;
-
-                const value = row.getValue('STATUS_CHAMADO') as string | null | undefined;
-                const cellValueUpper = (value ?? '').toString().toUpperCase().trim();
-                const filterValueUpper = filterValue.toString().toUpperCase().trim();
-
-                return cellValueUpper === filterValueUpper;
-            },
         },
 
         // ==================== SLA ====================
@@ -429,7 +338,7 @@ export const getColunasChamados = (
             enableColumnFilter: false,
         },
 
-        // ==================== DATA DE FINALIZAÇÃO ====================
+        // ==================== DATA/HORA DE FINALIZAÇÃO DO CHAMADO ====================
         {
             id: 'DATA_HISTCHAMADO',
             header: () => <CellHeader>FINALIZAÇÃO</CellHeader>,
@@ -447,6 +356,122 @@ export const getColunasChamados = (
                 return (
                     <CellText value={formatarDataHoraChamado(DATA_HISTCHAMADO, HORA_HISTCHAMADO)} />
                 );
+            },
+            enableColumnFilter: true,
+        },
+
+        // ==================== STATUS DO CHAMADO ====================
+        {
+            accessorKey: 'STATUS_CHAMADO',
+            id: 'STATUS_CHAMADO',
+            header: () => <CellHeader>STATUS</CellHeader>,
+            cell: ({ getValue, row }) => {
+                const value = getValue() as string;
+                const avaliacao = row.original.AVALIA_CHAMADO;
+
+                return (
+                    <StatusBadge
+                        status={value}
+                        avaliacao={avaliacao}
+                        onAvaliar={() => onOpenAvaliacao?.(row.original)}
+                    />
+                );
+            },
+            enableColumnFilter: true,
+            filterFn: (row, _columnId, filterValue) => {
+                if (!filterValue) return true;
+
+                const value = row.getValue('STATUS_CHAMADO') as string | null | undefined;
+                const cellValueUpper = (value ?? '').toString().toUpperCase().trim();
+                const filterValueUpper = filterValue.toString().toUpperCase().trim();
+
+                return cellValueUpper === filterValueUpper;
+            },
+        },
+
+        // ==================== ASSUNTO DO CHAMADO ====================
+        {
+            accessorKey: 'ASSUNTO_CHAMADO',
+            id: 'ASSUNTO_CHAMADO',
+            header: () => <CellHeader>ASSUNTO</CellHeader>,
+            cell: ({ getValue, row }) => {
+                const value = getValue() as string | null;
+                const correctedText = corrigirTextoCorrompido(value);
+
+                return (
+                    <div className="flex w-full items-center gap-4">
+                        {onOpenSolicitacao && (
+                            <ActionButton
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onOpenSolicitacao(row.original);
+                                }}
+                                title="Visualizar assunto e solicitação do chamado"
+                            />
+                        )}
+                        <TruncatedCell value={correctedText} />
+                    </div>
+                );
+            },
+            enableColumnFilter: true,
+        },
+
+        // ==================== EMAIL DO CHAMADO ====================
+        {
+            accessorKey: 'EMAIL_CHAMADO',
+            id: 'EMAIL_CHAMADO',
+            header: () => <CellHeader>EMAIL</CellHeader>,
+            cell: ({ getValue }) => {
+                const value = (getValue() as string) ?? EMPTY_VALUE;
+
+                if (value === EMPTY_VALUE) {
+                    return <CellText value={value} />;
+                }
+
+                return <TruncatedCell value={value} />;
+            },
+            enableColumnFilter: true,
+        },
+
+        // ==================== CLASSIFICAÇÃO DO CHAMADO ====================
+        {
+            accessorKey: 'NOME_CLASSIFICACAO',
+            id: 'NOME_CLASSIFICACAO',
+            header: () => <CellHeader>CLASSIFICAÇÃO</CellHeader>,
+            cell: ({ getValue }) => {
+                const value = getValue() as string | null;
+                const correctedText = corrigirTextoCorrompido(value);
+                return <TruncatedCell value={correctedText} centered />;
+            },
+            enableColumnFilter: true,
+        },
+
+        // ==================== RECURSO DO CHAMADO ====================
+        {
+            accessorKey: 'NOME_RECURSO',
+            id: 'NOME_RECURSO',
+            header: () => <CellHeader>CONSULTOR</CellHeader>,
+            cell: ({ getValue }) => {
+                const value = (getValue() as string) ?? EMPTY_VALUE;
+
+                if (value === EMPTY_VALUE) {
+                    return <CellText value={value} />;
+                }
+
+                const displayName = formatNomeRecurso(value);
+                return <TruncatedCell value={displayName} centered />;
+            },
+            enableColumnFilter: true,
+        },
+
+        // ==================== PRIORIDADE DO CHAMADO ====================
+        {
+            accessorKey: 'PRIOR_CHAMADO',
+            id: 'PRIOR_CHAMADO',
+            header: () => <CellHeader>PRIOR.</CellHeader>,
+            cell: ({ getValue }) => {
+                const value = getValue() as number;
+                return <CellText value={formatarPrioridade(value)} />;
             },
             enableColumnFilter: true,
         },

@@ -29,6 +29,7 @@ function TabelaComFiltros({ onDataChange }: TabelaComFiltrosProps) {
             filtros.classificacao,
             filtros.atribuicao,
             filtros.finalizacao,
+            filtros.inicio,
         ].join('-');
     }, [
         filtros.ano,
@@ -42,6 +43,7 @@ function TabelaComFiltros({ onDataChange }: TabelaComFiltrosProps) {
         filtros.classificacao,
         filtros.atribuicao,
         filtros.finalizacao,
+        filtros.inicio,
     ]);
 
     return (

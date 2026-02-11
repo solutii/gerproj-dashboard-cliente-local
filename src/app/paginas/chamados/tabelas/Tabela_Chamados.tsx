@@ -44,16 +44,17 @@ const PAGINATION_LIMIT = 300;
 
 const INITIAL_COLUMN_WIDTHS = {
     COD_CHAMADO: 110,
-    DATA_CHAMADO: 170,
-    PRIOR_CHAMADO: 110,
-    ASSUNTO_CHAMADO: 280,
-    EMAIL_CHAMADO: 220,
+    DATA_CHAMADO: 160,
+    DTENVIO_CHAMADO: 160,
+    DTINI_CHAMADO: 160,
+    SLA_INFO: 100,
+    DATA_HISTCHAMADO: 160,
+    STATUS_CHAMADO: 240,
+    ASSUNTO_CHAMADO: 300,
+    EMAIL_CHAMADO: 240,
     NOME_CLASSIFICACAO: 180,
-    DTENVIO_CHAMADO: 170,
     NOME_RECURSO: 180,
-    STATUS_CHAMADO: 220,
-    SLA_INFO: 120,
-    DATA_HISTCHAMADO: 170,
+    PRIOR_CHAMADO: 100,
     TOTAL_HORAS_OS: 120,
 } as const;
 
@@ -122,28 +123,61 @@ const formatarDataParaComparacao = (
 ): string | null => {
     if (!data) return null;
 
-    // Se já é uma string formatada (dd/mm/yyyy), retorna direto
+    // Caso 1: já está no formato dd/mm/yyyy puro
     if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(data)) {
         return data;
     }
 
-    let dataObj: Date | null = null;
-
-    if (typeof data === 'string') {
-        dataObj = new Date(data);
-    } else if (data instanceof Date) {
-        dataObj = data;
-    } else if (typeof data === 'number') {
-        dataObj = new Date(data);
+    // Caso 2: dd/mm/yyyy - hh:mm  (formato de DTENVIO_CHAMADO)
+    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} - \d{2}:\d{2}/.test(data)) {
+        return data.split(' - ')[0];
     }
 
-    if (!dataObj || isNaN(dataObj.getTime())) return null;
+    // Caso 3: dd/mm/yyyy hh:mm:ss ou dd/mm/yyyy hh:mm
+    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/.test(data)) {
+        return data.split(' ')[0];
+    }
 
-    const dia = dataObj.getDate().toString().padStart(2, '0');
-    const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
-    const ano = dataObj.getFullYear();
+    // Caso 4: String ISO completa (yyyy-mm-ddThh:mm:ss.sssZ) - USAR HORA LOCAL
+    if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(data)) {
+        const dataObj = new Date(data);
+        if (isNaN(dataObj.getTime())) return null;
+        // 🔧 MUDANÇA: Usar hora LOCAL ao invés de UTC
+        const dia = dataObj.getDate().toString().padStart(2, '0');
+        const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
+        const ano = dataObj.getFullYear();
+        return `${dia}/${mes}/${ano}`;
+    }
 
-    return `${dia}/${mes}/${ano}`;
+    // Caso 5: String ISO simples (yyyy-mm-dd sem hora)
+    if (typeof data === 'string') {
+        const isoMatch = data.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoMatch) {
+            const [, ano, mes, dia] = isoMatch;
+            return `${dia}/${mes}/${ano}`;
+        }
+    }
+
+    // Caso 6: Date object - USAR HORA LOCAL
+    if (data instanceof Date) {
+        if (isNaN(data.getTime())) return null;
+        const dia = data.getDate().toString().padStart(2, '0');
+        const mes = (data.getMonth() + 1).toString().padStart(2, '0');
+        const ano = data.getFullYear();
+        return `${dia}/${mes}/${ano}`;
+    }
+
+    // Caso 7: timestamp numérico - USAR HORA LOCAL
+    if (typeof data === 'number') {
+        const dataObj = new Date(data);
+        if (isNaN(dataObj.getTime())) return null;
+        const dia = dataObj.getDate().toString().padStart(2, '0');
+        const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
+        const ano = dataObj.getFullYear();
+        return `${dia}/${mes}/${ano}`;
+    }
+
+    return null;
 };
 
 // =====================================================
@@ -219,6 +253,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         classificacao,
         atribuicao,
         finalizacao,
+        inicio,
     } = filtros;
 
     // Estados principais
@@ -364,14 +399,34 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         });
     }, [dadosFiltradosPorClassificacao, atribuicao]);
 
-    const dadosFiltradosPorFinalizacao = useMemo(() => {
-        if (!finalizacao) return dadosFiltradosPorAtribuicao;
+    const dadosFiltradosPorInicio = useMemo(() => {
+        if (!inicio) return dadosFiltradosPorAtribuicao;
+
+        // 🔍 DEBUG TEMPORÁRIO
+        const amostra = dadosFiltradosPorAtribuicao.find((c) => c.DTINI_CHAMADO);
+        if (amostra) {
+            console.log('🔍 DTINI_CHAMADO na tabela:', JSON.stringify(amostra.DTINI_CHAMADO));
+            console.log(
+                '🔍 formatarDataParaComparacao result:',
+                formatarDataParaComparacao(amostra.DTINI_CHAMADO)
+            );
+            console.log('🔍 inicio selecionado:', inicio);
+        }
 
         return dadosFiltradosPorAtribuicao.filter((chamadoItem) => {
+            const dataFormatada = formatarDataParaComparacao(chamadoItem.DTINI_CHAMADO);
+            return dataFormatada === inicio;
+        });
+    }, [dadosFiltradosPorAtribuicao, inicio]);
+
+    const dadosFiltradosPorFinalizacao = useMemo(() => {
+        if (!finalizacao) return dadosFiltradosPorInicio; // ← troca aqui
+        return dadosFiltradosPorInicio.filter((chamadoItem) => {
+            // ← troca aqui
             const dataFormatada = formatarDataParaComparacao(chamadoItem.DATA_HISTCHAMADO);
             return dataFormatada === finalizacao;
         });
-    }, [dadosFiltradosPorAtribuicao, finalizacao]);
+    }, [dadosFiltradosPorInicio, finalizacao]);
 
     const dadosCompletosFiltrados = useMemo(() => {
         if (columnFilters.length === 0) return dadosFiltradosPorFinalizacao;
@@ -441,6 +496,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         classificacao,
         atribuicao,
         finalizacao,
+        inicio,
         columnFiltersKey,
     ]);
 
@@ -1028,6 +1084,17 @@ const TableBody = React.memo(function TableBody({
                                     : ''
                             }`}
                         >
+                            {/* <td
+                                key={cell.id}
+                                style={{
+                                    width: `${columnWidths[cell.column.id]}px`,
+                                }}
+                                className={`border-b border-l border-gray-400 px-2 py-3 transition-all ${
+                                    cellIndex === 0 ? 'pl-4' : ''
+                                } ${
+                                    cellIndex === row.getVisibleCells().length - 1 ? 'border-r' : ''
+                                }`}
+                            ></td> */}
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                     ))}

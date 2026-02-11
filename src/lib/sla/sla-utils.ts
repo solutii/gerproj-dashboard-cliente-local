@@ -23,11 +23,11 @@ export interface HorarioComercial {
 
 // Configuração padrão de SLA por prioridade
 export const SLA_CONFIGS: Record<number, SLAConfig> = {
-    1: { prioridade: 1, tempoResposta: 2, tempoResolucao: 8 }, // Crítico
-    2: { prioridade: 2, tempoResposta: 4, tempoResolucao: 16 }, // Alto
-    3: { prioridade: 3, tempoResposta: 8, tempoResolucao: 24 }, // Médio
-    4: { prioridade: 4, tempoResposta: 16, tempoResolucao: 48 }, // Baixo
-    100: { prioridade: 100, tempoResposta: 24, tempoResolucao: 72 }, // Padrão
+    1: { prioridade: 1, tempoResposta: 8, tempoResolucao: 8 }, // Crítico
+    2: { prioridade: 2, tempoResposta: 8, tempoResolucao: 8 }, // Alto
+    3: { prioridade: 3, tempoResposta: 8, tempoResolucao: 8 }, // Médio
+    4: { prioridade: 4, tempoResposta: 8, tempoResolucao: 8 }, // Baixo
+    100: { prioridade: 100, tempoResposta: 8, tempoResolucao: 8 }, // Padrão
 };
 
 // Horário comercial padrão: 8h às 18h, seg-sex
@@ -51,6 +51,67 @@ export function isDentroHorarioComercial(
 }
 
 /**
+ * Normaliza dataFim para o último momento útil caso caia fora do horário comercial.
+ * Exemplos:
+ *   05/02 00:00 (antes do expediente) → 04/02 18:00 (fim do expediente do dia anterior útil)
+ *   04/02 20:00 (após o expediente)   → 04/02 18:00 (fim do expediente do próprio dia)
+ *   06/02 00:00 (sábado, 00:00)       → 05/02 18:00 (fim do expediente da sexta)
+ */
+function normalizarDataFim(data: Date, config: HorarioComercial): Date {
+    const resultado = new Date(data);
+    const hora = resultado.getHours();
+    const minuto = resultado.getMinutes();
+    const segundo = resultado.getSeconds();
+
+    const antesDoExpediente = hora < config.inicio;
+    const aposOExpediente =
+        hora > config.fim || (hora === config.fim && (minuto > 0 || segundo > 0));
+    const exatamenteNoFim = hora === config.fim && minuto === 0 && segundo === 0;
+
+    if (exatamenteNoFim) {
+        // 18:00:00 exato é válido — não normaliza
+        return resultado;
+    }
+
+    if (antesDoExpediente) {
+        // Antes do expediente → recua para o fim do expediente do último dia útil anterior
+        resultado.setDate(resultado.getDate() - 1);
+        while (!config.diasUteis.includes(resultado.getDay())) {
+            resultado.setDate(resultado.getDate() - 1);
+        }
+        resultado.setHours(config.fim, 0, 0, 0);
+        return resultado;
+    }
+
+    if (aposOExpediente) {
+        // Após o expediente → usa o fim do expediente do próprio dia se for dia útil,
+        // senão recua para o último dia útil anterior
+        if (config.diasUteis.includes(resultado.getDay())) {
+            resultado.setHours(config.fim, 0, 0, 0);
+        } else {
+            resultado.setDate(resultado.getDate() - 1);
+            while (!config.diasUteis.includes(resultado.getDay())) {
+                resultado.setDate(resultado.getDate() - 1);
+            }
+            resultado.setHours(config.fim, 0, 0, 0);
+        }
+        return resultado;
+    }
+
+    // Dentro do horário comercial, mas em dia não útil (ex: sábado às 10h)
+    if (!config.diasUteis.includes(resultado.getDay())) {
+        resultado.setDate(resultado.getDate() - 1);
+        while (!config.diasUteis.includes(resultado.getDay())) {
+            resultado.setDate(resultado.getDate() - 1);
+        }
+        resultado.setHours(config.fim, 0, 0, 0);
+        return resultado;
+    }
+
+    return resultado;
+}
+
+/**
  * Calcula horas úteis entre duas datas considerando horário comercial
  */
 export function calcularHorasUteis(
@@ -62,10 +123,18 @@ export function calcularHorasUteis(
         return 0;
     }
 
+    // ✅ Normaliza dataFim: se cair fora do expediente, recua para o último momento útil
+    const dataFimEfetiva = normalizarDataFim(dataFim, config);
+
+    // Se após normalizar dataFim ficou antes ou igual ao início, retorna 0
+    if (dataInicio >= dataFimEfetiva) {
+        return 0;
+    }
+
     let horasUteis = 0;
     const atual = new Date(dataInicio);
 
-    // Normaliza para o início do horário comercial se necessário
+    // Normaliza início para dentro do horário comercial se necessário
     if (atual.getHours() < config.inicio) {
         atual.setHours(config.inicio, 0, 0, 0);
     } else if (atual.getHours() >= config.fim) {
@@ -74,7 +143,7 @@ export function calcularHorasUteis(
         atual.setHours(config.inicio, 0, 0, 0);
     }
 
-    while (atual < dataFim) {
+    while (atual < dataFimEfetiva) {
         const diaAtual = atual.getDay();
 
         // Verifica se é dia útil
@@ -89,8 +158,8 @@ export function calcularHorasUteis(
             // Define o início real (máximo entre atual e início do expediente)
             const inicioReal = atual < inicioExpediente ? inicioExpediente : atual;
 
-            // Define o fim real (mínimo entre dataFim e fim do expediente)
-            const fimReal = dataFim < fimExpediente ? dataFim : fimExpediente;
+            // Define o fim real (mínimo entre dataFimEfetiva e fim do expediente)
+            const fimReal = dataFimEfetiva < fimExpediente ? dataFimEfetiva : fimExpediente;
 
             // Se há trabalho neste dia
             if (inicioReal < fimReal) {
@@ -103,13 +172,14 @@ export function calcularHorasUteis(
         atual.setDate(atual.getDate() + 1);
         atual.setHours(config.inicio, 0, 0, 0);
 
-        // Se já passou do dataFim, encerra
-        if (atual >= dataFim) {
+        // Se já passou do dataFimEfetiva, encerra
+        if (atual >= dataFimEfetiva) {
             break;
         }
     }
 
-    return Math.round(horasUteis * 100) / 100; // Arredonda para 2 casas decimais
+    // ✅ 4 casas decimais para não perder precisão de minutos na exibição
+    return Math.round(horasUteis * 10000) / 10000;
 }
 
 /**
@@ -182,10 +252,10 @@ export function calcularStatusSLA(
     const dataAbertura = new Date(dataChamado);
     dataAbertura.setHours(horas, minutos, 0, 0);
 
-    // Define data de referência (conclusão ou agora)
+    // Define data de referência (conclusão/início atendimento ou agora)
     const dataReferencia = dataConclusao || new Date();
 
-    // Calcula tempo decorrido em horas úteis
+    // ✅ Única chamada — sem duplicata
     const tempoDecorrido = calcularHorasUteis(dataAbertura, dataReferencia);
     const tempoRestante = Math.max(0, prazoTotal - tempoDecorrido);
     const percentualUsado = Math.min(100, (tempoDecorrido / prazoTotal) * 100);
@@ -204,9 +274,9 @@ export function calcularStatusSLA(
 
     return {
         dentroPrazo: percentualUsado < 100,
-        percentualUsado: Math.round(percentualUsado * 10) / 10, // 1 casa decimal
-        tempoRestante: Math.round(tempoRestante * 10) / 10, // 1 casa decimal
-        tempoDecorrido: Math.round(tempoDecorrido * 10) / 10, // 1 casa decimal
+        percentualUsado: Math.round(percentualUsado * 10) / 10, // 1 casa decimal para exibição
+        tempoDecorrido: Math.round(tempoDecorrido * 10000) / 10000, // 4 casas para preservar minutos
+        tempoRestante: Math.round(tempoRestante * 10000) / 10000, // 4 casas para preservar minutos
         prazoTotal,
         status,
     };
