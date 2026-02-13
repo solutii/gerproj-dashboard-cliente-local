@@ -221,14 +221,11 @@ const TruncatedCell = React.memo(function TruncatedCell({
 
 // ==================== DEFINIÇÃO DAS COLUNAS ====================
 export const getColunasChamados = (
-    isAdmin: boolean,
-    expandedRows: Set<number>,
-    columnWidths?: Record<string, number>,
     onOpenSolicitacao?: (chamado: ChamadoRowProps) => void,
     onOpenAvaliacao?: (chamado: ChamadoRowProps) => void
 ): ColumnDef<ChamadoRowProps>[] => {
     return [
-        // ==================== CÓDIGO DO CHAMADO ====================
+        // ========== CÓDIGO DO CHAMADO ==========
         {
             accessorKey: 'COD_CHAMADO',
             id: 'COD_CHAMADO',
@@ -260,7 +257,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== DATA/HORA DE ABERTURADO DO CHAMADO ====================
+        // ========== DATA/HORA DE ABERTURADO DO CHAMADO ==========
         {
             id: 'DATA_CHAMADO',
             header: () => <CellHeader>ENTRADA</CellHeader>,
@@ -275,7 +272,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== DATA/HORA DE ATRIBUIÇÃO DO CHAMADO ====================
+        // ========== DATA/HORA DE ATRIBUIÇÃO DO CHAMADO ==========
         {
             accessorKey: 'DTENVIO_CHAMADO',
             id: 'DTENVIO_CHAMADO',
@@ -287,7 +284,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== DATA/HORA DE INÍCIO DO CHAMADO ====================
+        // ========== DATA/HORA DE INÍCIO DO CHAMADO ==========
         {
             accessorKey: 'DTINI_CHAMADO',
             id: 'DTINI_CHAMADO',
@@ -312,7 +309,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== SLA ====================
+        // ========== SLA ==========
         {
             id: 'SLA_INFO',
             header: () => <CellHeader>SLA</CellHeader>,
@@ -338,7 +335,7 @@ export const getColunasChamados = (
             enableColumnFilter: false,
         },
 
-        // ==================== DATA/HORA DE FINALIZAÇÃO DO CHAMADO ====================
+        // ========== DATA/HORA DE FINALIZAÇÃO DO CHAMADO ==========
         {
             id: 'DATA_HISTCHAMADO',
             header: () => <CellHeader>FINALIZAÇÃO</CellHeader>,
@@ -360,7 +357,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== STATUS DO CHAMADO ====================
+        // ========== STATUS DO CHAMADO ==========
         {
             accessorKey: 'STATUS_CHAMADO',
             id: 'STATUS_CHAMADO',
@@ -389,7 +386,7 @@ export const getColunasChamados = (
             },
         },
 
-        // ==================== ASSUNTO DO CHAMADO ====================
+        // ========== ASSUNTO DO CHAMADO ==========
         {
             accessorKey: 'ASSUNTO_CHAMADO',
             id: 'ASSUNTO_CHAMADO',
@@ -416,7 +413,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== EMAIL DO CHAMADO ====================
+        // ========== EMAIL DO CHAMADO ==========
         {
             accessorKey: 'EMAIL_CHAMADO',
             id: 'EMAIL_CHAMADO',
@@ -433,7 +430,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== CLASSIFICAÇÃO DO CHAMADO ====================
+        // ========== CLASSIFICAÇÃO DO CHAMADO ==========
         {
             accessorKey: 'NOME_CLASSIFICACAO',
             id: 'NOME_CLASSIFICACAO',
@@ -441,12 +438,12 @@ export const getColunasChamados = (
             cell: ({ getValue }) => {
                 const value = getValue() as string | null;
                 const correctedText = corrigirTextoCorrompido(value);
-                return <TruncatedCell value={correctedText} centered />;
+                return <TruncatedCell value={correctedText} />;
             },
             enableColumnFilter: true,
         },
 
-        // ==================== RECURSO DO CHAMADO ====================
+        // ========== RECURSO DO CHAMADO ==========
         {
             accessorKey: 'NOME_RECURSO',
             id: 'NOME_RECURSO',
@@ -459,12 +456,12 @@ export const getColunasChamados = (
                 }
 
                 const displayName = formatNomeRecurso(value);
-                return <TruncatedCell value={displayName} centered />;
+                return <TruncatedCell value={displayName} />;
             },
             enableColumnFilter: true,
         },
 
-        // ==================== PRIORIDADE DO CHAMADO ====================
+        // ========== PRIORIDADE DO CHAMADO ==========
         {
             accessorKey: 'PRIOR_CHAMADO',
             id: 'PRIOR_CHAMADO',
@@ -476,7 +473,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ==================== QUANTIDADE DE HORAS ====================
+        // ========== QUANTIDADE DE HORAS ==========
         {
             accessorKey: 'TOTAL_HORAS_OS',
             id: 'TOTAL_HORAS_OS',

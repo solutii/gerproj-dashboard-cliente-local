@@ -16,7 +16,14 @@ import {
     useMemo,
     useState,
 } from 'react';
-import { MdCalendarMonth, MdClose, MdFilterAlt, MdFilterAltOff } from 'react-icons/md';
+import {
+    MdCalendarMonth,
+    MdClose,
+    MdExpandLess,
+    MdExpandMore,
+    MdFilterAlt,
+    MdFilterAltOff,
+} from 'react-icons/md';
 
 // ==================== CONSTANTES ====================
 const ANOS_DISPONIVEIS_FINALIZADOS = [2024, 2025, 2026];
@@ -176,7 +183,6 @@ function formatarData(data: string | Date | number | null | undefined): string |
         if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(data)) {
             const dataObj = new Date(data);
             if (isNaN(dataObj.getTime())) return null;
-            // 🔧 CONSISTENTE: Usar hora LOCAL
             const dia = dataObj.getDate().toString().padStart(2, '0');
             const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
             const ano = dataObj.getFullYear();
@@ -418,13 +424,6 @@ function useIniciosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
     return useMemo(() => {
         if (!dadosChamados?.length) return [];
 
-        // 🔍 DEBUG TEMPORÁRIO
-        const amostra = dadosChamados.find((c) => c.DTINI_CHAMADO);
-        if (amostra) {
-            console.log('🔍 DTINI_CHAMADO raw:', JSON.stringify(amostra.DTINI_CHAMADO));
-            console.log('🔍 typeof:', typeof amostra.DTINI_CHAMADO);
-        }
-
         const datasUnicas = new Set<string>();
         dadosChamados.forEach((chamado) => {
             const dataFormatada = formatarData(chamado.DTINI_CHAMADO);
@@ -553,7 +552,6 @@ function SelectWithClear({
 }: SelectWithClearProps) {
     const isDisabled = Boolean(disabled);
     const hasValue = value !== '' && value !== undefined && value !== 0;
-    const isAplicado = valorAplicado !== '' && valorAplicado !== undefined && valorAplicado !== 0;
 
     return (
         <div className="relative">
@@ -562,9 +560,7 @@ function SelectWithClear({
                 onChange={(e) => onChange(e.target.value)}
                 disabled={isDisabled}
                 className={`${className} ${hasValue ? 'pr-12' : 'pr-8'} ${
-                    hasValue && !isDisabled
-                        ? '-translate-y-3 border-t border-purple-300 bg-purple-100'
-                        : 'border'
+                    hasValue && !isDisabled ? 'border-t border-purple-300 bg-purple-100' : 'border'
                 }`}
             >
                 <option
@@ -593,7 +589,6 @@ function SelectWithClear({
                 })}
             </select>
 
-            {/* ✅ MUDANÇA: Mostrar quando hasValue (não apenas isAplicado) */}
             {showClearButton && hasValue && !isDisabled && (
                 <button
                     onClick={(e) => {
@@ -606,9 +601,7 @@ function SelectWithClear({
                     type="button"
                 >
                     <MdClose
-                        className={`text-red-500 transition-all duration-200 hover:scale-125 hover:rotate-180 ${
-                            hasValue ? '-translate-y-3' : ''
-                        }`}
+                        className="text-red-500 transition-all duration-200 hover:scale-125 hover:rotate-180"
                         size={28}
                     />
                 </button>
@@ -621,6 +614,9 @@ function SelectWithClear({
 export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosChamadoProps) {
     const { isAdmin, codCliente } = useAuth();
     const { hoje, anoAtual, mesAtual } = useDataAtual();
+
+    // Estado para controlar expansão do dropdown
+    const [dropdownAberto, setDropdownAberto] = useState(false);
 
     // Estados temporários (antes de aplicar)
     const [anoTemp, setAnoTemp] = useState<number | undefined>(isAdmin ? anoAtual : undefined);
@@ -665,27 +661,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const finalizacoesLocais = useFinalizacoesLocais(dadosChamados);
     const iniciosLocais = useIniciosLocais(dadosChamados);
 
-    // Debug: Verificar dados recebidos
-    useEffect(() => {
-        console.log('🔍 Filtros - dadosChamados:', {
-            length: dadosChamados?.length,
-            chamadosLocais: chamadosLocais.length,
-            entradasLocais: entradasLocais.length,
-            prioridadesLocais: prioridadesLocais.length,
-            classificacoesLocais: classificacoesLocais.length,
-            atribuicoesLocais: atribuicoesLocais.length,
-            finalizacoesLocais: finalizacoesLocais.length,
-        });
-    }, [
-        dadosChamados,
-        chamadosLocais,
-        entradasLocais,
-        prioridadesLocais,
-        classificacoesLocais,
-        atribuicoesLocais,
-        finalizacoesLocais,
-    ]);
-
     // Valores padrão
     const valoresPadrao = useMemo(
         () => ({
@@ -696,10 +671,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     );
 
     // Status é FINALIZADO?
-    const statusEhFinalizado = useMemo(() => {
-        return statusSelecionado?.trim().toUpperCase() === 'FINALIZADO';
-    }, [statusSelecionado]);
-
     const usarAnosConfigurados = useMemo(() => {
         const statusParaVerificar = statusTemp || statusSelecionado;
         return statusParaVerificar?.trim().toUpperCase() === 'FINALIZADO';
@@ -793,6 +764,157 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         retry: 2,
     });
 
+    // Função para obter label legível de um filtro
+    const obterLabelFiltro = useCallback(
+        (campo: string, valor: string | number | undefined) => {
+            if (!valor) return '';
+
+            switch (campo) {
+                case 'ano':
+                    return `Ano: ${valor}`;
+                case 'mes':
+                    return `Mês: ${MESES_NOMES[Number(valor) - 1]}`;
+                case 'cliente':
+                    const cliente = clientesData.find((c) => c.cod === valor);
+                    return `Cliente: ${processarNome(cliente?.nome || String(valor), 3)}`;
+                case 'recurso':
+                    const recurso = recursosLocais.find((r) => r.cod === valor);
+                    return `Consultor: ${processarNome(recurso?.nome || String(valor), 2)}`;
+                case 'status':
+                    return `Status: ${valor}`;
+                case 'chamado':
+                    return `Chamado: ${valor}`;
+                case 'entrada':
+                    return `Entrada: ${valor}`;
+                case 'inicio':
+                    return `Início: ${valor}`;
+                case 'atribuicao':
+                    return `Atribuição: ${valor}`;
+                case 'prioridade':
+                    const prioridade = prioridadesLocais.find((p) => p.value === Number(valor));
+                    return `Prioridade: ${prioridade?.label || valor}`;
+                case 'classificacao':
+                    return `Classificação: ${processarNome(String(valor), 2)}`;
+                case 'finalizacao':
+                    return `Finalização: ${valor}`;
+                default:
+                    return '';
+            }
+        },
+        [clientesData, recursosLocais, prioridadesLocais]
+    );
+
+    // Filtros ativos (tags)
+    const filtrosAtivos = useMemo(() => {
+        const tags: Array<{ campo: string; valor: string | number; label: string }> = [];
+
+        // Verificar diferença dos valores padrão para ano/mês
+        if (isAdmin) {
+            if (ano !== valoresPadrao.ano) {
+                tags.push({ campo: 'ano', valor: ano!, label: obterLabelFiltro('ano', ano) });
+            }
+            if (mes !== valoresPadrao.mes) {
+                tags.push({ campo: 'mes', valor: mes!, label: obterLabelFiltro('mes', mes) });
+            }
+        } else {
+            if (ano !== undefined) {
+                tags.push({ campo: 'ano', valor: ano, label: obterLabelFiltro('ano', ano) });
+            }
+            if (mes !== undefined) {
+                tags.push({ campo: 'mes', valor: mes, label: obterLabelFiltro('mes', mes) });
+            }
+        }
+
+        if (isAdmin && clienteSelecionado) {
+            tags.push({
+                campo: 'cliente',
+                valor: clienteSelecionado,
+                label: obterLabelFiltro('cliente', clienteSelecionado),
+            });
+        }
+        if (recursoSelecionado) {
+            tags.push({
+                campo: 'recurso',
+                valor: recursoSelecionado,
+                label: obterLabelFiltro('recurso', recursoSelecionado),
+            });
+        }
+        if (statusSelecionado) {
+            tags.push({
+                campo: 'status',
+                valor: statusSelecionado,
+                label: obterLabelFiltro('status', statusSelecionado),
+            });
+        }
+        if (chamadoSelecionado) {
+            tags.push({
+                campo: 'chamado',
+                valor: chamadoSelecionado,
+                label: obterLabelFiltro('chamado', chamadoSelecionado),
+            });
+        }
+        if (entradaSelecionada) {
+            tags.push({
+                campo: 'entrada',
+                valor: entradaSelecionada,
+                label: obterLabelFiltro('entrada', entradaSelecionada),
+            });
+        }
+        if (inicioSelecionado) {
+            tags.push({
+                campo: 'inicio',
+                valor: inicioSelecionado,
+                label: obterLabelFiltro('inicio', inicioSelecionado),
+            });
+        }
+        if (atribuicaoSelecionada) {
+            tags.push({
+                campo: 'atribuicao',
+                valor: atribuicaoSelecionada,
+                label: obterLabelFiltro('atribuicao', atribuicaoSelecionada),
+            });
+        }
+        if (prioridadeSelecionada) {
+            tags.push({
+                campo: 'prioridade',
+                valor: prioridadeSelecionada,
+                label: obterLabelFiltro('prioridade', prioridadeSelecionada),
+            });
+        }
+        if (classificacaoSelecionada) {
+            tags.push({
+                campo: 'classificacao',
+                valor: classificacaoSelecionada,
+                label: obterLabelFiltro('classificacao', classificacaoSelecionada),
+            });
+        }
+        if (finalizacaoSelecionada) {
+            tags.push({
+                campo: 'finalizacao',
+                valor: finalizacaoSelecionada,
+                label: obterLabelFiltro('finalizacao', finalizacaoSelecionada),
+            });
+        }
+
+        return tags;
+    }, [
+        ano,
+        mes,
+        clienteSelecionado,
+        recursoSelecionado,
+        statusSelecionado,
+        chamadoSelecionado,
+        entradaSelecionada,
+        inicioSelecionado,
+        atribuicaoSelecionada,
+        prioridadeSelecionada,
+        classificacaoSelecionada,
+        finalizacaoSelecionada,
+        valoresPadrao,
+        isAdmin,
+        obterLabelFiltro,
+    ]);
+
     // Contadores e flags
     const mudancasCount = useMemo(() => {
         return [
@@ -833,53 +955,13 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         finalizacaoTemp,
         finalizacaoSelecionada,
         inicioTemp,
+        inicioSelecionado,
+        isAdmin,
     ]);
 
     const temMudancas = mudancasCount > 0;
 
-    const temFiltrosAtivos = useMemo(() => {
-        const temAnoMesDiferente = isAdmin
-            ? ano !== valoresPadrao.ano || mes !== valoresPadrao.mes
-            : ano !== undefined || mes !== undefined;
-        const temCliente = isAdmin && clienteSelecionado;
-        const temRecurso = recursoSelecionado;
-        const temStatus = statusSelecionado;
-        const temChamado = chamadoSelecionado;
-        const temEntrada = entradaSelecionada;
-        const temPrioridade = prioridadeSelecionada;
-        const temClassificacao = classificacaoSelecionada;
-        const temAtribuicao = atribuicaoSelecionada;
-        const temFinalizacao = finalizacaoSelecionada;
-        const temInicio = inicioSelecionado;
-
-        return (
-            temAnoMesDiferente ||
-            temCliente ||
-            temRecurso ||
-            temStatus ||
-            temChamado ||
-            temEntrada ||
-            temPrioridade ||
-            temClassificacao ||
-            temAtribuicao ||
-            temFinalizacao ||
-            temInicio
-        );
-    }, [
-        ano,
-        mes,
-        clienteSelecionado,
-        recursoSelecionado,
-        statusSelecionado,
-        chamadoSelecionado,
-        entradaSelecionada,
-        prioridadeSelecionada,
-        classificacaoSelecionada,
-        atribuicaoSelecionada,
-        finalizacaoSelecionada,
-        inicioSelecionado,
-        valoresPadrao,
-    ]);
+    const temFiltrosAtivos = filtrosAtivos.length > 0;
 
     // Callbacks
     const aplicarFiltros = useCallback(() => {
@@ -912,6 +994,9 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         ) {
             setFiltrosForamAlterados(true);
         }
+
+        // Fechar dropdown após aplicar
+        setDropdownAberto(false);
     }, [
         anoTemp,
         mesTemp,
@@ -925,6 +1010,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         atribuicaoTemp,
         finalizacaoTemp,
         inicioTemp,
+        valoresPadrao,
     ]);
 
     const limparAnoMes = useCallback(() => {
@@ -1040,7 +1126,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         prioridadeSelecionada ||
                         classificacaoSelecionada ||
                         atribuicaoSelecionada ||
-                        finalizacaoSelecionada
+                        finalizacaoSelecionada ||
+                        inicioSelecionado
                     );
                 }
                 if (campo === 'recurso') {
@@ -1057,7 +1144,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         prioridadeSelecionada ||
                         classificacaoSelecionada ||
                         atribuicaoSelecionada ||
-                        finalizacaoSelecionada
+                        finalizacaoSelecionada ||
+                        inicioSelecionado
                     );
                 }
                 if (campo === 'ano' || campo === 'mes') {
@@ -1071,7 +1159,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         prioridadeSelecionada ||
                         classificacaoSelecionada ||
                         atribuicaoSelecionada ||
-                        finalizacaoSelecionada
+                        finalizacaoSelecionada ||
+                        inicioSelecionado
                     );
                 }
                 return false;
@@ -1096,6 +1185,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             classificacaoSelecionada,
             atribuicaoSelecionada,
             finalizacaoSelecionada,
+            inicioSelecionado,
         ]
     );
 
@@ -1207,21 +1297,81 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     );
 
     const selectClassName =
-        'w-full cursor-pointer rounded-md p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-lg hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30';
+        'w-full cursor-pointer rounded-md bg-white p-2 text-sm font-bold tracking-widest shadow-xs shadow-black transition-all duration-200 select-none hover:shadow-md hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30';
 
     return (
         <FiltrosContext.Provider value={filtrosAtuais}>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-10">
+                {/* ==================== HEADER COMPACTO ==================== */}
                 <header className="flex items-center justify-between px-4">
-                    <div className="flex items-center gap-2">
-                        <MdFilterAlt className="text-black" size={24} />
-                        <h1 className="text-xl font-extrabold tracking-widest text-black select-none">
-                            FILTROS
-                        </h1>
+                    <div className="flex items-center gap-6">
+                        {/* Botão Dropdown + Tags de Filtros Ativos */}
+                        <div className="flex items-center gap-6">
+                            <button
+                                onClick={() => setDropdownAberto(!dropdownAberto)}
+                                className="flex cursor-pointer items-center gap-10 rounded-md border-t border-gray-300 bg-teal-600 px-6 py-1 text-lg font-extrabold tracking-widest text-white shadow-md shadow-black transition-all duration-200 hover:bg-teal-500 hover:shadow-lg hover:shadow-black active:scale-95"
+                            >
+                                <MdFilterAlt size={24} />
+                                <span>FILTROS</span>
+                                {dropdownAberto ? (
+                                    <MdExpandLess size={40} />
+                                ) : (
+                                    <MdExpandMore size={40} />
+                                )}
+                            </button>
+
+                            {/* Botão Limpar Externo */}
+                            {filtrosAtivos.length > 1 && (
+                                <button
+                                    onClick={limparFiltros}
+                                    className="flex cursor-pointer items-center justify-center gap-2 rounded-md border-t border-red-700 bg-gradient-to-br from-red-600 to-red-700 px-6 py-1 text-base font-extrabold tracking-widest text-white shadow-md shadow-black transition-all duration-200 hover:from-red-500 hover:to-red-600 hover:shadow-lg hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    <MdFilterAltOff size={20} />
+                                    <span>Limpar Tudo</span>
+                                </button>
+                            )}
+                        </div>
+                        {/* Tags de Filtros Aplicados */}
+                        {filtrosAtivos.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-4">
+                                {filtrosAtivos.map((filtro, index) => (
+                                    <button
+                                        key={`${filtro.campo}-${index}`}
+                                        onClick={() =>
+                                            limparFiltroIndividual(
+                                                filtro.campo as
+                                                    | 'ano'
+                                                    | 'mes'
+                                                    | 'cliente'
+                                                    | 'recurso'
+                                                    | 'status'
+                                                    | 'chamado'
+                                                    | 'entrada'
+                                                    | 'prioridade'
+                                                    | 'classificacao'
+                                                    | 'atribuicao'
+                                                    | 'finalizacao'
+                                                    | 'inicio'
+                                            )
+                                        }
+                                        title={`Remover filtro: ${filtro.label}`}
+                                        className="group flex cursor-pointer items-center gap-4 rounded-full border-t border-purple-300 bg-purple-100 px-6 py-1 text-sm font-extrabold tracking-widest text-black shadow-sm shadow-black transition-all duration-200 hover:bg-purple-200 active:scale-95"
+                                    >
+                                        <span>{filtro.label}</span>
+                                        <MdClose
+                                            size={20}
+                                            className="text-red-600 transition-all duration-200 group-hover:scale-150 group-hover:rotate-180"
+                                        />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                    <div className="mr-2 flex items-center gap-6">
-                        <div className="flex items-center gap-2 text-base font-extrabold tracking-widest text-black select-none">
-                            <MdCalendarMonth className="text-black" size={24} />
+
+                    {/* Data e Relógio */}
+                    <div className="mr-2 flex items-center justify-center gap-6">
+                        <div className="flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
+                            <MdCalendarMonth className="text-black" size={28} />
                             {hoje.toLocaleString('pt-BR', {
                                 day: '2-digit',
                                 month: '2-digit',
@@ -1231,250 +1381,278 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         <Relogio />
                     </div>
                 </header>
-                <div className="flex justify-between gap-6">
-                    <div className="flex flex-col gap-6 pl-4">
-                        {/* PRIMEIRA LINHA - Ano, Mês, Cliente, Recurso, Status */}
-                        <div className="grid grid-cols-5 gap-6">
-                            <SelectWithClear
-                                value={anoTemp}
-                                valorAplicado={ano}
-                                onChange={(value) => setAnoTemp(value ? Number(value) : undefined)}
-                                onClearImmediate={() => limparFiltroIndividual('ano')}
-                                disabled={anoDesabilitado}
-                                options={years.map((y) => ({ value: y, label: String(y) }))}
-                                placeholder={
-                                    anoDesabilitado
-                                        ? 'Aplique o filtro p/ selecionar o ano'
-                                        : 'Selecione o ano'
-                                }
-                                className={selectClassName}
-                            />
 
-                            <SelectWithClear
-                                value={mesTemp}
-                                valorAplicado={mes}
-                                onChange={(value) => setMesTemp(value ? Number(value) : undefined)}
-                                onClearImmediate={() => limparFiltroIndividual('mes')}
-                                disabled={mesDesabilitado}
-                                options={mesesDisponiveis}
-                                placeholder={
-                                    anoDesabilitado
-                                        ? 'Aplique o filtro p/ selecionar o mês'
-                                        : !anoTemp
-                                          ? 'Selecione o ano p/ selecionar o mês'
-                                          : mesesDisponiveis.length === 0
-                                            ? 'Nenhum mês disponível'
-                                            : 'Selecione o mês'
-                                }
-                                className={selectClassName}
-                            />
+                {/* ==================== DROPDOWN DE FILTROS ==================== */}
+                {dropdownAberto && (
+                    <div className="mx-4 rounded-md border-t border-gray-300 bg-white p-6 shadow-md shadow-black">
+                        <div className="grid grid-cols-3 gap-6">
+                            {/* COLUNA 1: PERÍODO E CONTEXTO */}
+                            <div className="flex flex-col gap-2">
+                                <h3 className="flex items-center gap-2 text-base font-extrabold tracking-widest text-black select-none">
+                                    PERÍODO / CONTEXTO
+                                </h3>
 
-                            <SelectWithClear
-                                value={clienteTemp}
-                                valorAplicado={clienteSelecionado}
-                                onChange={setClienteTemp}
-                                onClearImmediate={() => limparFiltroIndividual('cliente')}
-                                disabled={!clientesData.length || !!codCliente || clientesLoading}
-                                options={clientesData.map((c) => ({ value: c.cod, label: c.nome }))}
-                                placeholder={
-                                    clientesLoading ? 'Carregando...' : 'Selecione o cliente'
-                                }
-                                showClearButton={!codCliente}
-                                className={`${selectClassName} disabled:hover:scale-100 disabled:hover:shadow-md disabled:hover:shadow-black`}
-                            />
+                                <div className="flex flex-col gap-4">
+                                    <SelectWithClear
+                                        value={anoTemp}
+                                        valorAplicado={ano}
+                                        onChange={(value) =>
+                                            setAnoTemp(value ? Number(value) : undefined)
+                                        }
+                                        onClearImmediate={() => limparFiltroIndividual('ano')}
+                                        disabled={anoDesabilitado}
+                                        options={years.map((y) => ({ value: y, label: String(y) }))}
+                                        placeholder={anoDesabilitado ? 'Aplique o status' : 'Ano'}
+                                        className={selectClassName}
+                                    />
 
-                            <SelectWithClear
-                                value={recursoTemp}
-                                valorAplicado={recursoSelecionado}
-                                onChange={setRecursoTemp}
-                                onClearImmediate={() => limparFiltroIndividual('recurso')}
-                                disabled={recursoDesabilitado}
-                                options={recursosLocais.map((r) => ({
-                                    value: r.cod,
-                                    label: r.nome,
-                                }))}
-                                placeholder={
-                                    recursoDesabilitadoPorStatus
-                                        ? 'Aplique o filtro p/ selecionar o consultor'
-                                        : isLoadingRecursos
-                                          ? 'Carregando...'
-                                          : recursosLocais.length === 0
-                                            ? 'Nenhum consultor disponível'
-                                            : 'Selecione o consultor'
-                                }
-                                className={selectClassName}
-                            />
+                                    <SelectWithClear
+                                        value={mesTemp}
+                                        valorAplicado={mes}
+                                        onChange={(value) =>
+                                            setMesTemp(value ? Number(value) : undefined)
+                                        }
+                                        onClearImmediate={() => limparFiltroIndividual('mes')}
+                                        disabled={mesDesabilitado}
+                                        options={mesesDisponiveis}
+                                        placeholder={
+                                            !anoTemp
+                                                ? 'Selecione o ano primeiro'
+                                                : mesesDisponiveis.length === 0
+                                                  ? 'Nenhum mês disponível'
+                                                  : 'Mês'
+                                        }
+                                        className={selectClassName}
+                                    />
 
-                            <SelectWithClear
-                                value={statusTemp}
-                                valorAplicado={statusSelecionado}
-                                onChange={setStatusTemp}
-                                onClearImmediate={() => limparFiltroIndividual('status')}
-                                disabled={!statusData.length || statusLoading}
-                                options={statusData.map((s) => ({ value: s, label: s }))}
-                                placeholder={statusLoading ? 'Carregando...' : 'Selecione o status'}
-                                className={selectClassName}
-                            />
+                                    {isAdmin && (
+                                        <SelectWithClear
+                                            value={clienteTemp}
+                                            valorAplicado={clienteSelecionado}
+                                            onChange={setClienteTemp}
+                                            onClearImmediate={() =>
+                                                limparFiltroIndividual('cliente')
+                                            }
+                                            disabled={
+                                                !clientesData.length ||
+                                                !!codCliente ||
+                                                clientesLoading
+                                            }
+                                            options={clientesData.map((c) => ({
+                                                value: c.cod,
+                                                label: c.nome,
+                                            }))}
+                                            placeholder={
+                                                clientesLoading ? 'Carregando...' : 'Cliente'
+                                            }
+                                            showClearButton={!codCliente}
+                                            className={selectClassName}
+                                        />
+                                    )}
+
+                                    <SelectWithClear
+                                        value={recursoTemp}
+                                        valorAplicado={recursoSelecionado}
+                                        onChange={setRecursoTemp}
+                                        onClearImmediate={() => limparFiltroIndividual('recurso')}
+                                        disabled={recursoDesabilitado}
+                                        options={recursosLocais.map((r) => ({
+                                            value: r.cod,
+                                            label: r.nome,
+                                        }))}
+                                        placeholder={
+                                            recursoDesabilitadoPorStatus
+                                                ? 'Aplique o status'
+                                                : isLoadingRecursos
+                                                  ? 'Carregando...'
+                                                  : recursosLocais.length === 0
+                                                    ? 'Nenhum recurso disponível'
+                                                    : 'Consultor'
+                                        }
+                                        className={selectClassName}
+                                    />
+
+                                    <SelectWithClear
+                                        value={statusTemp}
+                                        valorAplicado={statusSelecionado}
+                                        onChange={setStatusTemp}
+                                        onClearImmediate={() => limparFiltroIndividual('status')}
+                                        disabled={!statusData.length || statusLoading}
+                                        options={statusData.map((s) => ({ value: s, label: s }))}
+                                        placeholder={statusLoading ? 'Carregando...' : 'Status'}
+                                        className={selectClassName}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* COLUNA 2: DADOS DO CHAMADO */}
+                            <div className="gap- flex flex-col gap-2">
+                                <h3 className="flex items-center gap-2 text-base font-extrabold tracking-widest text-black select-none">
+                                    DADOS DO CHAMADO
+                                </h3>
+
+                                <div className="flex flex-col gap-4">
+                                    <SelectWithClear
+                                        value={chamadoTemp}
+                                        valorAplicado={chamadoSelecionado}
+                                        onChange={setChamadoTemp}
+                                        onClearImmediate={() => limparFiltroIndividual('chamado')}
+                                        disabled={chamadosLocais.length === 0}
+                                        options={chamadosLocais}
+                                        placeholder={
+                                            chamadosLocais.length === 0
+                                                ? 'Nenhum chamado disponível'
+                                                : 'Nº do Chamado'
+                                        }
+                                        className={selectClassName}
+                                    />
+
+                                    <SelectWithClear
+                                        value={entradaTemp}
+                                        valorAplicado={entradaSelecionada}
+                                        onChange={setEntradaTemp}
+                                        onClearImmediate={() => limparFiltroIndividual('entrada')}
+                                        disabled={entradasLocais.length === 0}
+                                        options={entradasLocais}
+                                        placeholder={
+                                            entradasLocais.length === 0
+                                                ? 'Nenhuma data de entrada disponível'
+                                                : 'Data de Entrada'
+                                        }
+                                        className={selectClassName}
+                                    />
+
+                                    <SelectWithClear
+                                        value={inicioTemp}
+                                        valorAplicado={inicioSelecionado}
+                                        onChange={setInicioTemp}
+                                        onClearImmediate={() => limparFiltroIndividual('inicio')}
+                                        disabled={iniciosLocais.length === 0}
+                                        options={iniciosLocais}
+                                        placeholder={
+                                            iniciosLocais.length === 0
+                                                ? 'Nenhuma data de início disponível'
+                                                : 'Data de Início'
+                                        }
+                                        className={selectClassName}
+                                    />
+
+                                    <SelectWithClear
+                                        value={atribuicaoTemp}
+                                        valorAplicado={atribuicaoSelecionada}
+                                        onChange={setAtribuicaoTemp}
+                                        onClearImmediate={() =>
+                                            limparFiltroIndividual('atribuicao')
+                                        }
+                                        disabled={atribuicoesLocais.length === 0}
+                                        options={atribuicoesLocais}
+                                        placeholder={
+                                            atribuicoesLocais.length === 0
+                                                ? 'Nenhuma data de atribuição disponível'
+                                                : 'Data de Atribuição'
+                                        }
+                                        className={selectClassName}
+                                    />
+
+                                    <SelectWithClear
+                                        value={finalizacaoTemp}
+                                        valorAplicado={finalizacaoSelecionada}
+                                        onChange={setFinalizacaoTemp}
+                                        onClearImmediate={() =>
+                                            limparFiltroIndividual('finalizacao')
+                                        }
+                                        disabled={finalizacoesLocais.length === 0}
+                                        options={finalizacoesLocais}
+                                        placeholder={
+                                            finalizacoesLocais.length === 0
+                                                ? 'Selecione o status FINALIZADO para ver as datas de finalização'
+                                                : 'Data de Finalização'
+                                        }
+                                        className={selectClassName}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* COLUNA 3: CARACTERÍSTICAS */}
+                            <div className="gap- flex flex-col gap-2">
+                                <h3 className="flex items-center gap-2 text-base font-extrabold tracking-widest text-black select-none">
+                                    CARACTERÍSTICAS
+                                </h3>
+
+                                <div className="flex flex-col gap-4">
+                                    <SelectWithClear
+                                        value={prioridadeTemp}
+                                        valorAplicado={prioridadeSelecionada}
+                                        onChange={setPrioridadeTemp}
+                                        onClearImmediate={() =>
+                                            limparFiltroIndividual('prioridade')
+                                        }
+                                        disabled={prioridadesLocais.length === 0}
+                                        options={prioridadesLocais}
+                                        placeholder={
+                                            prioridadesLocais.length === 0
+                                                ? 'Nenhuma prioridade disponível'
+                                                : 'Prioridade'
+                                        }
+                                        className={selectClassName}
+                                    />
+
+                                    <SelectWithClear
+                                        value={classificacaoTemp}
+                                        valorAplicado={classificacaoSelecionada}
+                                        onChange={setClassificacaoTemp}
+                                        onClearImmediate={() =>
+                                            limparFiltroIndividual('classificacao')
+                                        }
+                                        disabled={classificacoesLocais.length === 0}
+                                        options={classificacoesLocais}
+                                        placeholder={
+                                            classificacoesLocais.length === 0
+                                                ? 'Nenhuma classificação disponível'
+                                                : 'Classificação'
+                                        }
+                                        className={selectClassName}
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                        {/* SEGUNDA LINHA - Novos Filtros Locais */}
-                        <div className="grid grid-cols-7 gap-6">
-                            <SelectWithClear
-                                value={chamadoTemp}
-                                valorAplicado={chamadoSelecionado}
-                                onChange={setChamadoTemp}
-                                onClearImmediate={() => limparFiltroIndividual('chamado')}
-                                disabled={chamadosLocais.length === 0}
-                                options={chamadosLocais}
-                                placeholder={
-                                    chamadosLocais.length === 0
-                                        ? 'Nenhum chamado disponível'
-                                        : 'Selecione o chamado'
-                                }
-                                className={selectClassName}
-                            />
+                        {/* BOTÕES NO RODAPÉ DO DROPDOWN */}
+                        <div className="flex items-center justify-end gap-6">
+                            <button
+                                onClick={limparFiltros}
+                                disabled={!temFiltrosAtivos}
+                                className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+                                    temFiltrosAtivos
+                                        ? 'cursor-pointer border-t border-red-700 bg-gradient-to-br from-red-600 to-red-700 text-white hover:from-red-500 hover:to-red-600 hover:shadow-lg hover:shadow-black active:scale-95'
+                                        : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'
+                                }`}
+                            >
+                                {temFiltrosAtivos && <MdFilterAltOff size={24} />}
+                                <span>Limpar</span>
+                            </button>
 
-                            <SelectWithClear
-                                value={entradaTemp}
-                                valorAplicado={entradaSelecionada}
-                                onChange={setEntradaTemp}
-                                onClearImmediate={() => limparFiltroIndividual('entrada')}
-                                disabled={entradasLocais.length === 0}
-                                options={entradasLocais}
-                                placeholder={
-                                    entradasLocais.length === 0
-                                        ? 'Nenhuma entrada disponível'
-                                        : 'Selecione a data de entrada'
-                                }
-                                className={selectClassName}
-                            />
-
-                            <SelectWithClear
-                                value={inicioTemp}
-                                valorAplicado={inicioSelecionado}
-                                onChange={setInicioTemp}
-                                onClearImmediate={() => limparFiltroIndividual('inicio')}
-                                disabled={iniciosLocais.length === 0}
-                                options={iniciosLocais}
-                                placeholder={
-                                    iniciosLocais.length === 0
-                                        ? 'Nenhum início disponível'
-                                        : 'Selecione o início'
-                                }
-                                className={selectClassName}
-                            />
-
-                            <SelectWithClear
-                                value={atribuicaoTemp}
-                                valorAplicado={atribuicaoSelecionada}
-                                onChange={setAtribuicaoTemp}
-                                onClearImmediate={() => limparFiltroIndividual('atribuicao')}
-                                disabled={atribuicoesLocais.length === 0}
-                                options={atribuicoesLocais}
-                                placeholder={
-                                    atribuicoesLocais.length === 0
-                                        ? 'Nenhuma atribuição disponível'
-                                        : 'Selecione a atribuição'
-                                }
-                                className={selectClassName}
-                            />
-
-                            <SelectWithClear
-                                value={prioridadeTemp}
-                                valorAplicado={prioridadeSelecionada}
-                                onChange={setPrioridadeTemp}
-                                onClearImmediate={() => limparFiltroIndividual('prioridade')}
-                                disabled={prioridadesLocais.length === 0}
-                                options={prioridadesLocais}
-                                placeholder={
-                                    prioridadesLocais.length === 0
-                                        ? 'Nenhuma prioridade disponível'
-                                        : 'Selecione a prioridade'
-                                }
-                                className={selectClassName}
-                            />
-
-                            <SelectWithClear
-                                value={classificacaoTemp}
-                                valorAplicado={classificacaoSelecionada}
-                                onChange={setClassificacaoTemp}
-                                onClearImmediate={() => limparFiltroIndividual('classificacao')}
-                                disabled={classificacoesLocais.length === 0}
-                                options={classificacoesLocais}
-                                placeholder={
-                                    classificacoesLocais.length === 0
-                                        ? 'Nenhuma classificação disponível'
-                                        : 'Selecione a classificação'
-                                }
-                                className={selectClassName}
-                            />
-
-                            <SelectWithClear
-                                value={finalizacaoTemp}
-                                valorAplicado={finalizacaoSelecionada}
-                                onChange={setFinalizacaoTemp}
-                                onClearImmediate={() => limparFiltroIndividual('finalizacao')}
-                                disabled={finalizacoesLocais.length === 0}
-                                options={finalizacoesLocais}
-                                placeholder={
-                                    finalizacoesLocais.length === 0
-                                        ? 'Nenhuma finalização disponível'
-                                        : 'Selecione a finalização'
-                                }
-                                className={selectClassName}
-                            />
+                            <button
+                                onClick={aplicarFiltros}
+                                disabled={!temMudancas}
+                                className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+                                    temMudancas
+                                        ? 'cursor-pointer border-t border-blue-700 bg-gradient-to-br from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 hover:shadow-lg hover:shadow-black active:scale-95'
+                                        : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'
+                                }`}
+                            >
+                                {temMudancas && <MdFilterAlt size={24} />}
+                                <span>
+                                    {mudancasCount > 1
+                                        ? 'Aplicar Filtros'
+                                        : mudancasCount === 1
+                                          ? 'Aplicar Filtro'
+                                          : 'Aplicar'}
+                                </span>
+                            </button>
                         </div>
                     </div>
-
-                    {/* BOTÕES */}
-                    <div className="flex flex-col items-end gap-6 pr-4">
-                        <button
-                            onClick={limparFiltros}
-                            disabled={!temFiltrosAtivos && mudancasCount === 0}
-                            className={`flex w-[300px] items-center justify-center gap-2 rounded-md px-6 py-2 text-base font-bold tracking-widest shadow-md shadow-black transition-all duration-200 ${
-                                temFiltrosAtivos || mudancasCount > 0
-                                    ? 'cursor-pointer border-t border-red-700 bg-red-600 text-white hover:scale-105 hover:bg-red-500 hover:shadow-lg hover:shadow-black active:scale-95'
-                                    : 'cursor-not-allowed border-t border-gray-400 bg-gray-300 text-gray-700'
-                            }`}
-                            title={
-                                temFiltrosAtivos || mudancasCount > 0
-                                    ? 'Limpar filtros aplicados'
-                                    : 'Nenhum filtro para limpar'
-                            }
-                        >
-                            {(temFiltrosAtivos || mudancasCount > 0) && (
-                                <MdFilterAltOff size={24} />
-                            )}
-                            {temFiltrosAtivos || mudancasCount > 0
-                                ? 'Limpar Filtros'
-                                : temFiltrosAtivos
-                                  ? 'Limpar Filtro'
-                                  : 'Limpar'}
-                        </button>
-
-                        <button
-                            onClick={aplicarFiltros}
-                            disabled={!temMudancas}
-                            className={`flex w-[300px] items-center justify-center gap-2 rounded-md px-6 py-2 text-base font-bold tracking-widest shadow-md shadow-black transition-all duration-200 ${
-                                temMudancas
-                                    ? 'cursor-pointer border-t border-blue-700 bg-blue-600 text-white hover:scale-105 hover:bg-blue-500 hover:shadow-lg hover:shadow-black active:scale-95'
-                                    : 'cursor-not-allowed border-t border-gray-400 bg-gray-300 text-gray-700'
-                            }`}
-                            title={
-                                temMudancas
-                                    ? 'Aplicar filtros selecionados'
-                                    : 'Nenhuma alteração para aplicar'
-                            }
-                        >
-                            {temMudancas && <MdFilterAlt size={24} />}
-                            {temMudancas && mudancasCount > 1
-                                ? 'Aplicar Filtros'
-                                : temMudancas
-                                  ? 'Aplicar Filtro'
-                                  : 'Aplicar'}
-                        </button>
-                    </div>
-                </div>
+                )}
             </div>
             {children}
         </FiltrosContext.Provider>

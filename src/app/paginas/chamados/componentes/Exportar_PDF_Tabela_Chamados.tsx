@@ -4,7 +4,7 @@
 
 import type { ChamadoRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_Chamados';
 import type { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
-import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
@@ -32,6 +32,237 @@ interface ExportarPDFTabelaChamadosButtonProps {
     codCliente?: string | null;
     className?: string;
     disabled?: boolean;
+}
+
+// ================================================================================
+// FUNÇÕES DE CÁLCULO DE SLA (RÉPLICA DO EXCEL)
+// ================================================================================
+
+interface HorarioComercial {
+    inicio: number;
+    fim: number;
+    diasUteis: number[];
+}
+
+const HORARIO_COMERCIAL: HorarioComercial = {
+    inicio: 8,
+    fim: 18,
+    diasUteis: [1, 2, 3, 4, 5],
+};
+
+const PRAZOS_SLA: Record<number, number> = {
+    1: 8,
+    2: 8,
+    3: 8,
+    4: 8,
+    100: 8,
+};
+
+function normalizarDataFim(data: Date, config: HorarioComercial): Date {
+    const resultado = new Date(data);
+    const hora = resultado.getHours();
+    const minuto = resultado.getMinutes();
+    const segundo = resultado.getSeconds();
+
+    const antesDoExpediente = hora < config.inicio;
+    const aposOExpediente =
+        hora > config.fim || (hora === config.fim && (minuto > 0 || segundo > 0));
+    const exatamenteNoFim = hora === config.fim && minuto === 0 && segundo === 0;
+
+    if (exatamenteNoFim) {
+        return resultado;
+    }
+
+    if (antesDoExpediente) {
+        resultado.setDate(resultado.getDate() - 1);
+        while (!config.diasUteis.includes(resultado.getDay())) {
+            resultado.setDate(resultado.getDate() - 1);
+        }
+        resultado.setHours(config.fim, 0, 0, 0);
+        return resultado;
+    }
+
+    if (aposOExpediente) {
+        if (config.diasUteis.includes(resultado.getDay())) {
+            resultado.setHours(config.fim, 0, 0, 0);
+        } else {
+            resultado.setDate(resultado.getDate() - 1);
+            while (!config.diasUteis.includes(resultado.getDay())) {
+                resultado.setDate(resultado.getDate() - 1);
+            }
+            resultado.setHours(config.fim, 0, 0, 0);
+        }
+        return resultado;
+    }
+
+    if (!config.diasUteis.includes(resultado.getDay())) {
+        resultado.setDate(resultado.getDate() - 1);
+        while (!config.diasUteis.includes(resultado.getDay())) {
+            resultado.setDate(resultado.getDate() - 1);
+        }
+        resultado.setHours(config.fim, 0, 0, 0);
+        return resultado;
+    }
+
+    return resultado;
+}
+
+function calcularHorasUteis(
+    dataInicio: Date,
+    dataFim: Date,
+    config: HorarioComercial = HORARIO_COMERCIAL
+): number {
+    if (dataInicio >= dataFim) {
+        return 0;
+    }
+
+    const dataFimEfetiva = normalizarDataFim(dataFim, config);
+
+    if (dataInicio >= dataFimEfetiva) {
+        return 0;
+    }
+
+    let horasUteis = 0;
+    const atual = new Date(dataInicio);
+
+    if (atual.getHours() < config.inicio) {
+        atual.setHours(config.inicio, 0, 0, 0);
+    } else if (atual.getHours() >= config.fim) {
+        atual.setDate(atual.getDate() + 1);
+        atual.setHours(config.inicio, 0, 0, 0);
+    }
+
+    while (atual < dataFimEfetiva) {
+        const diaAtual = atual.getDay();
+
+        if (config.diasUteis.includes(diaAtual)) {
+            const inicioExpediente = new Date(atual);
+            inicioExpediente.setHours(config.inicio, 0, 0, 0);
+
+            const fimExpediente = new Date(atual);
+            fimExpediente.setHours(config.fim, 0, 0, 0);
+
+            const inicioReal = atual < inicioExpediente ? inicioExpediente : atual;
+            const fimReal = dataFimEfetiva < fimExpediente ? dataFimEfetiva : fimExpediente;
+
+            if (inicioReal < fimReal) {
+                const horasNesteDia = (fimReal.getTime() - inicioReal.getTime()) / (1000 * 60 * 60);
+                horasUteis += horasNesteDia;
+            }
+        }
+
+        atual.setDate(atual.getDate() + 1);
+        atual.setHours(config.inicio, 0, 0, 0);
+
+        if (atual >= dataFimEfetiva) {
+            break;
+        }
+    }
+
+    return Math.round(horasUteis * 10000) / 10000;
+}
+
+function parseHoraChamado(horaChamado: string): { horas: number; minutos: number } {
+    const horaLimpa = (horaChamado || '').trim();
+
+    if (!horaLimpa) {
+        return { horas: 0, minutos: 0 };
+    }
+
+    if (horaLimpa.includes(':')) {
+        const [horas, minutos] = horaLimpa.split(':').map(Number);
+        return { horas: horas || 0, minutos: minutos || 0 };
+    }
+
+    if (horaLimpa.length === 4) {
+        const horas = parseInt(horaLimpa.substring(0, 2), 10);
+        const minutos = parseInt(horaLimpa.substring(2, 4), 10);
+        return { horas, minutos };
+    }
+
+    if (horaLimpa.length === 3) {
+        const horas = parseInt(horaLimpa.substring(0, 1), 10);
+        const minutos = parseInt(horaLimpa.substring(1, 3), 10);
+        return { horas, minutos };
+    }
+
+    if (horaLimpa.length === 2) {
+        const horas = parseInt(horaLimpa, 10);
+        return { horas, minutos: 0 };
+    }
+
+    const horaNum = parseInt(horaLimpa, 10);
+    if (!isNaN(horaNum)) {
+        const horas = Math.floor(horaNum / 100);
+        const minutos = horaNum % 100;
+        return { horas, minutos };
+    }
+
+    return { horas: 0, minutos: 0 };
+}
+
+function formatarTempoHorasMinutos(horas: number): string {
+    const horasInteiras = Math.floor(horas);
+    const minutos = Math.round((horas - horasInteiras) * 60);
+
+    if (horasInteiras === 0 && minutos === 0) {
+        return '0min';
+    }
+
+    if (horasInteiras === 0) {
+        return `${minutos}min`;
+    }
+
+    if (minutos === 0) {
+        return `${horasInteiras}h`;
+    }
+
+    return `${horasInteiras}h:${minutos}min`;
+}
+
+function calcularSLA(
+    dataChamado: Date | string,
+    horaChamado: string,
+    prioridade: number,
+    statusChamado: string,
+    dataInicioAtendimento?: Date | string | null
+): {
+    tempoDecorrido: number;
+    percentual: number;
+    status: 'OK' | 'ALERTA' | 'CRITICO' | 'VENCIDO';
+} | null {
+    if (!dataInicioAtendimento) {
+        return null;
+    }
+
+    const prazoTotal = PRAZOS_SLA[prioridade] || PRAZOS_SLA[100];
+
+    const { horas, minutos } = parseHoraChamado(horaChamado);
+
+    const dataAbertura = new Date(dataChamado);
+    dataAbertura.setHours(horas, minutos, 0, 0);
+
+    const dataReferencia = new Date(dataInicioAtendimento);
+
+    const tempoDecorrido = calcularHorasUteis(dataAbertura, dataReferencia);
+    const percentualUsado = Math.min(100, (tempoDecorrido / prazoTotal) * 100);
+
+    let status: 'OK' | 'ALERTA' | 'CRITICO' | 'VENCIDO';
+    if (percentualUsado >= 100) {
+        status = 'VENCIDO';
+    } else if (percentualUsado >= 90) {
+        status = 'CRITICO';
+    } else if (percentualUsado >= 75) {
+        status = 'ALERTA';
+    } else {
+        status = 'OK';
+    }
+
+    return {
+        tempoDecorrido: Math.round(tempoDecorrido * 10000) / 10000,
+        percentual: Math.round(percentualUsado * 10) / 10,
+        status,
+    };
 }
 
 // ================================================================================
@@ -197,8 +428,7 @@ function adicionarCabecalhoPDF(
     });
     yPos += 12;
 
-    // ✅ PERÍODO (CONDICIONAL) - Só mostra se houver mês OU ano válidos
-    // Validação rigorosa: verifica undefined, null, string vazia e string literal "undefined"
+    // PERÍODO (CONDICIONAL)
     const mesValido =
         filtros?.mes &&
         String(filtros.mes).trim() !== '' &&
@@ -217,7 +447,6 @@ function adicionarCabecalhoPDF(
     if (mes || ano) {
         const nomeMes = mes ? obterNomeMes(mes) : null;
 
-        // Determinar texto do período
         let textoPeriodo = '';
         if (nomeMes && ano) {
             textoPeriodo = `PERÍODO: ${nomeMes}/${ano}`;
@@ -225,7 +454,6 @@ function adicionarCabecalhoPDF(
             textoPeriodo = `PERÍODO: ${ano}`;
         }
 
-        // Só renderiza se houver texto válido
         if (textoPeriodo) {
             doc.setFillColor(cor[0], cor[1], cor[2]);
             doc.rect(10, yPos, pageWidth - 20, 10, 'F');
@@ -240,7 +468,7 @@ function adicionarCabecalhoPDF(
 }
 
 /**
- * Adiciona seção de chamados ao PDF (versão simplificada)
+ * Adiciona seção de chamados ao PDF com TODAS as novas colunas
  */
 function adicionarSecaoChamados(doc: jsPDF, yPos: number, chamados: ChamadoRowProps[]): number {
     if (chamados.length === 0) return yPos;
@@ -253,7 +481,7 @@ function adicionarSecaoChamados(doc: jsPDF, yPos: number, chamados: ChamadoRowPr
         yPos = 15;
     }
 
-    // ✅ LINHA SEPARADORA + TOTAL
+    // LINHA SEPARADORA + TOTAL
     doc.setDrawColor(107, 33, 168);
     doc.setLineWidth(0.5);
     doc.line(10, yPos, pageWidth - 10, yPos);
@@ -270,55 +498,146 @@ function adicionarSecaoChamados(doc: jsPDF, yPos: number, chamados: ChamadoRowPr
     });
     yPos += 10;
 
-    // Preparar dados da tabela
-    const tableData = chamados.map((c) => [
-        formatarNumeros(c.COD_CHAMADO),
-        formatarDataParaBR(c.DATA_CHAMADO),
-        `P-${c.PRIOR_CHAMADO}`,
-        corrigirTextoCorrompido(c.ASSUNTO_CHAMADO).substring(0, 40),
-        corrigirTextoCorrompido(c.NOME_CLASSIFICACAO).substring(0, 25),
-        renderizarDoisPrimeirosNomes(corrigirTextoCorrompido(c.NOME_RECURSO) || '---'),
-        c.STATUS_CHAMADO,
-        formatarHorasTotaisSufixo(c.TOTAL_HORAS_OS),
-    ]);
+    // Preparar dados da tabela com TODAS as colunas
+    const tableData = chamados.map((c) => {
+        // Formatar DTINI_CHAMADO
+        let dtini = '---';
+        if (c.DTINI_CHAMADO) {
+            const value = c.DTINI_CHAMADO;
+            const separator = value.includes('T') ? 'T' : ' ';
+            const [dataStr, horaStr] = value.split(separator);
+            if (dataStr && horaStr) {
+                dtini = formatarDataHoraChamado(dataStr, horaStr);
+            } else {
+                dtini = formatarDataParaBR(dataStr || value);
+            }
+        }
 
-    // Criar tabela
+        // Calcular SLA
+        let slaText = '---';
+        if (c.DTINI_CHAMADO) {
+            const slaCalculado = calcularSLA(
+                c.DATA_CHAMADO,
+                c.HORA_CHAMADO,
+                c.PRIOR_CHAMADO,
+                c.STATUS_CHAMADO,
+                c.DTINI_CHAMADO
+            );
+
+            if (slaCalculado) {
+                slaText = formatarTempoHorasMinutos(slaCalculado.tempoDecorrido);
+            }
+        }
+
+        // Formatar FINALIZAÇÃO
+        let finalizacao = '---';
+        if (
+            c.STATUS_CHAMADO?.toUpperCase() === 'FINALIZADO' &&
+            c.DATA_HISTCHAMADO &&
+            c.HORA_HISTCHAMADO
+        ) {
+            finalizacao = formatarDataHoraChamado(c.DATA_HISTCHAMADO, c.HORA_HISTCHAMADO);
+        }
+
+        return [
+            formatarNumeros(c.COD_CHAMADO),
+            formatarDataHoraChamado(c.DATA_CHAMADO, c.HORA_CHAMADO),
+            c.DTENVIO_CHAMADO || '---',
+            dtini,
+            slaText,
+            finalizacao,
+            c.STATUS_CHAMADO,
+            corrigirTextoCorrompido(c.ASSUNTO_CHAMADO),
+            c.EMAIL_CHAMADO || '---',
+            corrigirTextoCorrompido(c.NOME_CLASSIFICACAO).substring(0, 20),
+            renderizarDoisPrimeirosNomes(corrigirTextoCorrompido(c.NOME_RECURSO) || '---'),
+            `P-${c.PRIOR_CHAMADO}`,
+            formatarHorasTotaisSufixo(c.TOTAL_HORAS_OS),
+        ];
+    });
+
+    // Criar tabela com TODAS as colunas
     autoTable(doc, {
         startY: yPos,
         head: [
             [
                 'Chamado',
-                'Data',
-                'Prior.',
-                'Assunto',
-                'Classificação',
-                'Consultor(a)',
+                'Entrada',
+                'Atribuição',
+                'Início',
+                'SLA',
+                'Finalização',
                 'Status',
+                'Assunto',
+                'Email',
+                'Classificação',
+                'Consultor',
+                'Prior.',
                 'Horas',
             ],
         ],
         body: tableData,
         theme: 'grid',
+        tableWidth: 'auto',
         headStyles: {
             fillColor: [15, 118, 110],
             textColor: [255, 255, 255],
             fontStyle: 'bold',
-            fontSize: 8,
+            fontSize: 7,
             halign: 'center',
         },
         bodyStyles: {
-            fontSize: 7,
-            cellPadding: 2,
+            fontSize: 6,
+            cellPadding: 1.5,
+            minCellHeight: 5,
+            valign: 'middle',
         },
         columnStyles: {
-            0: { halign: 'center', fontStyle: 'bold', textColor: [107, 33, 168] },
-            1: { halign: 'center' },
-            2: { halign: 'center' },
-            3: { halign: 'left' },
-            4: { halign: 'left' },
-            5: { halign: 'left' },
-            6: { halign: 'center' },
-            7: { halign: 'center' },
+            0: { halign: 'center', cellWidth: 15 }, // Chamado
+            1: { halign: 'center', cellWidth: 25 }, // Entrada
+            2: { halign: 'center', cellWidth: 25 }, // Atribuição
+            3: { halign: 'center', cellWidth: 25 }, // Início
+            4: { halign: 'center', cellWidth: 15 }, // SLA
+            5: { halign: 'center', cellWidth: 25 }, // Finalização
+            6: { halign: 'left', cellWidth: 18 }, // Status
+            7: { halign: 'left', cellWidth: 'auto' }, // Assunto - expansível
+            8: { halign: 'left', cellWidth: 'auto' }, // Email - expansível
+            9: { halign: 'left', cellWidth: 25 }, // Classificação
+            10: { halign: 'left', cellWidth: 20 }, // Consultor
+            11: { halign: 'center', cellWidth: 10 }, // Prior.
+            12: { halign: 'center', cellWidth: 12 }, // Horas
+        },
+        didParseCell: (data: any) => {
+            // Colorir coluna SLA (índice 4)
+            if (data.column.index === 4 && data.section === 'body') {
+                const slaText = data.cell.text[0];
+                if (slaText !== '---') {
+                    // Pegar o chamado correspondente para calcular cor
+                    const chamado = chamados[data.row.index];
+                    if (chamado && chamado.DTINI_CHAMADO) {
+                        const slaCalculado = calcularSLA(
+                            chamado.DATA_CHAMADO,
+                            chamado.HORA_CHAMADO,
+                            chamado.PRIOR_CHAMADO,
+                            chamado.STATUS_CHAMADO,
+                            chamado.DTINI_CHAMADO
+                        );
+
+                        if (slaCalculado) {
+                            const statusColors = {
+                                OK: [34, 197, 94], // Verde
+                                ALERTA: [234, 179, 8], // Amarelo
+                                CRITICO: [249, 115, 22], // Laranja
+                                VENCIDO: [239, 68, 68], // Vermelho
+                            };
+
+                            data.cell.styles.fillColor = statusColors[slaCalculado.status];
+                            data.cell.styles.textColor = [255, 255, 255];
+                            data.cell.styles.fontStyle = 'bold';
+                        }
+                    }
+                }
+            }
         },
         margin: { left: 10, right: 10 },
     });
@@ -327,17 +646,14 @@ function adicionarSecaoChamados(doc: jsPDF, yPos: number, chamados: ChamadoRowPr
 }
 
 /**
- * Gera página de chamados no PDF (versão simplificada)
+ * Gera página de chamados no PDF
  */
 function gerarPaginaChamados(
     doc: jsPDF,
     data: ChamadoRowProps[],
     filtros?: FiltrosRelatorio
 ): void {
-    // Adicionar cabeçalho
     let yPos = adicionarCabecalhoPDF(doc, 'RELATÓRIO DE CHAMADOS', [107, 33, 168], filtros);
-
-    // ✅ Adicionar seção única de chamados
     yPos = adicionarSecaoChamados(doc, yPos, data);
 }
 
@@ -356,10 +672,8 @@ function gerarPaginaOS(
 
     doc.addPage();
 
-    // Adicionar cabeçalho
     let yPos = adicionarCabecalhoPDF(doc, 'RELATÓRIO DE ORDENS DE SERVIÇO', [8, 145, 178], filtros);
 
-    // Preparar dados da tabela de OS
     const osTableData: any[] = [];
     chamadosComOS.forEach((chamado) => {
         const osList = osData.get(chamado.COD_CHAMADO);
@@ -393,7 +707,6 @@ function gerarPaginaOS(
         return;
     }
 
-    // Criar tabela de OS
     autoTable(doc, {
         startY: yPos,
         head: [
@@ -421,15 +734,16 @@ function gerarPaginaOS(
         bodyStyles: {
             fontSize: 7,
             cellPadding: 2,
+            valign: 'middle',
         },
         columnStyles: {
-            0: { halign: 'center', fontStyle: 'bold', textColor: [107, 33, 168] },
+            0: { halign: 'center' },
             1: { halign: 'center' },
             2: { halign: 'center' },
             3: { halign: 'center' },
             4: { halign: 'center' },
             5: { halign: 'center' },
-            6: { halign: 'left', cellWidth: 35 },
+            6: { halign: 'left' },
             7: { halign: 'left' },
             8: { halign: 'center', fontStyle: 'bold' },
         },

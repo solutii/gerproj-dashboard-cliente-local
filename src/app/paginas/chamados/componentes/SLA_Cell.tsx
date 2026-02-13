@@ -61,8 +61,8 @@ export const SLACell: React.FC<SLACellProps> = ({
     // Se não tiver início de atendimento, não mostra nada
     if (!dataInicioAtendimento) {
         return (
-            <div className="text-center text-sm font-semibold tracking-widest text-gray-400 select-none">
-                ---------------
+            <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                ----------
             </div>
         );
     }
@@ -79,8 +79,8 @@ export const SLACell: React.FC<SLACellProps> = ({
 
     if (!sla) {
         return (
-            <div className="text-center text-sm font-semibold tracking-widest text-gray-400 select-none">
-                ---------------
+            <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                ----------
             </div>
         );
     }

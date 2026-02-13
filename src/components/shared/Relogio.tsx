@@ -32,8 +32,8 @@ export function Relogio() {
     }, []); // ✅ Array de dependências vazio - executa apenas uma vez
 
     return (
-        <div className="flex items-center gap-2 text-base font-extrabold tracking-widest text-black select-none">
-            <MdAccessTime className="text-black" size={24} />
+        <div className="flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
+            <MdAccessTime className="text-black" size={28} />
             {horaAtual || '--:--:--'}
         </div>
     );

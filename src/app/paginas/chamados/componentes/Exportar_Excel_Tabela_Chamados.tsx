@@ -4,7 +4,7 @@
 
 import type { ChamadoRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_Chamados';
 import type { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
-import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
@@ -46,6 +46,237 @@ interface OSFetchResult {
 // ================================================================================
 // FUNÇÕES AUXILIARES - OTIMIZADAS
 // ================================================================================
+
+/**
+ * Configuração de horário comercial
+ */
+interface HorarioComercial {
+    inicio: number;
+    fim: number;
+    diasUteis: number[];
+}
+
+const HORARIO_COMERCIAL: HorarioComercial = {
+    inicio: 8,
+    fim: 18,
+    diasUteis: [1, 2, 3, 4, 5], // segunda a sexta
+};
+
+/**
+ * Prazos de SLA por prioridade (em horas úteis)
+ */
+const PRAZOS_SLA: Record<number, number> = {
+    1: 8,
+    2: 8,
+    3: 8,
+    4: 8,
+    100: 8, // padrão
+};
+
+/**
+ * Normaliza dataFim para o último momento útil caso caia fora do horário comercial
+ */
+function normalizarDataFim(data: Date, config: HorarioComercial): Date {
+    const resultado = new Date(data);
+    const hora = resultado.getHours();
+    const minuto = resultado.getMinutes();
+    const segundo = resultado.getSeconds();
+
+    const antesDoExpediente = hora < config.inicio;
+    const aposOExpediente =
+        hora > config.fim || (hora === config.fim && (minuto > 0 || segundo > 0));
+    const exatamenteNoFim = hora === config.fim && minuto === 0 && segundo === 0;
+
+    if (exatamenteNoFim) {
+        return resultado;
+    }
+
+    if (antesDoExpediente) {
+        resultado.setDate(resultado.getDate() - 1);
+        while (!config.diasUteis.includes(resultado.getDay())) {
+            resultado.setDate(resultado.getDate() - 1);
+        }
+        resultado.setHours(config.fim, 0, 0, 0);
+        return resultado;
+    }
+
+    if (aposOExpediente) {
+        if (config.diasUteis.includes(resultado.getDay())) {
+            resultado.setHours(config.fim, 0, 0, 0);
+        } else {
+            resultado.setDate(resultado.getDate() - 1);
+            while (!config.diasUteis.includes(resultado.getDay())) {
+                resultado.setDate(resultado.getDate() - 1);
+            }
+            resultado.setHours(config.fim, 0, 0, 0);
+        }
+        return resultado;
+    }
+
+    if (!config.diasUteis.includes(resultado.getDay())) {
+        resultado.setDate(resultado.getDate() - 1);
+        while (!config.diasUteis.includes(resultado.getDay())) {
+            resultado.setDate(resultado.getDate() - 1);
+        }
+        resultado.setHours(config.fim, 0, 0, 0);
+        return resultado;
+    }
+
+    return resultado;
+}
+
+/**
+ * Calcula horas úteis entre duas datas considerando horário comercial
+ */
+function calcularHorasUteis(
+    dataInicio: Date,
+    dataFim: Date,
+    config: HorarioComercial = HORARIO_COMERCIAL
+): number {
+    if (dataInicio >= dataFim) {
+        return 0;
+    }
+
+    const dataFimEfetiva = normalizarDataFim(dataFim, config);
+
+    if (dataInicio >= dataFimEfetiva) {
+        return 0;
+    }
+
+    let horasUteis = 0;
+    const atual = new Date(dataInicio);
+
+    if (atual.getHours() < config.inicio) {
+        atual.setHours(config.inicio, 0, 0, 0);
+    } else if (atual.getHours() >= config.fim) {
+        atual.setDate(atual.getDate() + 1);
+        atual.setHours(config.inicio, 0, 0, 0);
+    }
+
+    while (atual < dataFimEfetiva) {
+        const diaAtual = atual.getDay();
+
+        if (config.diasUteis.includes(diaAtual)) {
+            const inicioExpediente = new Date(atual);
+            inicioExpediente.setHours(config.inicio, 0, 0, 0);
+
+            const fimExpediente = new Date(atual);
+            fimExpediente.setHours(config.fim, 0, 0, 0);
+
+            const inicioReal = atual < inicioExpediente ? inicioExpediente : atual;
+            const fimReal = dataFimEfetiva < fimExpediente ? dataFimEfetiva : fimExpediente;
+
+            if (inicioReal < fimReal) {
+                const horasNesteDia = (fimReal.getTime() - inicioReal.getTime()) / (1000 * 60 * 60);
+                horasUteis += horasNesteDia;
+            }
+        }
+
+        atual.setDate(atual.getDate() + 1);
+        atual.setHours(config.inicio, 0, 0, 0);
+
+        if (atual >= dataFimEfetiva) {
+            break;
+        }
+    }
+
+    return Math.round(horasUteis * 10000) / 10000;
+}
+
+/**
+ * Parse da hora do chamado (formato "1401" ou "HH:MM")
+ */
+function parseHoraChamado(horaChamado: string): { horas: number; minutos: number } {
+    const horaLimpa = (horaChamado || '').trim();
+
+    if (!horaLimpa) {
+        return { horas: 0, minutos: 0 };
+    }
+
+    if (horaLimpa.includes(':')) {
+        const [horas, minutos] = horaLimpa.split(':').map(Number);
+        return { horas: horas || 0, minutos: minutos || 0 };
+    }
+
+    if (horaLimpa.length === 4) {
+        const horas = parseInt(horaLimpa.substring(0, 2), 10);
+        const minutos = parseInt(horaLimpa.substring(2, 4), 10);
+        return { horas, minutos };
+    }
+
+    if (horaLimpa.length === 3) {
+        const horas = parseInt(horaLimpa.substring(0, 1), 10);
+        const minutos = parseInt(horaLimpa.substring(1, 3), 10);
+        return { horas, minutos };
+    }
+
+    if (horaLimpa.length === 2) {
+        const horas = parseInt(horaLimpa, 10);
+        return { horas, minutos: 0 };
+    }
+
+    const horaNum = parseInt(horaLimpa, 10);
+    if (!isNaN(horaNum)) {
+        const horas = Math.floor(horaNum / 100);
+        const minutos = horaNum % 100;
+        return { horas, minutos };
+    }
+
+    return { horas: 0, minutos: 0 };
+}
+
+/**
+ * Calcula o SLA de um chamado (réplica exata da função do sla-utils.ts)
+ */
+function calcularSLA(
+    dataChamado: Date | string,
+    horaChamado: string,
+    prioridade: number,
+    statusChamado: string,
+    dataInicioAtendimento?: Date | string | null
+): {
+    tempoDecorrido: number;
+    percentual: number;
+    status: 'OK' | 'ALERTA' | 'CRITICO' | 'VENCIDO';
+} | null {
+    if (!dataInicioAtendimento) {
+        return null;
+    }
+
+    const prazoTotal = PRAZOS_SLA[prioridade] || PRAZOS_SLA[100];
+
+    // Parse da hora do chamado
+    const { horas, minutos } = parseHoraChamado(horaChamado);
+
+    // Cria data/hora de abertura
+    const dataAbertura = new Date(dataChamado);
+    dataAbertura.setHours(horas, minutos, 0, 0);
+
+    // Data de referência (início do atendimento ou agora)
+    const dataReferencia = new Date(dataInicioAtendimento);
+
+    // Calcula horas úteis
+    const tempoDecorrido = calcularHorasUteis(dataAbertura, dataReferencia);
+    const percentualUsado = Math.min(100, (tempoDecorrido / prazoTotal) * 100);
+
+    // Define status
+    let status: 'OK' | 'ALERTA' | 'CRITICO' | 'VENCIDO';
+    if (percentualUsado >= 100) {
+        status = 'VENCIDO';
+    } else if (percentualUsado >= 90) {
+        status = 'CRITICO';
+    } else if (percentualUsado >= 75) {
+        status = 'ALERTA';
+    } else {
+        status = 'OK';
+    }
+
+    return {
+        tempoDecorrido: Math.round(tempoDecorrido * 10000) / 10000,
+        percentual: Math.round(percentualUsado * 10) / 10,
+        status,
+    };
+}
 
 /**
  * Busca OS de um chamado específico
@@ -182,6 +413,30 @@ function obterNomeMes(mes: string): string {
 }
 
 /**
+ * Formata horas decimais para o formato "Xh:Ymin"
+ * @param horas - Valor em horas (exemplo: 1.5 = 1h:30min)
+ * @returns String formatada (exemplo: "1h:30min")
+ */
+function formatarTempoHorasMinutos(horas: number): string {
+    const horasInteiras = Math.floor(horas);
+    const minutos = Math.round((horas - horasInteiras) * 60);
+
+    if (horasInteiras === 0 && minutos === 0) {
+        return '0min';
+    }
+
+    if (horasInteiras === 0) {
+        return `${minutos}min`;
+    }
+
+    if (minutos === 0) {
+        return `${horasInteiras}h`;
+    }
+
+    return `${horasInteiras}h:${minutos}min`;
+}
+
+/**
  * Aplica bordas em uma célula do Excel
  */
 function aplicarBordas(cell: ExcelJS.Cell) {
@@ -194,7 +449,7 @@ function aplicarBordas(cell: ExcelJS.Cell) {
 }
 
 /**
- * Gera a aba de CHAMADOS (versão simplificada - sem separação de chamados com/sem OS)
+ * Gera a aba de CHAMADOS com as novas colunas
  */
 function gerarAbaChamados(
     workbook: ExcelJS.Workbook,
@@ -206,7 +461,7 @@ function gerarAbaChamados(
     let row = 1;
 
     // ===== TÍTULO =====
-    ws.mergeCells('A1:H1');
+    ws.mergeCells('A1:M1');
     const title = ws.getCell('A1');
     title.value = 'RELATÓRIO DE CHAMADOS';
     title.font = { bold: true, size: 22, color: { argb: 'FFFFFFFF' } };
@@ -221,7 +476,7 @@ function gerarAbaChamados(
     row = 2;
 
     // ===== DATA DE GERAÇÃO =====
-    ws.mergeCells('A2:H2');
+    ws.mergeCells('A2:M2');
     const date = ws.getCell('A2');
     date.value = `Gerado em: ${new Date().toLocaleString('pt-BR')}`;
     date.font = { italic: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -235,8 +490,7 @@ function gerarAbaChamados(
     ws.getRow(2).height = 25;
     row = 4;
 
-    // ===== PERÍODO (CONDICIONAL) - MESMA LÓGICA DO PDF =====
-    // Validação rigorosa: verifica undefined, null, string vazia e string literal "undefined"
+    // ===== PERÍODO (CONDICIONAL) =====
     const mesValido =
         filtros?.mes &&
         String(filtros.mes).trim() !== '' &&
@@ -255,7 +509,6 @@ function gerarAbaChamados(
     if (mes || ano) {
         const nomeMes = mes ? obterNomeMes(mes) : null;
 
-        // Determinar texto do período
         let textoPeriodo = '';
         if (nomeMes && ano) {
             textoPeriodo = `PERÍODO: ${nomeMes}/${ano}`;
@@ -263,9 +516,8 @@ function gerarAbaChamados(
             textoPeriodo = `PERÍODO: ${ano}`;
         }
 
-        // Só renderiza se houver texto válido
         if (textoPeriodo) {
-            ws.mergeCells(`A${row}:H${row}`);
+            ws.mergeCells(`A${row}:M${row}`);
             const periodo = ws.getCell(`A${row}`);
             periodo.value = textoPeriodo;
             periodo.font = { bold: true, size: 16, color: { argb: 'FFFFFFFF' } };
@@ -282,7 +534,7 @@ function gerarAbaChamados(
     }
 
     // ===== TOTAL DE CHAMADOS =====
-    ws.mergeCells(`A${row}:H${row}`);
+    ws.mergeCells(`A${row}:M${row}`);
     const totalChamados = ws.getCell(`A${row}`);
     totalChamados.value = `CHAMADOS — TOTAL: ${data.length}`;
     totalChamados.font = { bold: true, size: 14, color: { argb: 'FFFFFFFF' } };
@@ -299,12 +551,17 @@ function gerarAbaChamados(
     // ===== CABEÇALHOS =====
     const headers = [
         'CHAMADO',
-        'DATA',
-        'PRIOR.',
+        'ENTRADA',
+        'ATRIBUIÇÃO',
+        'INÍCIO',
+        'SLA',
+        'FINALIZAÇÃO',
+        'STATUS',
         'ASSUNTO',
+        'EMAIL',
         'CLASSIFICAÇÃO',
         'CONSULTOR(A)',
-        'STATUS',
+        'PRIOR.',
         'HORAS',
     ];
 
@@ -323,16 +580,75 @@ function gerarAbaChamados(
     ws.getRow(row).height = 22;
     row++;
 
-    // ===== DADOS DOS CHAMADOS (TODOS JUNTOS) =====
+    // ===== DADOS DOS CHAMADOS =====
     data.forEach((coluna) => {
+        // Formatar DTENVIO_CHAMADO (formato: "dd/mm/yyyy - hh:mm")
+        const dtenvio = coluna.DTENVIO_CHAMADO || '---';
+
+        // Formatar DTINI_CHAMADO
+        let dtini = '---';
+        if (coluna.DTINI_CHAMADO) {
+            const value = coluna.DTINI_CHAMADO;
+            const separator = value.includes('T') ? 'T' : ' ';
+            const [dataStr, horaStr] = value.split(separator);
+            if (dataStr && horaStr) {
+                dtini = formatarDataHoraChamado(dataStr, horaStr);
+            } else {
+                dtini = formatarDataParaBR(dataStr || value);
+            }
+        }
+
+        // Calcular e formatar SLA dinamicamente
+        let slaText = '---';
+        let slaColor: string | null = null;
+
+        if (coluna.DTINI_CHAMADO) {
+            const slaCalculado = calcularSLA(
+                coluna.DATA_CHAMADO,
+                coluna.HORA_CHAMADO,
+                coluna.PRIOR_CHAMADO,
+                coluna.STATUS_CHAMADO,
+                coluna.DTINI_CHAMADO
+            );
+
+            if (slaCalculado) {
+                slaText = formatarTempoHorasMinutos(slaCalculado.tempoDecorrido);
+
+                // Determinar cor baseado no status
+                const statusColors = {
+                    OK: 'FF22C55E', // Verde
+                    ALERTA: 'FFEAB308', // Amarelo
+                    CRITICO: 'FFF97316', // Laranja
+                    VENCIDO: 'FFEF4444', // Vermelho
+                };
+
+                slaColor = statusColors[slaCalculado.status];
+            }
+        }
+
+        // Formatar FINALIZAÇÃO
+        let finalizacao = '---';
+        if (
+            coluna.STATUS_CHAMADO?.toUpperCase() === 'FINALIZADO' &&
+            coluna.DATA_HISTCHAMADO &&
+            coluna.HORA_HISTCHAMADO
+        ) {
+            finalizacao = formatarDataHoraChamado(coluna.DATA_HISTCHAMADO, coluna.HORA_HISTCHAMADO);
+        }
+
         const dados = [
             formatarNumeros(coluna.COD_CHAMADO),
-            formatarDataParaBR(coluna.DATA_CHAMADO),
-            `P-${coluna.PRIOR_CHAMADO}`,
-            corrigirTextoCorrompido(coluna.ASSUNTO_CHAMADO).substring(0, 40),
+            formatarDataHoraChamado(coluna.DATA_CHAMADO, coluna.HORA_CHAMADO),
+            dtenvio,
+            dtini,
+            slaText,
+            finalizacao,
+            coluna.STATUS_CHAMADO,
+            corrigirTextoCorrompido(coluna.ASSUNTO_CHAMADO).substring(0, 50),
+            coluna.EMAIL_CHAMADO || '---',
             corrigirTextoCorrompido(coluna.NOME_CLASSIFICACAO).substring(0, 25),
             renderizarDoisPrimeirosNomes(corrigirTextoCorrompido(coluna.NOME_RECURSO) || '---'),
-            coluna.STATUS_CHAMADO,
+            `P-${coluna.PRIOR_CHAMADO}`,
             formatarHorasTotaisSufixo(coluna.TOTAL_HORAS_OS),
         ];
 
@@ -340,10 +656,21 @@ function gerarAbaChamados(
             const cell = ws.getCell(row, i + 1);
             cell.value = val;
             cell.alignment = {
-                horizontal: [0, 1, 2, 6, 7].includes(i) ? 'center' : 'left',
+                horizontal: [0, 1, 2, 3, 4, 5, 11, 12].includes(i) ? 'center' : 'left',
                 vertical: 'middle',
-                indent: [3, 4, 5].includes(i) ? 2 : 0,
+                indent: [6, 7, 8, 9, 10].includes(i) ? 1 : 0,
             };
+
+            // Colorir coluna do SLA baseado no status
+            if (i === 4 && slaColor && slaText !== '---') {
+                cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                cell.fill = {
+                    type: 'pattern',
+                    pattern: 'solid',
+                    fgColor: { argb: slaColor },
+                };
+            }
+
             if (i === 0) cell.font = { bold: true, color: { argb: 'FF6B21A8' } };
             aplicarBordas(cell);
         });
@@ -354,12 +681,17 @@ function gerarAbaChamados(
     // ===== CONFIGURAR LARGURAS DAS COLUNAS =====
     ws.columns = [
         { width: 15 }, // CHAMADO
-        { width: 15 }, // DATA
-        { width: 15 }, // PRIORIDADE
-        { width: 40 }, // ASSUNTO
+        { width: 20 }, // ENTRADA
+        { width: 20 }, // ATRIBUIÇÃO
+        { width: 20 }, // INÍCIO
+        { width: 18 }, // SLA (aumentado para comportar "Xh:Ymin")
+        { width: 20 }, // FINALIZAÇÃO
+        { width: 30 }, // STATUS
+        { width: 50 }, // ASSUNTO
+        { width: 30 }, // EMAIL
         { width: 30 }, // CLASSIFICAÇÃO
         { width: 25 }, // CONSULTOR
-        { width: 25 }, // STATUS
+        { width: 12 }, // PRIORIDADE
         { width: 15 }, // HORAS
     ];
 }
@@ -406,7 +738,7 @@ function gerarAbaOS(
     ws.getRow(2).height = 25;
     osRow = 4;
 
-    // ===== PERÍODO (CONDICIONAL) - MESMA LÓGICA DO PDF =====
+    // ===== PERÍODO (CONDICIONAL) =====
     const mesValido =
         filtros?.mes &&
         String(filtros.mes).trim() !== '' &&
@@ -512,7 +844,7 @@ function gerarAbaOS(
                     cell.alignment = {
                         horizontal: [0, 1, 2, 3, 4, 5, 8].includes(i) ? 'center' : 'left',
                         vertical: 'middle',
-                        indent: [6, 7].includes(i) ? 2 : 0,
+                        indent: [6, 7].includes(i) ? 1 : 0,
                     };
 
                     if (i === 8) {

@@ -570,9 +570,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const columns = useMemo(
         () =>
             getColunasChamados(
-                isAdmin,
-                new Set(),
-                columnWidths,
+                // isAdmin,
+                // new Set(),
+                // columnWidths,
                 handleOpenSolicitacao,
                 handleOpenAvaliacao
             ),
