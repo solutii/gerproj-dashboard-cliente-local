@@ -13,7 +13,7 @@ export interface Chamado {
     CONCLUSAO_CHAMADO: Date | null;
     STATUS_CHAMADO: string;
     DTENVIO_CHAMADO: string | null;
-    DTINI_CHAMADO: string | null; // ✅ ADICIONAR
+    DTINI_CHAMADO: string | null;
     ASSUNTO_CHAMADO: string | null;
     EMAIL_CHAMADO: string | null;
     PRIOR_CHAMADO: number;
@@ -23,6 +23,8 @@ export interface Chamado {
     NOME_CLASSIFICACAO?: string | null;
     TEM_OS?: boolean;
     TOTAL_HORAS_OS?: number;
+    TOTAL_HORAS_OS_FATURADAS?: number;
+    TOTAL_HORAS_OS_NAO_FATURADAS?: number;
     AVALIA_CHAMADO?: number;
     OBSAVAL_CHAMADO?: string | null;
     DATA_HISTCHAMADO?: Date | null;
@@ -69,6 +71,8 @@ interface ChamadoRaw {
     AVALIA_CHAMADO?: number;
     OBSAVAL_CHAMADO?: string | null;
     TOTAL_HORAS_OS?: number;
+    TOTAL_HORAS_OS_FATURADAS?: number;
+    TOTAL_HORAS_OS_NAO_FATURADAS?: number;
     DATA_HISTCHAMADO?: Date | null;
     HORA_HISTCHAMADO?: string | null;
 }
@@ -267,6 +271,8 @@ const buscarChamadosComTotais = async (
     totalChamados: number;
     totalOS: number;
     totalHoras: number;
+    totalHorasNaoFaturadas: number;
+    totalHorasFaturadas: number;
 }> => {
     try {
         const needsClient = !params.isAdmin || params.codClienteFilter;
@@ -410,12 +416,21 @@ const buscarChamadosComTotais = async (
 
         const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
+        let sqlCountJoins = '';
+        if (params.codClienteFilter || !params.isAdmin) {
+            sqlCountJoins += `LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE\n`;
+        }
+        if (params.codRecursoFilter || params.columnFilters?.NOME_RECURSO) {
+            sqlCountJoins += `LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO\n`;
+        }
+        if (params.columnFilters?.NOME_CLASSIFICACAO) {
+            sqlCountJoins += `LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO\n`;
+        }
+
         const sqlCount = `SELECT COUNT(DISTINCT CHAMADO.COD_CHAMADO) AS TOTAL
-FROM CHAMADO
-LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
-LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO
-LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO
-${whereClause}`;
+    FROM CHAMADO
+    ${sqlCountJoins}
+    ${whereClause}`;
 
         const offset = (params.page - 1) * params.limit;
 
@@ -424,45 +439,79 @@ ${whereClause}`;
         const osDataFim = dataFim || '31.12.2099';
 
         let sqlChamados = `SELECT ${camposChamado},
-    COALESCE(SUM((CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-         CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-         CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-         CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0), 0) AS TOTAL_HORAS_OS
-FROM CHAMADO
-LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
-LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO
-LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO
-LEFT JOIN OS ON CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) = OS.CHAMADO_OS
-    AND OS.DTINI_OS >= ? AND OS.DTINI_OS < ?
-    AND UPPER(OS.FATURADO_OS) <> 'NAO'  -- ✅ ADICIONAR ESTA LINHA
-LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1
-LEFT JOIN HISTCHAMADO ON CHAMADO.COD_CHAMADO = HISTCHAMADO.COD_CHAMADO
-    AND UPPER(HISTCHAMADO.DESC_HISTCHAMADO) = 'FINALIZADO'
-${whereClause}
-GROUP BY ${camposChamado}
-ORDER BY CHAMADO.DATA_CHAMADO DESC, CHAMADO.HORA_CHAMADO DESC
-ROWS ${offset + 1} TO ${offset + params.limit}`;
+    COALESCE(SUM(
+        (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+            CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+            CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+            CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+        ), 0) AS TOTAL_HORAS_OS,
+    COALESCE(SUM(
+        CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
+            (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+                CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+                CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+                CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+        ELSE 0 END
+    ), 0) AS TOTAL_HORAS_OS_FATURADAS,
+    COALESCE(SUM(
+        CASE WHEN UPPER(OS.FATURADO_OS) = 'NAO' THEN
+            (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+                CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+                CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+                CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+        ELSE 0 END
+    ), 0) AS TOTAL_HORAS_OS_NAO_FATURADAS
+    FROM CHAMADO
+    LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
+    LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO
+    LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO
+    LEFT JOIN OS ON CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) = OS.CHAMADO_OS
+    LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1
+  LEFT JOIN (
+    SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
+    FROM HISTCHAMADO
+    WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
+    GROUP BY COD_CHAMADO
+) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO
+LEFT JOIN HISTCHAMADO ON HISTCHAMADO.COD_HISTCHAMADO = HIST_MAX.MAX_COD
+    ${whereClause}
+    GROUP BY ${camposChamado}
+    ORDER BY CHAMADO.DATA_CHAMADO DESC, CHAMADO.HORA_CHAMADO DESC
+    ROWS ${offset + 1} TO ${offset + params.limit}`;
 
-        const sqlParamsChamados = [osDataInicio, osDataFim, ...whereParams];
+        // Agora só precisa de 2 parâmetros de data (não mais 4)
+        const sqlParamsChamados = [...whereParams];
 
         // Query de totais
         let sqlTotais = `SELECT
     COUNT(DISTINCT OS.COD_OS) AS TOTAL_OS,
-    SUM((CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-         CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-         CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-         CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0) AS TOTAL_HORAS
+   SUM(
+    (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+    CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+    CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+    CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+) AS TOTAL_HORAS,
+    SUM(CASE WHEN UPPER(OS.FATURADO_OS) = 'NAO' THEN
+        (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+        CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+        CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+        CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+    ELSE 0 END) AS TOTAL_HORAS_OS_NAO_FATURADAS,
+    SUM(CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
+        (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+        CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+        CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+        CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+    ELSE 0 END) AS TOTAL_HORAS_OS_FATURADAS
 FROM OS
 INNER JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA`;
 
-        if (params.statusFilter || params.columnFilters?.STATUS_CHAMADO) {
-            sqlTotais += ` LEFT JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))`;
-        }
+        sqlTotais += ` INNER JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))`;
 
         if (needsClient) {
             sqlTotais += `
-INNER JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
-INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE`;
+    INNER JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
+    INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE`;
         }
 
         if (params.codRecursoFilter || params.columnFilters?.NOME_RECURSO) {
@@ -470,15 +519,17 @@ INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE`;
         }
 
         const whereTotais: string[] = [
-            'OS.DTINI_OS >= ?',
-            'OS.DTINI_OS < ?',
             'TAREFA.EXIBECHAM_TAREFA = 1',
             'OS.CHAMADO_OS IS NOT NULL',
             "TRIM(OS.CHAMADO_OS) <> ''",
-            "UPPER(OS.FATURADO_OS) <> 'NAO'",
         ];
 
-        const sqlParamsTotais: any[] = [osDataInicio, osDataFim];
+        const sqlParamsTotais: any[] = [];
+
+        if (dataInicio && dataFim) {
+            whereTotais.push('(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)');
+            sqlParamsTotais.push(dataInicio, dataFim);
+        }
 
         if (!params.isAdmin && params.codCliente) {
             whereTotais.push('CLIENTE.COD_CLIENTE = ?');
@@ -518,10 +569,12 @@ INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE`;
         const [countResult, chamados, totaisResult] = await Promise.all([
             firebirdQuery<{ TOTAL: number }>(sqlCount, whereParams),
             firebirdQuery<ChamadoRaw>(sqlChamados, sqlParamsChamados),
-            firebirdQuery<{ TOTAL_OS: number; TOTAL_HORAS: number | null }>(
-                sqlTotais,
-                sqlParamsTotais
-            ),
+            firebirdQuery<{
+                TOTAL_OS: number;
+                TOTAL_HORAS: number | null;
+                TOTAL_HORAS_OS_NAO_FATURADAS: number;
+                TOTAL_HORAS_OS_FATURADAS: number;
+            }>(sqlTotais, sqlParamsTotais),
         ]);
 
         return {
@@ -529,6 +582,8 @@ INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE`;
             totalChamados: countResult[0]?.TOTAL || 0,
             totalOS: totaisResult[0]?.TOTAL_OS || 0,
             totalHoras: totaisResult[0]?.TOTAL_HORAS || 0,
+            totalHorasNaoFaturadas: totaisResult[0]?.TOTAL_HORAS_OS_NAO_FATURADAS || 0,
+            totalHorasFaturadas: totaisResult[0]?.TOTAL_HORAS_OS_FATURADAS || 0,
         };
     } catch (error) {
         console.error('[API CHAMADOS] Erro buscarChamadosComTotais:', error);
@@ -602,7 +657,7 @@ const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado
             CONCLUSAO_CHAMADO: c.CONCLUSAO_CHAMADO || null,
             STATUS_CHAMADO: c.STATUS_CHAMADO,
             DTENVIO_CHAMADO: c.DTENVIO_CHAMADO || null,
-            DTINI_CHAMADO: c.DTINI_CHAMADO || null, // ✅ ADICIONAR
+            DTINI_CHAMADO: c.DTINI_CHAMADO || null,
             ASSUNTO_CHAMADO: c.ASSUNTO_CHAMADO || null,
             EMAIL_CHAMADO: c.EMAIL_CHAMADO || null,
             PRIOR_CHAMADO: c.PRIOR_CHAMADO ?? 100,
@@ -612,6 +667,8 @@ const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado
             NOME_CLASSIFICACAO: c.NOME_CLASSIFICACAO || null,
             TEM_OS: (c.TOTAL_HORAS_OS ?? 0) > 0,
             TOTAL_HORAS_OS: c.TOTAL_HORAS_OS ?? 0,
+            TOTAL_HORAS_OS_FATURADAS: c.TOTAL_HORAS_OS_FATURADAS ?? 0,
+            TOTAL_HORAS_OS_NAO_FATURADAS: c.TOTAL_HORAS_OS_NAO_FATURADAS ?? 0,
             AVALIA_CHAMADO: c.AVALIA_CHAMADO ?? 1,
             OBSAVAL_CHAMADO: c.OBSAVAL_CHAMADO ?? null,
             DATA_HISTCHAMADO: c.DATA_HISTCHAMADO || null,
@@ -673,7 +730,14 @@ export async function GET(request: NextRequest) {
             buscarNomes(codClienteAplicado, params.codRecursoFilter),
         ]);
 
-        const { chamados, totalChamados, totalOS, totalHoras } = resultado;
+        const {
+            chamados,
+            totalChamados,
+            totalOS,
+            totalHoras,
+            totalHorasFaturadas,
+            totalHorasNaoFaturadas,
+        } = resultado;
 
         if (chamados.length === 0) {
             return NextResponse.json(
@@ -685,6 +749,8 @@ export async function GET(request: NextRequest) {
                     totalChamados: 0,
                     totalOS,
                     totalHorasOS: totalHoras,
+                    totalHorasFaturadas: totalHorasFaturadas,
+                    totalHorasNaoFaturadas: totalHorasNaoFaturadas,
                     mes: params.mes,
                     ano: params.ano,
                     pagination: {
@@ -714,6 +780,8 @@ export async function GET(request: NextRequest) {
                 totalChamados,
                 totalOS,
                 totalHorasOS: totalHoras,
+                totalHorasFaturadas,
+                totalHorasNaoFaturadas,
                 mes: params.mes,
                 ano: params.ano,
                 pagination: {

@@ -1,5 +1,5 @@
 # ========================================
-# API - HRS-CONTRATADAS-HRS x-EXECUTADAS
+# HORAS CONTRATADAS X HORAS EXECUTADAS
 # ========================================
 
 ### Buscar todas as OS's - ADMIN
@@ -56,7 +56,7 @@ GET http://localhost:3000/api/filtros/status?isAdmin=true&mes=11&ano=2025
 # API - CHAMADOS
 # ========================================
 ### Buscar todos os chamados de um determinado PERÍODO - ADMIN
-GET http://localhost:3000/api/chamados?mes=12&ano=2025&isAdmin=true
+GET http://localhost:3000/api/chamados?mes=01&ano=2026&isAdmin=true
 
 
 
@@ -71,7 +71,7 @@ GET http://localhost:3000/api/chamados?isAdmin=false&codCliente=156&mes=12
 
 
 ### Buscar todos os chamados de um CLIENTE específico - ADMIN
-GET http://localhost:3000/api/chamados?mes=12&ano=2025&isAdmin=true&codClienteFilter=158
+GET http://localhost:3000/api/chamados?mes=01&ano=2026&isAdmin=false&codCliente=156
 
 
 
@@ -81,12 +81,12 @@ GET http://localhost:3000/api/chamados?mes=12&ano=2025&isAdmin=true&codRecursoFi
 
 
 ### Buscar todos os chamados com um STATUS específico - ADMIN
-GET http://localhost:3000/api/chamados?mes=12&ano=2025&isAdmin=true&statusFilter=FINALIZADO
+GET http://localhost:3000/api/chamados?mes=01&ano=2026&isAdmin=false&codCliente=156&statusFilter=FINALIZADO
 
 
 
 ### Buscar todas as OS's vinculadas a um CHAMADO específico - ADMIN
-GET http://localhost:3000//api/chamados/13230/os?isAdmin=true&mes=12&ano=2025
+GET http://localhost:3000/api/chamados/14123/os?isAdmin=true&mes=01&ano=2026
 
 
 

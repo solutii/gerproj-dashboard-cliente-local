@@ -169,45 +169,20 @@ function calcularHorasTrabalhadas(hrIni: string, hrFim: string): number {
 }
 
 // ==================== CONSTRUÇÃO DE SQL ====================
-function construirSQLBase(
-    dataInicio?: string,
-    dataFim?: string
-): { sql: string; temFiltroPeriodo: boolean } {
+function construirSQLBase(): string {
     const campos = Object.values(CAMPOS_OS).join(',\n    ');
 
-    let sql = `
-  SELECT
+    return `
+SELECT
     ${campos}
-  FROM OS
-  LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
-  LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
-  LEFT JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
-  LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
-  WHERE OS.CHAMADO_OS = ?
-  AND TAREFA.EXIBECHAM_TAREFA = 1
-  AND UPPER(OS.FATURADO_OS) <> 'NAO'`;
-
-    // Se tiver filtro de período, adicionar
-    if (dataInicio && dataFim) {
-        sql += `
-    AND OS.DTINI_OS >= ?
-    AND OS.DTINI_OS < ?`;
-        return {
-            sql:
-                sql +
-                `
-  ORDER BY OS.DTINI_OS DESC, OS.NUM_OS DESC`,
-            temFiltroPeriodo: true,
-        };
-    }
-
-    return {
-        sql:
-            sql +
-            `
-  ORDER BY OS.DTINI_OS DESC, OS.NUM_OS DESC`,
-        temFiltroPeriodo: false,
-    };
+FROM OS
+LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
+LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
+LEFT JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
+LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
+WHERE OS.CHAMADO_OS = ?
+AND TAREFA.EXIBECHAM_TAREFA = 1
+ORDER BY OS.DTINI_OS DESC, OS.NUM_OS DESC`;
 }
 
 // ==================== PROCESSAMENTO DE DADOS ====================
@@ -261,23 +236,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         // ✅ NOVO: Buscar data do chamado
         const dataChamado = await buscarDataChamado(codChamadoValidado);
 
-        // Construir SQL dinamicamente com ou sem filtro de período
-        let sqlParams: any[] = [codChamado];
-        let dataInicio: string | undefined;
-        let dataFim: string | undefined;
-
-        if (auth.mes && auth.ano) {
-            const datas = construirDatas(auth.mes, auth.ano);
-            dataInicio = datas.dataInicio;
-            dataFim = datas.dataFim;
-        }
-
-        const { sql: sqlFinal, temFiltroPeriodo } = construirSQLBase(dataInicio, dataFim);
+        const sqlFinal = construirSQLBase();
+        const sqlParams: any[] = [codChamado];
 
         // Se tem filtro de período, adicionar os parâmetros de data
-        if (temFiltroPeriodo && dataInicio && dataFim) {
-            sqlParams.push(dataInicio, dataFim);
-        }
 
         // Buscar OS's do chamado
         const os = await firebirdQuery<any>(sqlFinal, sqlParams);
@@ -297,7 +259,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 success: true,
                 codChamado: codChamadoValidado,
                 dataChamado: dataChamado, // ✅ NOVO campo
-                periodo: temFiltroPeriodo ? { mes: auth.mes, ano: auth.ano } : undefined,
                 totais,
                 data: osProcessadas,
             },
