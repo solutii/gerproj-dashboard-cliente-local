@@ -1,4 +1,6 @@
 // src/app/paginas/chamados/tabelas/Tabela_Chamados.tsx
+// ✅ NOVO: importar o hook de horas por mês
+// Único arquivo que muda: adicionar o hook e passar getHoras para getColunasChamados
 
 'use client';
 
@@ -11,9 +13,10 @@ import { ModalAvaliarChamado } from '@/app/paginas/chamados/modais/Modal_Avaliar
 import { ModalValidarOS } from '@/app/paginas/chamados/modais/Modal_Validar_OS';
 import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { TabelaOS } from '@/app/paginas/chamados/tabelas/Tabela_OS';
-import { IsError } from '@/components/shared/IsError';
-import { IsLoading } from '@/components/shared/IsLoading';
+import { IsError } from '@/components/IsError';
+import { IsLoading } from '@/components/IsLoading';
 import { useAuth } from '@/context/AuthContext';
+import { useHorasPorMes } from '@/hooks/useHorasPorMes'; // ✅ NOVO
 import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
 import { useQuery } from '@tanstack/react-query';
 // =====================================================
@@ -123,33 +126,23 @@ const formatarDataParaComparacao = (
 ): string | null => {
     if (!data) return null;
 
-    // Caso 1: já está no formato dd/mm/yyyy puro
-    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(data)) {
-        return data;
-    }
+    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(data)) return data;
 
-    // Caso 2: dd/mm/yyyy - hh:mm  (formato de DTENVIO_CHAMADO)
-    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} - \d{2}:\d{2}/.test(data)) {
+    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} - \d{2}:\d{2}/.test(data))
         return data.split(' - ')[0];
-    }
 
-    // Caso 3: dd/mm/yyyy hh:mm:ss ou dd/mm/yyyy hh:mm
-    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/.test(data)) {
+    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/.test(data))
         return data.split(' ')[0];
-    }
 
-    // Caso 4: String ISO completa (yyyy-mm-ddThh:mm:ss.sssZ) - USAR HORA LOCAL
     if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(data)) {
         const dataObj = new Date(data);
         if (isNaN(dataObj.getTime())) return null;
-        // 🔧 MUDANÇA: Usar hora LOCAL ao invés de UTC
         const dia = dataObj.getDate().toString().padStart(2, '0');
         const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
         const ano = dataObj.getFullYear();
         return `${dia}/${mes}/${ano}`;
     }
 
-    // Caso 5: String ISO simples (yyyy-mm-dd sem hora)
     if (typeof data === 'string') {
         const isoMatch = data.match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (isoMatch) {
@@ -158,7 +151,6 @@ const formatarDataParaComparacao = (
         }
     }
 
-    // Caso 6: Date object - USAR HORA LOCAL
     if (data instanceof Date) {
         if (isNaN(data.getTime())) return null;
         const dia = data.getDate().toString().padStart(2, '0');
@@ -167,7 +159,6 @@ const formatarDataParaComparacao = (
         return `${dia}/${mes}/${ano}`;
     }
 
-    // Caso 7: timestamp numérico - USAR HORA LOCAL
     if (typeof data === 'number') {
         const dataObj = new Date(data);
         if (isNaN(dataObj.getTime())) return null;
@@ -204,9 +195,7 @@ const fetchChamados = async ({
     if (cliente) params.append('codClienteFilter', cliente);
 
     const statusUpper = status?.trim().toUpperCase();
-    if (statusUpper === 'FINALIZADO') {
-        params.append('statusFilter', status!);
-    }
+    if (statusUpper === 'FINALIZADO') params.append('statusFilter', status!);
 
     if (isAdmin) {
         params.append('ano', ano || String(new Date().getFullYear()));
@@ -332,6 +321,20 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     });
 
     // =====================================================
+    // ✅ NOVO: IDs com OS + hook de horas por mês
+    // Filtra apenas chamados com OS para não buscar desnecessariamente
+    // =====================================================
+    const idsComOS = useMemo(
+        () => (apiData?.data ?? []).filter((c) => c.TEM_OS).map((c) => c.COD_CHAMADO),
+        [apiData?.data]
+    );
+
+    const { getHoras, isLoading: isLoadingHoras } = useHorasPorMes({
+        codChamados: idsComOS,
+        enabled: idsComOS.length > 0,
+    });
+
+    // =====================================================
     // FILTRAGENS E TRANSFORMAÇÕES DE DADOS
     // =====================================================
     const dadosFiltradosPorStatus = useMemo(() => {
@@ -348,7 +351,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
 
     const dadosFiltradosPorRecurso = useMemo(() => {
         if (!recurso) return dadosFiltradosPorStatus;
-
         return dadosFiltradosPorStatus.filter((chamado) => {
             const codRecurso = chamado.COD_RECURSO?.toString().trim();
             const nomeRecurso = chamado.NOME_RECURSO?.toString().trim();
@@ -356,18 +358,15 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         });
     }, [dadosFiltradosPorStatus, recurso]);
 
-    // ✅ NOVOS FILTROS LOCAIS
     const dadosFiltradosPorChamado = useMemo(() => {
         if (!chamado) return dadosFiltradosPorRecurso;
-
-        return dadosFiltradosPorRecurso.filter((chamadoItem) => {
-            return chamadoItem.COD_CHAMADO?.toString() === chamado.toString();
-        });
+        return dadosFiltradosPorRecurso.filter(
+            (chamadoItem) => chamadoItem.COD_CHAMADO?.toString() === chamado.toString()
+        );
     }, [dadosFiltradosPorRecurso, chamado]);
 
     const dadosFiltradosPorEntrada = useMemo(() => {
         if (!entrada) return dadosFiltradosPorChamado;
-
         return dadosFiltradosPorChamado.filter((chamadoItem) => {
             const dataFormatada = formatarDataParaComparacao(chamadoItem.DATA_CHAMADO);
             return dataFormatada === entrada;
@@ -376,23 +375,20 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
 
     const dadosFiltradosPorPrioridade = useMemo(() => {
         if (!prioridade) return dadosFiltradosPorEntrada;
-
-        return dadosFiltradosPorEntrada.filter((chamadoItem) => {
-            return chamadoItem.PRIOR_CHAMADO?.toString() === prioridade.toString();
-        });
+        return dadosFiltradosPorEntrada.filter(
+            (chamadoItem) => chamadoItem.PRIOR_CHAMADO?.toString() === prioridade.toString()
+        );
     }, [dadosFiltradosPorEntrada, prioridade]);
 
     const dadosFiltradosPorClassificacao = useMemo(() => {
         if (!classificacao) return dadosFiltradosPorPrioridade;
-
-        return dadosFiltradosPorPrioridade.filter((chamadoItem) => {
-            return chamadoItem.NOME_CLASSIFICACAO?.trim() === classificacao.trim();
-        });
+        return dadosFiltradosPorPrioridade.filter(
+            (chamadoItem) => chamadoItem.NOME_CLASSIFICACAO?.trim() === classificacao.trim()
+        );
     }, [dadosFiltradosPorPrioridade, classificacao]);
 
     const dadosFiltradosPorAtribuicao = useMemo(() => {
         if (!atribuicao) return dadosFiltradosPorClassificacao;
-
         return dadosFiltradosPorClassificacao.filter((chamadoItem) => {
             const dataFormatada = formatarDataParaComparacao(chamadoItem.DTENVIO_CHAMADO);
             return dataFormatada === atribuicao;
@@ -402,7 +398,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const dadosFiltradosPorInicio = useMemo(() => {
         if (!inicio) return dadosFiltradosPorAtribuicao;
 
-        // 🔍 DEBUG TEMPORÁRIO
         const amostra = dadosFiltradosPorAtribuicao.find((c) => c.DTINI_CHAMADO);
         if (amostra) {
             console.log('🔍 DTINI_CHAMADO na tabela:', JSON.stringify(amostra.DTINI_CHAMADO));
@@ -420,9 +415,8 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     }, [dadosFiltradosPorAtribuicao, inicio]);
 
     const dadosFiltradosPorFinalizacao = useMemo(() => {
-        if (!finalizacao) return dadosFiltradosPorInicio; // ← troca aqui
+        if (!finalizacao) return dadosFiltradosPorInicio;
         return dadosFiltradosPorInicio.filter((chamadoItem) => {
-            // ← troca aqui
             const dataFormatada = formatarDataParaComparacao(chamadoItem.DATA_HISTCHAMADO);
             return dataFormatada === finalizacao;
         });
@@ -430,12 +424,10 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
 
     const dadosCompletosFiltrados = useMemo(() => {
         if (columnFilters.length === 0) return dadosFiltradosPorFinalizacao;
-
         return dadosFiltradosPorFinalizacao.filter((row) => {
             return columnFilters.every((filter) => {
-                if (!filter.value || (typeof filter.value === 'string' && !filter.value.trim())) {
+                if (!filter.value || (typeof filter.value === 'string' && !filter.value.trim()))
                     return true;
-                }
                 const cellValue = row[filter.id as keyof ChamadoRowProps];
                 if (cellValue == null) return false;
                 return String(cellValue).toUpperCase().includes(String(filter.value).toUpperCase());
@@ -480,9 +472,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // EFFECTS
     // =====================================================
     useEffect(() => {
-        if (onDataChange) {
-            onDataChange(dadosFiltradosPorFinalizacao);
-        }
+        if (onDataChange) onDataChange(dadosFiltradosPorFinalizacao);
     }, [dadosFiltradosPorFinalizacao, onDataChange]);
 
     useEffect(() => {
@@ -561,7 +551,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     }, []);
 
     const handleSaveAvaliacao = useCallback(() => refetch(), [refetch]);
-
     const clearAllFilters = useCallback(() => setColumnFilters([]), []);
 
     // =====================================================
@@ -570,13 +559,19 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const columns = useMemo(
         () =>
             getColunasChamados(
-                // isAdmin,
-                // new Set(),
-                // columnWidths,
                 handleOpenSolicitacao,
-                handleOpenAvaliacao
+                handleOpenAvaliacao,
+                getHoras, // ✅ NOVO: passa getHoras para as colunas
+                isLoadingHoras // ✅ NOVO: passa estado de loading
             ),
-        [isAdmin, columnWidths, handleOpenSolicitacao, handleOpenAvaliacao]
+        [
+            isAdmin,
+            columnWidths,
+            handleOpenSolicitacao,
+            handleOpenAvaliacao,
+            getHoras,
+            isLoadingHoras,
+        ]
     );
 
     const table = useReactTable<ChamadoRowProps>({
@@ -594,17 +589,13 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // =====================================================
     // RENDERIZAÇÃO CONDICIONAL
     // =====================================================
-    if (!isLoggedIn) {
+    if (!isLoggedIn)
         return <IsError isError={true} error={new Error('Você precisa estar logado')} title={''} />;
-    }
 
-    if (isLoading) {
+    if (isLoading)
         return <IsLoading isLoading={isLoading} title="Buscando Chamados no banco de dados..." />;
-    }
 
-    if (error) {
-        return <IsError isError={!!error} error={error as Error} title={''} />;
-    }
+    if (error) return <IsError isError={!!error} error={error as Error} title={''} />;
 
     // =====================================================
     // RENDERIZAÇÃO PRINCIPAL
@@ -707,7 +698,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
 }
 
 // ============================================================
-// SUB-COMPONENTES
+// SUB-COMPONENTES (inalterados)
 // ============================================================
 
 interface PaginationControlsProps {
@@ -741,28 +732,20 @@ const PaginationControls = React.memo(function PaginationControls({
         const maxPagesToShow = 7;
 
         if (totalPages <= maxPagesToShow) {
-            for (let i = 1; i <= totalPages; i++) {
-                pages.push(i);
-            }
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
         } else {
             if (currentPage <= 4) {
-                for (let i = 1; i <= 5; i++) {
-                    pages.push(i);
-                }
+                for (let i = 1; i <= 5; i++) pages.push(i);
                 pages.push('...');
                 pages.push(totalPages);
             } else if (currentPage >= totalPages - 3) {
                 pages.push(1);
                 pages.push('...');
-                for (let i = totalPages - 4; i <= totalPages; i++) {
-                    pages.push(i);
-                }
+                for (let i = totalPages - 4; i <= totalPages; i++) pages.push(i);
             } else {
                 pages.push(1);
                 pages.push('...');
-                for (let i = currentPage - 1; i <= currentPage + 1; i++) {
-                    pages.push(i);
-                }
+                for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
                 pages.push('...');
                 pages.push(totalPages);
             }
@@ -797,7 +780,6 @@ const PaginationControls = React.memo(function PaginationControls({
                             ? 'cursor-pointer border border-purple-900 bg-purple-600 text-white shadow-md shadow-black hover:scale-105 hover:shadow-xl hover:shadow-black active:scale-95'
                             : 'cursor-not-allowed border border-gray-400 bg-gray-300 text-gray-600'
                     }`}
-                    title={hasPreviousPage ? 'Página anterior' : 'Primeira página'}
                 >
                     <MdNavigateBefore size={20} />
                     Anterior
@@ -817,7 +799,6 @@ const PaginationControls = React.memo(function PaginationControls({
                         }
 
                         const isCurrentPage = pageNum === currentPage;
-
                         return (
                             <button
                                 key={pageNum}
@@ -832,7 +813,6 @@ const PaginationControls = React.memo(function PaginationControls({
                                         ? 'cursor-default border border-purple-900 bg-purple-600 text-white'
                                         : 'cursor-pointer border border-gray-400 bg-gray-200 text-gray-700 hover:scale-105 hover:shadow-xl hover:shadow-black active:scale-95'
                                 }`}
-                                title={`Ir para página ${pageNum}`}
                             >
                                 {pageNum}
                             </button>
@@ -848,7 +828,6 @@ const PaginationControls = React.memo(function PaginationControls({
                             ? 'cursor-pointer border border-purple-900 bg-purple-600 text-white shadow-md shadow-black hover:scale-105 hover:shadow-xl hover:shadow-black active:scale-95'
                             : 'cursor-not-allowed border border-gray-400 bg-gray-300 text-gray-600'
                     }`}
-                    title={hasNextPage ? 'Próxima página' : 'Última página'}
                 >
                     Próximo
                     <MdNavigateNext size={20} />
@@ -955,11 +934,7 @@ const Header = React.memo(function Header({
                     data={filteredData}
                     isAdmin={isAdmin}
                     codCliente={codCliente}
-                    filtros={{
-                        ano,
-                        mes,
-                        status: '',
-                    }}
+                    filtros={{ ano, mes, status: '' }}
                     disabled={filteredData.length === 0}
                 />
 
@@ -967,11 +942,7 @@ const Header = React.memo(function Header({
                     data={filteredData}
                     isAdmin={isAdmin}
                     codCliente={codCliente}
-                    filtros={{
-                        ano,
-                        mes,
-                        status: '',
-                    }}
+                    filtros={{ ano, mes, status: '' }}
                     disabled={filteredData.length === 0}
                 />
 
@@ -1066,16 +1037,12 @@ const TableBody = React.memo(function TableBody({
                 <tr
                     key={row.id}
                     data-chamado-id={row.original.COD_CHAMADO}
-                    className={`transition-all ${
-                        rowIndex % 2 === 0 ? 'bg-white' : 'bg-white'
-                    } hover:bg-teal-200`}
+                    className="transition-all hover:bg-teal-200"
                 >
                     {row.getVisibleCells().map((cell: any, cellIndex: number) => (
                         <td
                             key={cell.id}
-                            style={{
-                                width: `${columnWidths[cell.column.id]}px`,
-                            }}
+                            style={{ width: `${columnWidths[cell.column.id]}px` }}
                             className={`border-b border-gray-400 px-2 py-3 transition-all ${
                                 cellIndex === 0 ? 'border-l border-l-gray-400 pl-4' : ''
                             } ${
@@ -1084,17 +1051,6 @@ const TableBody = React.memo(function TableBody({
                                     : ''
                             }`}
                         >
-                            {/* <td
-                                key={cell.id}
-                                style={{
-                                    width: `${columnWidths[cell.column.id]}px`,
-                                }}
-                                className={`border-b border-l border-gray-400 px-2 py-3 transition-all ${
-                                    cellIndex === 0 ? 'pl-4' : ''
-                                } ${
-                                    cellIndex === row.getVisibleCells().length - 1 ? 'border-r' : ''
-                                }`}
-                            ></td> */}
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}
                         </td>
                     ))}

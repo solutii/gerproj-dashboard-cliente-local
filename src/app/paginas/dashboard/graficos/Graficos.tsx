@@ -15,16 +15,16 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../../../context/AuthContext';
 import {
     formatarHorasArredondadas,
     formatarHorasTotaisSufixo,
-} from '../../formatters/formatar-hora';
-import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
+} from '../../../../formatters/formatar-hora';
+import { corrigirTextoCorrompido } from '../../../../formatters/formatar-texto-corrompido';
 import {
     renderizarDoisPrimeirosNomes,
     renderizarPrimeiroNome,
-} from '../../formatters/remover-acentuacao';
+} from '../../../../formatters/remover-acentuacao';
 
 // ==================== Interfaces ====================
 interface FilterProps {

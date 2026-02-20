@@ -3,8 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { FaExclamationTriangle, FaTasks, FaTicketAlt } from 'react-icons/fa';
-import { useAuth } from '../../context/AuthContext';
-import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
+import { useAuth } from '../../../../context/AuthContext';
+import { formatarHorasTotaisSufixo } from '../../../../formatters/formatar-hora';
 
 // ==================== INTERFACES ====================
 interface FilterProps {
@@ -144,15 +144,14 @@ const SkeletonLoadingCard = () => (
 // COMPONENTE PRINCIPAL
 // ================================================================================
 export function CardMediaHrsChamadoTarefa({ filters }: FilterProps) {
-    const { isAdmin, codCliente } = useAuth();
+    const { codCliente } = useAuth();
 
     const fetchData = async (): Promise<MediasResponse> => {
         const params = new URLSearchParams();
         params.append('mes', filters.mes.toString());
         params.append('ano', filters.ano.toString());
-        params.append('isAdmin', isAdmin.toString());
 
-        if (!isAdmin && codCliente) {
+        if (codCliente) {
             params.append('codCliente', codCliente);
         }
 
@@ -180,9 +179,9 @@ export function CardMediaHrsChamadoTarefa({ filters }: FilterProps) {
     };
 
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['mediasHoras', filters, isAdmin, codCliente],
+        queryKey: ['mediasHoras', filters, codCliente],
         queryFn: fetchData,
-        enabled: !!filters && (isAdmin || codCliente !== null),
+        enabled: !!filters && codCliente !== null,
         staleTime: 1000 * 60 * 5, // 5 minutos
         refetchOnWindowFocus: false,
     });

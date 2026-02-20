@@ -4,8 +4,8 @@
 
 import { RedimensionarColunas } from '@/app/paginas/chamados/componentes/Redimensionar_Colunas';
 import { ModalObservacaoOS } from '@/app/paginas/chamados/modais/Modal_Observacao_OS';
-import { IsError } from '@/components/shared/IsError';
-import { IsLoading } from '@/components/shared/IsLoading';
+import { IsError } from '@/components/IsError';
+import { IsLoading } from '@/components/IsLoading';
 import { useAuth } from '@/context/AuthContext';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
@@ -88,12 +88,14 @@ const createAuthHeaders = () => ({
 });
 
 // ✅ NOVA FUNÇÃO: Extrair mês e ano da data do chamado
-const extrairMesAnoDeData = (data: string | Date | null | undefined): { mes: number; ano: number } => {
+const extrairMesAnoDeData = (
+    data: string | Date | null | undefined
+): { mes: number; ano: number } => {
     if (!data) {
         const hoje = new Date();
         return {
             mes: hoje.getMonth() + 1,
-            ano: hoje.getFullYear()
+            ano: hoje.getFullYear(),
         };
     }
 
@@ -115,13 +117,13 @@ const extrairMesAnoDeData = (data: string | Date | null | undefined): { mes: num
         const hoje = new Date();
         return {
             mes: hoje.getMonth() + 1,
-            ano: hoje.getFullYear()
+            ano: hoje.getFullYear(),
         };
     }
 
     return {
         mes: dataObj.getMonth() + 1,
-        ano: dataObj.getFullYear()
+        ano: dataObj.getFullYear(),
     };
 };
 
@@ -148,7 +150,7 @@ const fetchOSByChamado = async ({
         codCliente,
         mes,
         ano,
-        url: `/api/chamados/${codChamado}/os?${params.toString()}`
+        url: `/api/chamados/${codChamado}/os?${params.toString()}`,
     });
 
     const response = await fetch(`/api/chamados/${codChamado}/os?${params.toString()}`, {
@@ -181,11 +183,11 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
             console.log('📅 Usando data do chamado:', dataChamado);
             return extrairMesAnoDeData(dataChamado);
         }
-        
+
         console.log('📅 Usando filtros:', { mes: mesFiltro, ano: anoFiltro });
         return {
             mes: mesFiltro ?? new Date().getMonth() + 1,
-            ano: anoFiltro ?? new Date().getFullYear()
+            ano: anoFiltro ?? new Date().getFullYear(),
         };
     }, [dataChamado, mesFiltro, anoFiltro]);
 
@@ -207,7 +209,7 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
                 isAdmin,
                 codCliente,
                 mes: mesExtraido,
-                ano: anoExtraido
+                ano: anoExtraido,
             });
         }
     }, [isOpen, codChamado, dataChamado, isAdmin, codCliente, mesExtraido, anoExtraido]);
@@ -237,7 +239,7 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
                 isLoading,
                 error: error?.message,
                 hasData: !!data,
-                dataLength: data?.data?.length
+                dataLength: data?.data?.length,
             });
         }
     }, [isOpen, codChamado, isLoading, error, data]);
@@ -257,7 +259,8 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
             if (typeof dataChamado === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(dataChamado)) {
                 return dataChamado;
             }
-            const dataChamadoString = typeof dataChamado === 'string' ? dataChamado : dataChamado.toISOString();
+            const dataChamadoString =
+                typeof dataChamado === 'string' ? dataChamado : dataChamado.toISOString();
             return formatarDataParaBR(dataChamadoString);
         }
         return `${mesExtraido}/${anoExtraido}`;
@@ -320,7 +323,11 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
         return (
             <ModalOverlay>
                 <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[800px] flex-col overflow-hidden rounded-xl bg-white p-8 shadow-md shadow-black">
-                    <IsError isError={!!error} error={error as Error} title="Erro ao Carregar OS's" />
+                    <IsError
+                        isError={!!error}
+                        error={error as Error}
+                        title="Erro ao Carregar OS's"
+                    />
                     <button
                         onClick={onClose}
                         className="mt-4 cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 px-6 py-2 text-white shadow-md shadow-black transition-all hover:scale-105 active:scale-95"

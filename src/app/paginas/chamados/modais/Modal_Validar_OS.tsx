@@ -3,7 +3,7 @@
 'use client';
 
 import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
-import { LoadingButton } from '@/components/shared/Loading_Button';
+import { LoadingButton } from '@/components/Loading_Button';
 import { useAuth } from '@/context/AuthContext';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';

@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { ImSpinner2 } from 'react-icons/im';
 import { IoEye, IoEyeOff, IoLockClosed, IoMail } from 'react-icons/io5';
 import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 

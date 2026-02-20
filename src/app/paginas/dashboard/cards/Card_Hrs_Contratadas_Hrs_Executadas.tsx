@@ -3,8 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
-import { useAuth } from '../../context/AuthContext';
-import { formatarHorasTotaisSufixo } from '../../formatters/formatar-hora';
+import { useAuth } from '../../../../context/AuthContext';
+import { formatarHorasTotaisSufixo } from '../../../../formatters/formatar-hora';
 
 // ==================== INTERFACES ====================
 interface FilterProps {
@@ -20,7 +20,10 @@ interface FilterProps {
 interface ApiResponse {
     totalHorasContratadas: number;
     totalHorasExecutadas: number;
-    detalhes: any[];
+    totalHorasFaturadas: number;
+    totalHorasNaoFaturadas: number;
+    detalhesClientes: any[];
+    resumo: any;
 }
 
 interface HorasBarProps {
@@ -134,20 +137,13 @@ const SkeletonLoadingCard = () => (
     <div className="flex h-32 flex-col overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20 shadow-lg sm:h-36 lg:h-40">
         <div className="flex h-full items-center justify-center">
             <div className="relative h-20 w-20">
-                {/* Círculo externo girando no sentido horário */}
                 <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-blue-600 border-r-blue-400"></div>
-
-                {/* Círculo interno girando no sentido anti-horário */}
                 <div className="animate-spin-reverse absolute inset-2 rounded-full border-4 border-transparent border-b-indigo-600 border-l-indigo-400"></div>
-
-                {/* Círculo central estático */}
                 <div className="absolute inset-4 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
                     <div className="h-6 w-6 animate-pulse rounded-full bg-gradient-to-br from-blue-500 to-indigo-500"></div>
                 </div>
             </div>
         </div>
-
-        {/* Adicionar animação CSS personalizada */}
         <style jsx>{`
             @keyframes spin-reverse {
                 from {
@@ -168,19 +164,17 @@ const SkeletonLoadingCard = () => (
 // COMPONENTE PRINCIPAL
 // ================================================================================
 export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
-    const { isAdmin, codCliente } = useAuth();
+    const { codCliente } = useAuth();
 
     const fetchData = async (): Promise<ApiResponse> => {
         const params = new URLSearchParams();
         params.append('mes', filters.mes.toString());
         params.append('ano', filters.ano.toString());
-        params.append('isAdmin', isAdmin.toString());
 
-        if (!isAdmin && codCliente) {
+        if (codCliente) {
             params.append('codCliente', codCliente);
         }
 
-        if (filters.cliente) params.append('codClienteFilter', filters.cliente);
         if (filters.recurso) params.append('codRecursoFilter', filters.recurso);
         if (filters.status) params.append('status', filters.status);
 
@@ -204,10 +198,10 @@ export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
     };
 
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['horasContratadasExecutadas', filters, isAdmin, codCliente],
+        queryKey: ['horasContratadasExecutadas', filters, codCliente],
         queryFn: fetchData,
-        enabled: !!filters && (isAdmin || codCliente !== null),
-        staleTime: 1000 * 60 * 5, // 5 minutos
+        enabled: !!filters && !!codCliente,
+        staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,
     });
 
@@ -236,17 +230,17 @@ export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
     }
 
     const totalHorasContratadas = data.totalHorasContratadas || 0;
-    const totalHorasExecutadas = data.totalHorasExecutadas || 0;
+    // Exibe horas FATURADAS no lugar de executadas totais
+    const totalHorasFaturadas = data.totalHorasFaturadas || 0;
     const percentual =
-        totalHorasContratadas > 0 ? (totalHorasExecutadas / totalHorasContratadas) * 100 : 0;
-    const diferenca = totalHorasExecutadas - totalHorasContratadas;
+        totalHorasContratadas > 0 ? (totalHorasFaturadas / totalHorasContratadas) * 100 : 0;
+    const diferenca = totalHorasFaturadas - totalHorasContratadas;
 
     const getExecutadasConfig = () => {
         if (diferenca > 0.5) {
             return {
                 gradient: COLORS.executadasAcima.gradient,
                 textColor: COLORS.executadasAcima.text,
-                statusIcon: '⚠️',
                 isOverLimit: true,
             };
         }
@@ -254,14 +248,12 @@ export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
             return {
                 gradient: COLORS.executadasAbaixo.gradient,
                 textColor: COLORS.executadasAbaixo.text,
-                statusIcon: '✅',
                 isOverLimit: false,
             };
         }
         return {
             gradient: COLORS.executadasNormal.gradient,
             textColor: COLORS.executadasNormal.text,
-            statusIcon: '📊',
             isOverLimit: false,
         };
     };
@@ -280,8 +272,8 @@ export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
         },
         {
             label: 'Executadas',
-            value: totalHorasExecutadas,
-            formattedValue: formatarHorasTotaisSufixo(totalHorasExecutadas),
+            value: totalHorasFaturadas,
+            formattedValue: formatarHorasTotaisSufixo(totalHorasFaturadas),
             percentage: percentual,
             gradient: executadasConfig.gradient,
             textColor: executadasConfig.textColor,
@@ -321,21 +313,17 @@ export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
 
                     {/* Label, Percentual e Diferença de Horas */}
                     <div className="flex items-center justify-between">
-                        {/* Label */}
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-semibold tracking-widest text-black uppercase select-none">
                                 Utilização
                             </span>
                         </div>
-                        {/* Percentual e Diferença de Horas */}
                         <div className="flex items-center gap-2">
-                            {/* Percentual */}
                             <span
                                 className={`text-base font-semibold tracking-widest select-none ${executadasConfig.textColor}`}
                             >
                                 {percentual.toFixed(1)}%
                             </span>
-                            {/* Diferença de horas */}
                             {diferenca !== 0 && (
                                 <span
                                     className={`text-sm font-semibold tracking-widest select-none ${executadasConfig.textColor}`}

@@ -2,7 +2,7 @@
 
 'use client';
 
-import { Relogio } from '@/components/shared/Relogio';
+import { Relogio } from '@/components/Relogio';
 import { useAuth } from '@/context/AuthContext';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { useQuery } from '@tanstack/react-query';

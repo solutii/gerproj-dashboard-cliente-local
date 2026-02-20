@@ -1,12 +1,13 @@
 // src/app/paginas/chamados/tabelas/Colunas_Tabela_Chamados.tsx
 
+import type { HorasMes } from '@/app/api/chamados/horas-por-mes/route'; // ✅ NOVO
+import { HorasMesTooltip } from '@/app/paginas/chamados/componentes/Horas_Mes_Tooltip'; // ✅ NOVO
 import { SLACell } from '@/app/paginas/chamados/componentes/SLA_Cell';
 import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros, formatarPrioridade } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { ColumnDef } from '@tanstack/react-table';
-// =====================================================
 import React from 'react';
 import { BiSolidLike } from 'react-icons/bi';
 import { MdOpenInNew, MdOutlineStar } from 'react-icons/md';
@@ -29,6 +30,7 @@ export type ChamadoRowProps = {
     NOME_RECURSO: string | null;
     NOME_CLASSIFICACAO: string | null;
     TOTAL_HORAS_OS: number;
+    TOTAL_HORAS_OS_FATURADAS?: number; // ✅ NOVO: necessário para o tooltip
     TEM_OS?: boolean;
     DATA_HISTCHAMADO?: string | null;
     HORA_HISTCHAMADO?: string | null;
@@ -58,13 +60,11 @@ const STATUS_STYLES: Record<string, string> = {
 const EMPTY_VALUE = '---------------';
 
 // ==================== FUNÇÕES UTILITÁRIAS ====================
-const getStylesStatus = (status: string | undefined): string => {
-    return STATUS_STYLES[status?.toUpperCase() || 'DEFAULT'] || STATUS_STYLES.DEFAULT;
-};
+const getStylesStatus = (status: string | undefined): string =>
+    STATUS_STYLES[status?.toUpperCase() || 'DEFAULT'] || STATUS_STYLES.DEFAULT;
 
 const setupTruncationTooltip = (el: HTMLDivElement | null, text: string) => {
     if (!el) return;
-
     const isTruncated = el.scrollWidth > el.clientWidth;
     if (isTruncated) {
         el.setAttribute('title', text);
@@ -105,7 +105,6 @@ const StatusBadge = React.memo(function StatusBadge({
                 className={`flex items-center justify-center gap-2 rounded px-4 py-1.5 text-sm font-extrabold tracking-widest select-none ${styles} ${isFinalizado ? 'flex-1' : 'w-full'}`}
             >
                 <span className="flex-1">{status}</span>
-
                 {isFinalizado && foiAvaliado && (
                     <div className="flex items-center gap-5">
                         <div
@@ -127,7 +126,6 @@ const StatusBadge = React.memo(function StatusBadge({
                     </div>
                 )}
             </div>
-
             {isFinalizado && (
                 <button
                     onClick={(e) => {
@@ -162,11 +160,7 @@ const ActionButton = React.memo(function ActionButton({ onClick, title }: Action
     );
 });
 
-interface CellHeaderProps {
-    children: React.ReactNode;
-}
-
-const CellHeader = React.memo(function CellHeader({ children }: CellHeaderProps) {
+const CellHeader = React.memo(function CellHeader({ children }: { children: React.ReactNode }) {
     return (
         <div className="text-center text-sm font-bold tracking-widest text-white select-none">
             {children}
@@ -174,17 +168,15 @@ const CellHeader = React.memo(function CellHeader({ children }: CellHeaderProps)
     );
 });
 
-interface CellTextProps {
-    value: string;
-    centered?: boolean;
-    className?: string;
-}
-
 const CellText = React.memo(function CellText({
     value,
     centered = true,
     className = '',
-}: CellTextProps) {
+}: {
+    value: string;
+    centered?: boolean;
+    className?: string;
+}) {
     return (
         <div
             className={`text-sm font-semibold tracking-widest text-black select-none ${
@@ -196,17 +188,15 @@ const CellText = React.memo(function CellText({
     );
 });
 
-interface TruncatedCellProps {
-    value: string;
-    centered?: boolean;
-    className?: string;
-}
-
 const TruncatedCell = React.memo(function TruncatedCell({
     value,
     centered = false,
     className = '',
-}: TruncatedCellProps) {
+}: {
+    value: string;
+    centered?: boolean;
+    className?: string;
+}) {
     return (
         <div
             ref={(el) => setupTruncationTooltip(el, value)}
@@ -222,7 +212,9 @@ const TruncatedCell = React.memo(function TruncatedCell({
 // ==================== DEFINIÇÃO DAS COLUNAS ====================
 export const getColunasChamados = (
     onOpenSolicitacao?: (chamado: ChamadoRowProps) => void,
-    onOpenAvaliacao?: (chamado: ChamadoRowProps) => void
+    onOpenAvaliacao?: (chamado: ChamadoRowProps) => void,
+    getHoras?: (codChamado: number) => HorasMes[], // ✅ NOVO
+    isLoadingHoras?: boolean // ✅ NOVO
 ): ColumnDef<ChamadoRowProps>[] => {
     return [
         // ========== CÓDIGO DO CHAMADO ==========
@@ -235,9 +227,7 @@ export const getColunasChamados = (
                 const value = getValue() as number;
                 const handleChamadoClick = table.options.meta?.handleChamadoClick;
 
-                if (!temOS) {
-                    return <CellText value={formatarNumeros(value)} />;
-                }
+                if (!temOS) return <CellText value={formatarNumeros(value)} />;
 
                 return (
                     <div className="flex items-center gap-4">
@@ -257,7 +247,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ========== DATA/HORA DE ABERTURADO DO CHAMADO ==========
+        // ========== DATA/HORA DE ABERTURA ==========
         {
             id: 'DATA_CHAMADO',
             header: () => <CellHeader>ENTRADA</CellHeader>,
@@ -272,7 +262,7 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ========== DATA/HORA DE ATRIBUIÇÃO DO CHAMADO ==========
+        // ========== ATRIBUIÇÃO ==========
         {
             accessorKey: 'DTENVIO_CHAMADO',
             id: 'DTENVIO_CHAMADO',
@@ -284,26 +274,19 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ========== DATA/HORA DE INÍCIO DO CHAMADO ==========
+        // ========== INÍCIO ==========
         {
             accessorKey: 'DTINI_CHAMADO',
             id: 'DTINI_CHAMADO',
             header: () => <CellHeader>INÍCIO</CellHeader>,
             cell: ({ getValue }) => {
                 const value = getValue() as string | null;
+                if (!value) return <CellText value={EMPTY_VALUE} />;
 
-                if (!value) {
-                    return <CellText value={EMPTY_VALUE} />;
-                }
-
-                // Extrai data e hora independente do formato
                 const separator = value.includes('T') ? 'T' : ' ';
                 const [data, hora] = value.split(separator);
 
-                if (data && hora) {
-                    return <CellText value={formatarDataHoraChamado(data, hora)} />;
-                }
-
+                if (data && hora) return <CellText value={formatarDataHoraChamado(data, hora)} />;
                 return <CellText value={formatarDataParaBR(data || value)} />;
             },
             enableColumnFilter: true,
@@ -314,14 +297,8 @@ export const getColunasChamados = (
             id: 'SLA_INFO',
             header: () => <CellHeader>SLA</CellHeader>,
             cell: ({ row }) => {
-                const {
-                    DATA_CHAMADO,
-                    HORA_CHAMADO,
-                    PRIOR_CHAMADO,
-                    STATUS_CHAMADO,
-                    DTINI_CHAMADO, // ✅ ADICIONAR
-                } = row.original;
-
+                const { DATA_CHAMADO, HORA_CHAMADO, PRIOR_CHAMADO, STATUS_CHAMADO, DTINI_CHAMADO } =
+                    row.original;
                 return (
                     <SLACell
                         dataChamado={DATA_CHAMADO}
@@ -335,13 +312,12 @@ export const getColunasChamados = (
             enableColumnFilter: false,
         },
 
-        // ========== DATA/HORA DE FINALIZAÇÃO DO CHAMADO ==========
+        // ========== FINALIZAÇÃO ==========
         {
             id: 'DATA_HISTCHAMADO',
             header: () => <CellHeader>FINALIZAÇÃO</CellHeader>,
             cell: ({ row }) => {
                 const { DATA_HISTCHAMADO, HORA_HISTCHAMADO, STATUS_CHAMADO } = row.original;
-
                 if (
                     STATUS_CHAMADO?.toUpperCase() !== 'FINALIZADO' ||
                     !DATA_HISTCHAMADO ||
@@ -349,7 +325,6 @@ export const getColunasChamados = (
                 ) {
                     return <CellText value={EMPTY_VALUE} />;
                 }
-
                 return (
                     <CellText value={formatarDataHoraChamado(DATA_HISTCHAMADO, HORA_HISTCHAMADO)} />
                 );
@@ -357,19 +332,17 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ========== STATUS DO CHAMADO ==========
+        // ========== STATUS ==========
         {
             accessorKey: 'STATUS_CHAMADO',
             id: 'STATUS_CHAMADO',
             header: () => <CellHeader>STATUS</CellHeader>,
             cell: ({ getValue, row }) => {
                 const value = getValue() as string;
-                const avaliacao = row.original.AVALIA_CHAMADO;
-
                 return (
                     <StatusBadge
                         status={value}
-                        avaliacao={avaliacao}
+                        avaliacao={row.original.AVALIA_CHAMADO}
                         onAvaliar={() => onOpenAvaliacao?.(row.original)}
                     />
                 );
@@ -377,16 +350,14 @@ export const getColunasChamados = (
             enableColumnFilter: true,
             filterFn: (row, _columnId, filterValue) => {
                 if (!filterValue) return true;
-
                 const value = row.getValue('STATUS_CHAMADO') as string | null | undefined;
                 const cellValueUpper = (value ?? '').toString().toUpperCase().trim();
                 const filterValueUpper = filterValue.toString().toUpperCase().trim();
-
                 return cellValueUpper === filterValueUpper;
             },
         },
 
-        // ========== ASSUNTO DO CHAMADO ==========
+        // ========== ASSUNTO ==========
         {
             accessorKey: 'ASSUNTO_CHAMADO',
             id: 'ASSUNTO_CHAMADO',
@@ -394,7 +365,6 @@ export const getColunasChamados = (
             cell: ({ getValue, row }) => {
                 const value = getValue() as string | null;
                 const correctedText = corrigirTextoCorrompido(value);
-
                 return (
                     <div className="flex w-full items-center gap-4">
                         {onOpenSolicitacao && (
@@ -413,55 +383,45 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ========== EMAIL DO CHAMADO ==========
+        // ========== EMAIL ==========
         {
             accessorKey: 'EMAIL_CHAMADO',
             id: 'EMAIL_CHAMADO',
             header: () => <CellHeader>EMAIL</CellHeader>,
             cell: ({ getValue }) => {
                 const value = (getValue() as string) ?? EMPTY_VALUE;
-
-                if (value === EMPTY_VALUE) {
-                    return <CellText value={value} />;
-                }
-
+                if (value === EMPTY_VALUE) return <CellText value={value} />;
                 return <TruncatedCell value={value} />;
             },
             enableColumnFilter: true,
         },
 
-        // ========== CLASSIFICAÇÃO DO CHAMADO ==========
+        // ========== CLASSIFICAÇÃO ==========
         {
             accessorKey: 'NOME_CLASSIFICACAO',
             id: 'NOME_CLASSIFICACAO',
             header: () => <CellHeader>CLASSIFICAÇÃO</CellHeader>,
             cell: ({ getValue }) => {
                 const value = getValue() as string | null;
-                const correctedText = corrigirTextoCorrompido(value);
-                return <TruncatedCell value={correctedText} />;
+                return <TruncatedCell value={corrigirTextoCorrompido(value)} />;
             },
             enableColumnFilter: true,
         },
 
-        // ========== RECURSO DO CHAMADO ==========
+        // ========== CONSULTOR ==========
         {
             accessorKey: 'NOME_RECURSO',
             id: 'NOME_RECURSO',
             header: () => <CellHeader>CONSULTOR</CellHeader>,
             cell: ({ getValue }) => {
                 const value = (getValue() as string) ?? EMPTY_VALUE;
-
-                if (value === EMPTY_VALUE) {
-                    return <CellText value={value} />;
-                }
-
-                const displayName = formatNomeRecurso(value);
-                return <TruncatedCell value={displayName} />;
+                if (value === EMPTY_VALUE) return <CellText value={value} />;
+                return <TruncatedCell value={formatNomeRecurso(value)} />;
             },
             enableColumnFilter: true,
         },
 
-        // ========== PRIORIDADE DO CHAMADO ==========
+        // ========== PRIORIDADE ==========
         {
             accessorKey: 'PRIOR_CHAMADO',
             id: 'PRIOR_CHAMADO',
@@ -473,17 +433,38 @@ export const getColunasChamados = (
             enableColumnFilter: true,
         },
 
-        // ========== QUANTIDADE DE HORAS ==========
+        // ========== QTD. HORAS — com tooltip de breakdown por mês ✅ NOVO ==========
         {
             accessorKey: 'TOTAL_HORAS_OS',
             id: 'TOTAL_HORAS_OS',
             header: () => <CellHeader>QTD. HORAS</CellHeader>,
-            cell: ({ getValue }) => {
-                const value = getValue() as number | null;
-                return (
+            cell: ({ getValue, row }) => {
+                const totalHoras = getValue() as number | null;
+                const { COD_CHAMADO, TEM_OS, TOTAL_HORAS_OS_FATURADAS } = row.original;
+
+                // ✅ Só exibe tooltip se: tem OS + getHoras disponível + dados carregados
+                const meses = TEM_OS && getHoras ? getHoras(COD_CHAMADO) : [];
+
+                const conteudo = (
                     <div className="text-center text-base font-extrabold tracking-widest text-black select-none">
-                        {formatarHorasTotaisSufixo(value)}
+                        {isLoadingHoras && TEM_OS ? (
+                            <span className="animate-pulse text-gray-400">...</span>
+                        ) : (
+                            formatarHorasTotaisSufixo(totalHoras)
+                        )}
                     </div>
+                );
+
+                // Sem dados mensais: renderiza normalmente, sem tooltip
+                if (meses.length === 0) return conteudo;
+
+                return (
+                    <HorasMesTooltip
+                        meses={meses}
+                        totalHorasFaturadas={TOTAL_HORAS_OS_FATURADAS ?? 0}
+                    >
+                        {conteudo}
+                    </HorasMesTooltip>
                 );
             },
             enableColumnFilter: false,

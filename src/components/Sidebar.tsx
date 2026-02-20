@@ -4,9 +4,9 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IoCall, IoClose, IoHome, IoLogOut, IoMenu } from 'react-icons/io5';
 import { PiTimerFill } from 'react-icons/pi';
-import { useAuth } from '../../context/AuthContext';
-import { useFiltersStore } from '../../store/useFiltersStore';
-import { ModalSaldoHoras } from '../saldo-horas/Modal_Saldo_Horas';
+import { useAuth } from '../context/AuthContext';
+import { useFiltersStore } from '../store/useFiltersStore';
+import { ModalSaldoHoras } from './saldo-horas/Modal_Saldo_Horas';
 
 // ================================================================================
 // COMPONENTE PRINCIPAL

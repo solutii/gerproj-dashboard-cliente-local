@@ -9,8 +9,8 @@ import { SaldoRowProps } from '../../components/saldo-horas/Colunas_Tabela_Saldo
 import { TabelaSaldoHoras } from '../../components/saldo-horas/Tabela_Saldo_Horas';
 import { useAuth } from '../../context/AuthContext';
 import { useFiltersStore } from '../../store/useFiltersStore';
-import { IsError } from '../shared/IsError';
-import { IsLoading } from '../shared/IsLoading';
+import { IsError } from '../IsError';
+import { IsLoading } from '../IsLoading';
 
 interface ApiResponse {
     mesAtual: number;

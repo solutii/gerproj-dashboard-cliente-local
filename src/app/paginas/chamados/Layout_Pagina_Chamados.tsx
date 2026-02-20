@@ -2,8 +2,8 @@
 
 'use client';
 
-import { ProtecaoRotas } from '@/components/shared/ProtecaoRotas';
-import { Sidebar } from '@/components/shared/Sidebar';
+import { ProtecaoRotas } from '@/components/ProtecaoRotas';
+import { Sidebar } from '@/components/Sidebar';
 // =====================================================
 import { ReactNode } from 'react';
 

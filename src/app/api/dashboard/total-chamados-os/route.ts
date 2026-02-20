@@ -4,18 +4,15 @@ import { firebirdQuery } from '../../../../lib/firebird/firebird-client';
 
 // ==================== TIPOS ====================
 interface QueryParams {
-    isAdmin: boolean;
-    codCliente?: string;
+    codCliente: string;
     mes: number;
     ano: number;
-    codClienteFilter?: string;
     codRecursoFilter?: string;
     status?: string;
 }
 
 interface ResultadoTotalizadores {
     TOTAL_CHAMADOS: number;
-    TOTAL_OS: number;
     CHAMADOS_AGUARDANDO_VALIDACAO: number;
     CHAMADOS_ATRIBUIDO: number;
     CHAMADOS_EM_ATENDIMENTO: number;
@@ -25,10 +22,16 @@ interface ResultadoTotalizadores {
 
 // ==================== VALIDAÇÕES ====================
 function validarParametros(searchParams: URLSearchParams): QueryParams | NextResponse {
-    const isAdmin = searchParams.get('isAdmin') === 'true';
-    const codCliente = searchParams.get('codCliente')?.trim() || undefined;
+    const codCliente = searchParams.get('codCliente')?.trim();
     const mes = Number(searchParams.get('mes'));
     const ano = Number(searchParams.get('ano'));
+
+    if (!codCliente) {
+        return NextResponse.json(
+            { error: "Parâmetro 'codCliente' é obrigatório" },
+            { status: 400 }
+        );
+    }
 
     if (!mes || mes < 1 || mes > 12) {
         return NextResponse.json(
@@ -44,19 +47,10 @@ function validarParametros(searchParams: URLSearchParams): QueryParams | NextRes
         );
     }
 
-    if (!isAdmin && !codCliente) {
-        return NextResponse.json(
-            { error: "Parâmetro 'codCliente' é obrigatório para usuários não admin" },
-            { status: 400 }
-        );
-    }
-
     return {
-        isAdmin,
         codCliente,
         mes,
         ano,
-        codClienteFilter: searchParams.get('codClienteFilter')?.trim() || undefined,
         codRecursoFilter: searchParams.get('codRecursoFilter')?.trim() || undefined,
         status: searchParams.get('status')?.trim() || undefined,
     };
@@ -73,41 +67,24 @@ function construirDatas(mes: number, ano: number): { dataInicio: string; dataFim
     return { dataInicio, dataFim };
 }
 
-// ==================== CONSTRUÇÃO DE SQL OTIMIZADO ====================
-function construirSQLTotalizadoresOtimizado(params: QueryParams): string {
+// ==================== CONSTRUÇÃO DE SQL ====================
+function construirSQL(params: QueryParams): string {
     let sql = `
-  WITH OS_VALIDAS AS (
     SELECT
-      CAST(OS.CHAMADO_OS AS INTEGER) AS COD_CHAMADO_OS,
-      OS.CHAMADO_OS
-    FROM OS
-    INNER JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
-    INNER JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
-    INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
-    INNER JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
-    LEFT JOIN CHAMADO ON CASE WHEN TRIM(OS.CHAMADO_OS) = '' THEN NULL ELSE CAST(OS.CHAMADO_OS AS INTEGER) END = CHAMADO.COD_CHAMADO
-    WHERE OS.DTINI_OS >= ?
-      AND OS.DTINI_OS < ?
-      AND TAREFA.EXIBECHAM_TAREFA = 1
-      AND OS.CHAMADO_OS IS NOT NULL
-      AND OS.CHAMADO_OS <> ''
-      AND UPPER(OS.FATURADO_OS) <> 'NAO'
-  `;
-
-    return sql;
-}
-
-function aplicarFiltrosOS(sql: string, params: QueryParams): string {
-    if (!params.isAdmin && params.codCliente) {
-        sql += ` AND CLIENTE.COD_CLIENTE = ?`;
-    }
-
-    if (params.codClienteFilter) {
-        sql += ` AND CLIENTE.COD_CLIENTE = ?`;
-    }
+      COUNT(DISTINCT CHAMADO.COD_CHAMADO) AS TOTAL_CHAMADOS,
+      COUNT(DISTINCT CASE WHEN UPPER(TRIM(CHAMADO.STATUS_CHAMADO)) = 'FINALIZADO'           THEN CHAMADO.COD_CHAMADO END) AS CHAMADOS_FINALIZADO,
+      COUNT(DISTINCT CASE WHEN UPPER(TRIM(CHAMADO.STATUS_CHAMADO)) = 'STANDBY'              THEN CHAMADO.COD_CHAMADO END) AS CHAMADOS_STANDBY,
+      COUNT(DISTINCT CASE WHEN UPPER(TRIM(CHAMADO.STATUS_CHAMADO)) = 'EM ATENDIMENTO'       THEN CHAMADO.COD_CHAMADO END) AS CHAMADOS_EM_ATENDIMENTO,
+      COUNT(DISTINCT CASE WHEN UPPER(TRIM(CHAMADO.STATUS_CHAMADO)) = 'AGUARDANDO VALIDACAO' THEN CHAMADO.COD_CHAMADO END) AS CHAMADOS_AGUARDANDO_VALIDACAO,
+      COUNT(DISTINCT CASE WHEN UPPER(TRIM(CHAMADO.STATUS_CHAMADO)) = 'ATRIBUIDO'            THEN CHAMADO.COD_CHAMADO END) AS CHAMADOS_ATRIBUIDO
+    FROM CHAMADO
+    WHERE CHAMADO.DATA_CHAMADO >= ?
+      AND CHAMADO.DATA_CHAMADO < ?
+      AND CHAMADO.COD_CLIENTE = ?
+    `;
 
     if (params.codRecursoFilter) {
-        sql += ` AND RECURSO.COD_RECURSO = ?`;
+        sql += ` AND CHAMADO.COD_RECURSO = ?`;
     }
 
     if (params.status) {
@@ -117,134 +94,8 @@ function aplicarFiltrosOS(sql: string, params: QueryParams): string {
     return sql;
 }
 
-function construirSQLCompleto(params: QueryParams): string {
-    let sqlBase = construirSQLTotalizadoresOtimizado(params);
-    sqlBase = aplicarFiltrosOS(sqlBase, params);
-
-    // Continua a CTE com a parte de chamados
-    let sqlChamados = '';
-
-    if (params.isAdmin) {
-        sqlChamados = `
-  ),
-  CHAMADOS_PERIODO AS (
-    SELECT DISTINCT CHAMADO.COD_CHAMADO
-    FROM CHAMADO
-    WHERE CHAMADO.DATA_CHAMADO >= ?
-      AND CHAMADO.DATA_CHAMADO < ?
-  ),
-  CHAMADOS_COM_OS AS (
-    SELECT DISTINCT COD_CHAMADO_OS AS COD_CHAMADO
-    FROM OS_VALIDAS
-  ),
-  TODOS_CHAMADOS AS (
-    SELECT COD_CHAMADO FROM CHAMADOS_PERIODO
-    UNION
-    SELECT COD_CHAMADO FROM CHAMADOS_COM_OS
-  ),
-  CHAMADOS_FILTRADOS AS (
-    SELECT TC.COD_CHAMADO
-    FROM TODOS_CHAMADOS TC
-    INNER JOIN CHAMADO ON TC.COD_CHAMADO = CHAMADO.COD_CHAMADO
-    WHERE 1=1
-    `;
-    } else {
-        sqlChamados = `
-  ),
-  CHAMADOS_COM_OS AS (
-    SELECT DISTINCT COD_CHAMADO_OS AS COD_CHAMADO
-    FROM OS_VALIDAS
-  ),
-  CHAMADOS_FILTRADOS AS (
-    SELECT CCO.COD_CHAMADO
-    FROM CHAMADOS_COM_OS CCO
-    INNER JOIN CHAMADO ON CCO.COD_CHAMADO = CHAMADO.COD_CHAMADO
-    WHERE 1=1
-    `;
-    }
-
-    // Aplicar filtros de chamado
-    if (!params.isAdmin && params.codCliente) {
-        sqlChamados += ` AND CHAMADO.COD_CLIENTE = ?`;
-    }
-
-    if (params.codClienteFilter) {
-        sqlChamados += ` AND CHAMADO.COD_CLIENTE = ?`;
-    }
-
-    if (params.codRecursoFilter) {
-        sqlChamados += ` AND CHAMADO.COD_RECURSO = ?`;
-    }
-
-    if (params.status) {
-        sqlChamados += ` AND UPPER(CHAMADO.STATUS_CHAMADO) LIKE UPPER(?)`;
-    }
-
-    // Finalizar query com contagens incluindo status específicos
-    const sqlFinal = `
-  )
-  SELECT
-    (SELECT COUNT(DISTINCT COD_CHAMADO) FROM CHAMADOS_FILTRADOS) AS TOTAL_CHAMADOS,
-    (SELECT COUNT(*) FROM OS_VALIDAS) AS TOTAL_OS,
-    (SELECT COUNT(DISTINCT CF.COD_CHAMADO)
-     FROM CHAMADOS_FILTRADOS CF
-     INNER JOIN CHAMADO C ON CF.COD_CHAMADO = C.COD_CHAMADO
-     WHERE UPPER(TRIM(C.STATUS_CHAMADO)) = 'FINALIZADO') AS CHAMADOS_FINALIZADO,
-    (SELECT COUNT(DISTINCT CF.COD_CHAMADO)
-     FROM CHAMADOS_FILTRADOS CF
-     INNER JOIN CHAMADO C ON CF.COD_CHAMADO = C.COD_CHAMADO
-     WHERE UPPER(TRIM(C.STATUS_CHAMADO)) = 'STANDBY') AS CHAMADOS_STANDBY,
-    (SELECT COUNT(DISTINCT CF.COD_CHAMADO)
-     FROM CHAMADOS_FILTRADOS CF
-     INNER JOIN CHAMADO C ON CF.COD_CHAMADO = C.COD_CHAMADO
-     WHERE UPPER(TRIM(C.STATUS_CHAMADO)) = 'EM ATENDIMENTO') AS CHAMADOS_EM_ATENDIMENTO,
-    (SELECT COUNT(DISTINCT CF.COD_CHAMADO)
-     FROM CHAMADOS_FILTRADOS CF
-     INNER JOIN CHAMADO C ON CF.COD_CHAMADO = C.COD_CHAMADO
-     WHERE UPPER(TRIM(C.STATUS_CHAMADO)) = 'AGUARDANDO VALIDACAO') AS CHAMADOS_AGUARDANDO_VALIDACAO,
-    (SELECT COUNT(DISTINCT CF.COD_CHAMADO)
-     FROM CHAMADOS_FILTRADOS CF
-     INNER JOIN CHAMADO C ON CF.COD_CHAMADO = C.COD_CHAMADO
-     WHERE UPPER(TRIM(C.STATUS_CHAMADO)) = 'ATRIBUIDO') AS CHAMADOS_ATRIBUIDO
-  FROM RDB$DATABASE
-  `;
-
-    return sqlBase + sqlChamados + sqlFinal;
-}
-
 function construirParametros(params: QueryParams, dataInicio: string, dataFim: string): any[] {
-    const parametros: any[] = [dataInicio, dataFim];
-
-    // Filtros de OS
-    if (!params.isAdmin && params.codCliente) {
-        parametros.push(parseInt(params.codCliente));
-    }
-
-    if (params.codClienteFilter) {
-        parametros.push(parseInt(params.codClienteFilter));
-    }
-
-    if (params.codRecursoFilter) {
-        parametros.push(parseInt(params.codRecursoFilter));
-    }
-
-    if (params.status) {
-        parametros.push(`%${params.status}%`);
-    }
-
-    // Para admin, adicionar data de chamados
-    if (params.isAdmin) {
-        parametros.push(dataInicio, dataFim);
-    }
-
-    // Filtros de chamado (repetir os mesmos filtros)
-    if (!params.isAdmin && params.codCliente) {
-        parametros.push(parseInt(params.codCliente));
-    }
-
-    if (params.codClienteFilter) {
-        parametros.push(parseInt(params.codClienteFilter));
-    }
+    const parametros: any[] = [dataInicio, dataFim, parseInt(params.codCliente)];
 
     if (params.codRecursoFilter) {
         parametros.push(parseInt(params.codRecursoFilter));
@@ -267,15 +118,13 @@ export async function GET(request: Request) {
 
         const { dataInicio, dataFim } = construirDatas(params.mes, params.ano);
 
-        // Query unificada - tudo em uma única execução
-        const sqlCompleto = construirSQLCompleto(params);
+        const sql = construirSQL(params);
         const parametros = construirParametros(params, dataInicio, dataFim);
 
-        const resultado = await firebirdQuery<ResultadoTotalizadores>(sqlCompleto, parametros);
+        const resultado = await firebirdQuery<ResultadoTotalizadores>(sql, parametros);
 
         const totalizadores: ResultadoTotalizadores = resultado[0] || {
             TOTAL_CHAMADOS: 0,
-            TOTAL_OS: 0,
             CHAMADOS_AGUARDANDO_VALIDACAO: 0,
             CHAMADOS_ATRIBUIDO: 0,
             CHAMADOS_EM_ATENDIMENTO: 0,

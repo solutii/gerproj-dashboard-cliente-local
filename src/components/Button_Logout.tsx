@@ -2,8 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { IoLogOut } from 'react-icons/io5';
-import { useAuth } from '../../context/AuthContext';
-import { useFiltersStore } from '../../store/useFiltersStore';
+import { useAuth } from '../context/AuthContext';
+import { useFiltersStore } from '../store/useFiltersStore';
 
 // Componente funcional para o botão de logout
 export function ButtonLogout() {
