@@ -1,11 +1,12 @@
 // src/hooks/useUserType.ts
-import { useAuth } from '@/context/AuthContext';
+
+import { useAuthStore } from '@/store/useAuthStore';
 
 /**
  * Hook para verificar se o usuário logado é um consultor
  */
 export function useIsConsultor() {
-    const { loginType } = useAuth();
+    const { loginType } = useAuthStore();
     return loginType === 'consultor';
 }
 
@@ -13,7 +14,7 @@ export function useIsConsultor() {
  * Hook para verificar se o usuário logado é um cliente
  */
 export function useIsCliente() {
-    const { loginType } = useAuth();
+    const { loginType } = useAuthStore();
     return loginType === 'cliente';
 }
 
@@ -22,7 +23,7 @@ export function useIsCliente() {
  */
 export function useConsultorData() {
     const { loginType, codUsuario, nomeUsuario, idUsuario, tipoUsuario, permissoes, isAdmin } =
-        useAuth();
+        useAuthStore();
 
     if (loginType !== 'consultor') {
         return null;
@@ -42,7 +43,7 @@ export function useConsultorData() {
  * Hook para obter os dados do cliente (null se não for cliente)
  */
 export function useClienteData() {
-    const { loginType, codCliente, codRecurso, nomeRecurso, isAdmin } = useAuth();
+    const { loginType, codCliente, codRecurso, nomeRecurso, isAdmin } = useAuthStore();
 
     if (loginType !== 'cliente') {
         return null;
@@ -60,7 +61,7 @@ export function useClienteData() {
  * Hook para obter o nome do usuário logado (independente do tipo)
  */
 export function useUserName() {
-    const { loginType, nomeUsuario, nomeRecurso } = useAuth();
+    const { loginType, nomeUsuario, nomeRecurso } = useAuthStore();
 
     if (loginType === 'consultor') {
         return nomeUsuario;
@@ -75,7 +76,7 @@ export function useUserName() {
  * Hook para verificar permissões específicas (apenas para consultores)
  */
 export function usePermissions() {
-    const { loginType, permissoes } = useAuth();
+    const { loginType, permissoes } = useAuthStore();
 
     if (loginType !== 'consultor' || !permissoes) {
         return {

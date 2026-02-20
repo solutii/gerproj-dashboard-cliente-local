@@ -1,13 +1,13 @@
 // src/components/login/Login.tsx
 'use client';
 
+import { useAuthStore } from '@/store/useAuthStore';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ImSpinner2 } from 'react-icons/im';
 import { IoEye, IoEyeOff, IoLockClosed, IoMail } from 'react-icons/io5';
 import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
-import { useAuth } from '../../../context/AuthContext';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -20,7 +20,7 @@ export function Login() {
     const [isLoading, setIsLoading] = useState(false);
 
     const router = useRouter();
-    const { login } = useAuth();
+    const { login } = useAuthStore();
 
     useEffect(() => {
         const rememberedEmail = localStorage.getItem('rememberedEmail');

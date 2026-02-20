@@ -1,9 +1,7 @@
-// src/context/AuthContext.tsx
-'use client';
+// src/store/useAuthStore.ts
+import { create } from 'zustand';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-
+// ==================== TIPOS ====================
 type UserDataCliente = {
     loginType: 'cliente';
     isAdmin: boolean;
@@ -26,9 +24,9 @@ type UserDataConsultor = {
     };
 };
 
-type UserData = UserDataCliente | UserDataConsultor;
+export type UserData = UserDataCliente | UserDataConsultor;
 
-type AuthContextType = {
+type AuthState = {
     isLoggedIn: boolean;
     isLoading: boolean;
     isAdmin: boolean;
@@ -50,23 +48,19 @@ type AuthContextType = {
         perproj2: boolean;
     } | null;
 
+    // Ações
     login: (email: string, password: string) => Promise<UserData | null>;
     logout: () => void;
+    hydrate: () => void;
 };
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-// Função para buscar dados do localStorage
+// ==================== HELPERS ====================
 const getStoredAuthData = (): (UserData & { isLoggedIn: boolean }) | { isLoggedIn: false } => {
-    if (typeof window === 'undefined') {
-        return { isLoggedIn: false };
-    }
+    if (typeof window === 'undefined') return { isLoggedIn: false };
 
     try {
         const storedLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-        if (!storedLoggedIn) {
-            return { isLoggedIn: false };
-        }
+        if (!storedLoggedIn) return { isLoggedIn: false };
 
         const loginType = localStorage.getItem('loginType') as 'cliente' | 'consultor' | null;
 
@@ -86,15 +80,10 @@ const getStoredAuthData = (): (UserData & { isLoggedIn: boolean }) | { isLoggedI
                 codUsuario: codUsuario ? parseInt(codUsuario) : 0,
                 nomeUsuario: nomeUsuario || '',
                 idUsuario: idUsuario || '',
-                tipoUsuario: tipoUsuario,
-                permissoes: {
-                    permtar,
-                    perproj1,
-                    perproj2,
-                },
+                tipoUsuario,
+                permissoes: { permtar, perproj1, perproj2 },
             };
         } else {
-            // Cliente
             const storedIsAdmin = localStorage.getItem('isAdmin') === 'true';
             const storedCodCliente = localStorage.getItem('codCliente');
             const storedCodRecurso = localStorage.getItem('codRecOS');
@@ -115,14 +104,7 @@ const getStoredAuthData = (): (UserData & { isLoggedIn: boolean }) | { isLoggedI
     }
 };
 
-// Função para fazer login na API
-const loginApi = async ({
-    email,
-    password,
-}: {
-    email: string;
-    password: string;
-}): Promise<UserData> => {
+const loginApi = async (email: string, password: string): Promise<UserData> => {
     const res = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -135,7 +117,6 @@ const loginApi = async ({
         throw new Error(data.message || 'Falha ao fazer login');
     }
 
-    // Salvar no localStorage baseado no tipo de login
     if (data.loginType === 'consultor') {
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('loginType', 'consultor');
@@ -158,7 +139,6 @@ const loginApi = async ({
             permissoes: data.permissoes,
         };
     } else {
-        // Cliente
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('loginType', 'cliente');
         localStorage.setItem('userEmail', email);
@@ -177,125 +157,95 @@ const loginApi = async ({
     }
 };
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-    const queryClient = useQueryClient();
-    const [isHydrated, setIsHydrated] = useState(false);
+// ==================== STORE ====================
+export const useAuthStore = create<AuthState>((set) => ({
+    isLoggedIn: false,
+    isLoading: true,
+    isAdmin: false,
+    loginType: null,
 
-    // Estados locais
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [isAdmin, setIsAdmin] = useState(false);
-    const [loginType, setLoginType] = useState<'cliente' | 'consultor' | null>(null);
+    // Dados de Cliente
+    codCliente: null,
+    codRecurso: null,
+    nomeRecurso: null,
 
-    // Estados de Cliente
-    const [codCliente, setCodCliente] = useState<string | null>(null);
-    const [codRecurso, setCodRecurso] = useState<string | null>(null);
-    const [nomeRecurso, setNomeRecurso] = useState<string | null>(null);
+    // Dados de Consultor
+    codUsuario: null,
+    nomeUsuario: null,
+    idUsuario: null,
+    tipoUsuario: null,
+    permissoes: null,
 
-    // Estados de Consultor
-    const [codUsuario, setCodUsuario] = useState<number | null>(null);
-    const [nomeUsuario, setNomeUsuario] = useState<string | null>(null);
-    const [idUsuario, setIdUsuario] = useState<string | null>(null);
-    const [tipoUsuario, setTipoUsuario] = useState<'USU' | 'ADM' | null>(null);
-    const [permissoes, setPermissoes] = useState<{
-        permtar: boolean;
-        perproj1: boolean;
-        perproj2: boolean;
-    } | null>(null);
+    // ── Hidratação a partir do localStorage ──
+    hydrate: () => {
+        const stored = getStoredAuthData();
 
-    // Carrega dados do localStorage
-    useEffect(() => {
-        const storedData = getStoredAuthData();
-
-        if ('isLoggedIn' in storedData && storedData.isLoggedIn) {
-            setIsLoggedIn(true);
-
-            if (storedData.loginType === 'consultor') {
-                setLoginType('consultor');
-                setIsAdmin(storedData.isAdmin);
-                setCodUsuario(storedData.codUsuario);
-                setNomeUsuario(storedData.nomeUsuario);
-                setIdUsuario(storedData.idUsuario);
-                setTipoUsuario(storedData.tipoUsuario);
-                setPermissoes(storedData.permissoes);
-            } else {
-                setLoginType('cliente');
-                setIsAdmin(storedData.isAdmin);
-                setCodCliente(storedData.codCliente);
-                setCodRecurso(storedData.codRecurso);
-                setNomeRecurso(storedData.nomeRecurso);
-            }
+        if (!stored.isLoggedIn) {
+            set({ isLoading: false });
+            return;
         }
 
-        setIsHydrated(true);
-    }, []);
-
-    // Query para manter dados em cache
-    const { isLoading } = useQuery({
-        queryKey: ['auth', 'stored'],
-        queryFn: getStoredAuthData,
-        enabled: isHydrated,
-        staleTime: Infinity,
-        gcTime: Infinity,
-        refetchOnMount: false,
-        refetchOnWindowFocus: false,
-        refetchOnReconnect: false,
-    });
-
-    // Mutation para login
-    const loginMutation = useMutation({
-        mutationFn: loginApi,
-        onSuccess: (userData) => {
-            queryClient.setQueryData(['auth', 'stored'], {
+        if (stored.loginType === 'consultor') {
+            set({
                 isLoggedIn: true,
-                ...userData,
+                isLoading: false,
+                loginType: 'consultor',
+                isAdmin: stored.isAdmin,
+                codUsuario: stored.codUsuario,
+                nomeUsuario: stored.nomeUsuario,
+                idUsuario: stored.idUsuario,
+                tipoUsuario: stored.tipoUsuario,
+                permissoes: stored.permissoes,
             });
+        } else {
+            set({
+                isLoggedIn: true,
+                isLoading: false,
+                loginType: 'cliente',
+                isAdmin: stored.isAdmin,
+                codCliente: stored.codCliente,
+                codRecurso: stored.codRecurso,
+                nomeRecurso: stored.nomeRecurso,
+            });
+        }
+    },
 
-            setIsLoggedIn(true);
-            setLoginType(userData.loginType);
-            setIsAdmin(userData.isAdmin);
+    // ── Login ──
+    login: async (email, password) => {
+        try {
+            const userData = await loginApi(email, password);
 
             if (userData.loginType === 'consultor') {
-                setCodUsuario(userData.codUsuario);
-                setNomeUsuario(userData.nomeUsuario);
-                setIdUsuario(userData.idUsuario);
-                setTipoUsuario(userData.tipoUsuario);
-                setPermissoes(userData.permissoes);
+                set({
+                    isLoggedIn: true,
+                    loginType: 'consultor',
+                    isAdmin: userData.isAdmin,
+                    codUsuario: userData.codUsuario,
+                    nomeUsuario: userData.nomeUsuario,
+                    idUsuario: userData.idUsuario,
+                    tipoUsuario: userData.tipoUsuario,
+                    permissoes: userData.permissoes,
+                });
             } else {
-                setCodCliente(userData.codCliente);
-                setCodRecurso(userData.codRecurso);
-                setNomeRecurso(userData.nomeRecurso);
+                set({
+                    isLoggedIn: true,
+                    loginType: 'cliente',
+                    isAdmin: userData.isAdmin,
+                    codCliente: userData.codCliente,
+                    codRecurso: userData.codRecurso,
+                    nomeRecurso: userData.nomeRecurso,
+                });
             }
-        },
-        onError: (error) => {
-            console.error('Erro ao fazer login:', error);
-        },
-    });
 
-    const login = async (email: string, password: string): Promise<UserData | null> => {
-        try {
-            const userData = await loginMutation.mutateAsync({ email, password });
             return userData;
         } catch (error) {
             console.error('Erro ao fazer login:', error);
             return null;
         }
-    };
+    },
 
-    const logout = () => {
-        // Limpar estados
-        setIsLoggedIn(false);
-        setIsAdmin(false);
-        setLoginType(null);
-        setCodCliente(null);
-        setCodRecurso(null);
-        setNomeRecurso(null);
-        setCodUsuario(null);
-        setNomeUsuario(null);
-        setIdUsuario(null);
-        setTipoUsuario(null);
-        setPermissoes(null);
-
-        // Limpar localStorage
+    // ── Logout ──
+    logout: () => {
         localStorage.removeItem('isLoggedIn');
         localStorage.removeItem('loginType');
         localStorage.removeItem('userEmail');
@@ -311,38 +261,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('perproj1');
         localStorage.removeItem('perproj2');
 
-        queryClient.setQueryData(['auth', 'stored'], { isLoggedIn: false });
-        queryClient.invalidateQueries({ queryKey: ['auth'] });
-    };
-
-    return (
-        <AuthContext.Provider
-            value={{
-                isLoggedIn,
-                isLoading: !isHydrated || isLoading,
-                isAdmin,
-                loginType,
-                codCliente,
-                codRecurso,
-                nomeRecurso,
-                codUsuario,
-                nomeUsuario,
-                idUsuario,
-                tipoUsuario,
-                permissoes,
-                login,
-                logout,
-            }}
-        >
-            {children}
-        </AuthContext.Provider>
-    );
-}
-
-export function useAuth() {
-    const context = useContext(AuthContext);
-    if (!context) {
-        throw new Error('useAuth deve ser usado dentro de um AuthProvider');
-    }
-    return context;
-}
+        set({
+            isLoggedIn: false,
+            isAdmin: false,
+            loginType: null,
+            codCliente: null,
+            codRecurso: null,
+            nomeRecurso: null,
+            codUsuario: null,
+            nomeUsuario: null,
+            idUsuario: null,
+            tipoUsuario: null,
+            permissoes: null,
+        });
+    },
+}));

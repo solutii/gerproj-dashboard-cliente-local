@@ -4,12 +4,12 @@
 
 import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { LoadingButton } from '@/components/Loading_Button';
-import { useAuth } from '@/context/AuthContext';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { removerAcentos } from '@/formatters/remover-acentuacao';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 // =====================================================
 import { memo, useCallback, useEffect, useState } from 'react';
@@ -242,7 +242,7 @@ const saveValidationApi = async ({
 
 // ==================== COMPONENTE PRINCIPAL ====================
 export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalValidacaoOSProps) {
-    const { isAdmin } = useAuth();
+    const { isAdmin } = useAuthStore();
     const queryClient = useQueryClient();
 
     // Estados locais

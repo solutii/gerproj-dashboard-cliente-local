@@ -15,11 +15,11 @@ import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { TabelaOS } from '@/app/paginas/chamados/tabelas/Tabela_OS';
 import { IsError } from '@/components/IsError';
 import { IsLoading } from '@/components/IsLoading';
-import { useAuth } from '@/context/AuthContext';
 import { useHorasPorMes } from '@/hooks/useHorasPorMes'; // ✅ NOVO
 import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
 import { useQuery } from '@tanstack/react-query';
 // =====================================================
+import { useAuthStore } from '@/store/useAuthStore';
 import {
     ColumnFiltersState,
     flexRender,
@@ -228,7 +228,7 @@ const fetchChamados = async ({
 // COMPONENTE PRINCIPAL
 // =====================================================
 export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
-    const { isAdmin, codCliente, isLoggedIn } = useAuth();
+    const { isAdmin, codCliente, isLoggedIn } = useAuthStore();
     const filtros = useFiltrosChamado();
     const {
         ano,

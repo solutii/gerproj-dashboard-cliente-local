@@ -1,14 +1,14 @@
 'use client';
 
+import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Filtros } from '../../../components/Filtros';
-import { useAuth } from '../../../context/AuthContext';
 import { useFiltersStore } from '../../../store/useFiltersStore';
 import { LayoutDashboard } from './Layout_Dashboard';
 
 export default function DashboardPage() {
-    const { isLoggedIn } = useAuth();
+    const { isLoggedIn } = useAuthStore();
     const filters = useFiltersStore((state) => state.filters);
     const router = useRouter();
 

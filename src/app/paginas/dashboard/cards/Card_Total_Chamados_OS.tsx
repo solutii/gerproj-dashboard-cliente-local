@@ -1,5 +1,6 @@
 'use client';
 
+import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import {
@@ -10,7 +11,6 @@ import {
     FaInfoCircle,
     FaPlay,
 } from 'react-icons/fa';
-import { useAuth } from '../../../../context/AuthContext';
 
 // ==================== INTERFACES ====================
 interface FilterProps {
@@ -201,7 +201,7 @@ const SkeletonLoadingCard = () => (
 // COMPONENTE PRINCIPAL
 // ================================================================================
 export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
-    const { isAdmin, codCliente } = useAuth();
+    const { isAdmin, codCliente } = useAuthStore();
 
     const fetchData = async (): Promise<TotalizadoresAPIResponse> => {
         const params = new URLSearchParams();

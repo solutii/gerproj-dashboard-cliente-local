@@ -1,10 +1,10 @@
+import { useAuthStore } from '@/store/useAuthStore';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { IoCall, IoClose, IoHome, IoLogOut, IoMenu } from 'react-icons/io5';
 import { PiTimerFill } from 'react-icons/pi';
-import { useAuth } from '../context/AuthContext';
 import { useFiltersStore } from '../store/useFiltersStore';
 import { ModalSaldoHoras } from './saldo-horas/Modal_Saldo_Horas';
 
@@ -21,7 +21,7 @@ export function Sidebar() {
     const [isModalSaldoOpen, setIsModalSaldoOpen] = useState(false);
     const [loadingProgress, setLoadingProgress] = useState(0);
 
-    const { logout } = useAuth();
+    const { logout } = useAuthStore();
 
     const clearFilters = useFiltersStore((state) => state.clearFilters);
     const cliente = useFiltersStore((state) => state.filters.cliente);

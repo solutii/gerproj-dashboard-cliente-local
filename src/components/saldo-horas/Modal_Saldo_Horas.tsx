@@ -1,5 +1,6 @@
 'use client';
 
+import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { FaExclamationTriangle, FaInfoCircle } from 'react-icons/fa';
@@ -7,7 +8,6 @@ import { IoClose } from 'react-icons/io5';
 import { PiTimerFill } from 'react-icons/pi';
 import { SaldoRowProps } from '../../components/saldo-horas/Colunas_Tabela_Saldo';
 import { TabelaSaldoHoras } from '../../components/saldo-horas/Tabela_Saldo_Horas';
-import { useAuth } from '../../context/AuthContext';
 import { useFiltersStore } from '../../store/useFiltersStore';
 import { IsError } from '../IsError';
 import { IsLoading } from '../IsLoading';
@@ -37,7 +37,7 @@ interface ModalSaldoHorasProps {
 }
 
 export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
-    const { isAdmin, codCliente } = useAuth();
+    const { isAdmin, codCliente } = useAuthStore();
 
     const mes = useFiltersStore((state) => state.filters.mes);
     const ano = useFiltersStore((state) => state.filters.ano);

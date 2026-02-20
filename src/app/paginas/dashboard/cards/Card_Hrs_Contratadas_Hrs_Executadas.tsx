@@ -1,9 +1,9 @@
 'use client';
 
+import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { FaCheckCircle, FaClock, FaExclamationTriangle } from 'react-icons/fa';
-import { useAuth } from '../../../../context/AuthContext';
 import { formatarHorasTotaisSufixo } from '../../../../formatters/formatar-hora';
 
 // ==================== INTERFACES ====================
@@ -164,7 +164,7 @@ const SkeletonLoadingCard = () => (
 // COMPONENTE PRINCIPAL
 // ================================================================================
 export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
-    const { codCliente } = useAuth();
+    const { codCliente } = useAuthStore();
 
     const fetchData = async (): Promise<ApiResponse> => {
         const params = new URLSearchParams();

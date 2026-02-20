@@ -1,9 +1,9 @@
 'use client';
 
+import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'next/navigation';
 import { ReactNode, useEffect } from 'react';
 import { Sidebar } from '../../../components/Sidebar';
-import { useAuth } from '../../../context/AuthContext';
 import { CardHrsContratadasHrsExecutadas } from './cards/Card_Hrs_Contratadas_Hrs_Executadas';
 import { CardTotalChamadosOS } from './cards/Card_Total_Chamados_OS';
 import { CardMediaHrsChamadoTarefa } from './cards/CardMediaHrsChamadoTarefa';
@@ -26,7 +26,7 @@ const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL; // Calcula automaticamente (ex: 100 
 // ================================
 
 export function LayoutDashboard({ filters, children }: LayoutProps) {
-    const { isLoggedIn } = useAuth();
+    const { isLoggedIn } = useAuthStore();
     const router = useRouter();
 
     useEffect(() => {

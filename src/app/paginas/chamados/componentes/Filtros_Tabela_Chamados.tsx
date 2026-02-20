@@ -3,8 +3,8 @@
 'use client';
 
 import { Relogio } from '@/components/Relogio';
-import { useAuth } from '@/context/AuthContext';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 // =====================================================
 import {
@@ -612,7 +612,7 @@ function SelectWithClear({
 
 // ==================== COMPONENTE PRINCIPAL ====================
 export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosChamadoProps) {
-    const { isAdmin, codCliente } = useAuth();
+    const { isAdmin, codCliente } = useAuthStore();
     const { hoje, anoAtual, mesAtual } = useDataAtual();
 
     // Estado para controlar expansão do dropdown

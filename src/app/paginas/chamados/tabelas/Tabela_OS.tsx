@@ -6,7 +6,6 @@ import { RedimensionarColunas } from '@/app/paginas/chamados/componentes/Redimen
 import { ModalObservacaoOS } from '@/app/paginas/chamados/modais/Modal_Observacao_OS';
 import { IsError } from '@/components/IsError';
 import { IsLoading } from '@/components/IsLoading';
-import { useAuth } from '@/context/AuthContext';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
@@ -15,6 +14,7 @@ import { useFiltersStore } from '@/store/useFiltersStore';
 import { useQuery } from '@tanstack/react-query';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 // =====================================================
+import { useAuthStore } from '@/store/useAuthStore';
 import React, { useCallback, useMemo, useState } from 'react';
 import { IoClose } from 'react-icons/io5';
 import { TbFileInvoice } from 'react-icons/tb';
@@ -172,7 +172,7 @@ const fetchOSByChamado = async ({
 // COMPONENTE PRINCIPAL
 // =====================================================
 export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado }: ModalOSProps) {
-    const { isAdmin, codCliente } = useAuth();
+    const { isAdmin, codCliente } = useAuthStore();
     const mesFiltro = useFiltersStore((state) => state.filters.mes);
     const anoFiltro = useFiltersStore((state) => state.filters.ano);
 

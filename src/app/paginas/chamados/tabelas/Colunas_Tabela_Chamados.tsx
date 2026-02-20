@@ -1,7 +1,7 @@
 // src/app/paginas/chamados/tabelas/Colunas_Tabela_Chamados.tsx
 
-import type { HorasMes } from '@/app/api/chamados/horas-por-mes/route'; // ✅ NOVO
-import { HorasMesTooltip } from '@/app/paginas/chamados/componentes/Horas_Mes_Tooltip'; // ✅ NOVO
+import type { HorasMes } from '@/app/api/chamados/horas-por-mes/route';
+import { HorasMesTooltip } from '@/app/paginas/chamados/componentes/Horas_Mes_Tooltip';
 import { SLACell } from '@/app/paginas/chamados/componentes/SLA_Cell';
 import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';

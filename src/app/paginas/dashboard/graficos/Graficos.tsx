@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 import { FaExclamationTriangle } from 'react-icons/fa';
@@ -15,7 +16,6 @@ import {
     XAxis,
     YAxis,
 } from 'recharts';
-import { useAuth } from '../../../../context/AuthContext';
 import {
     formatarHorasArredondadas,
     formatarHorasTotaisSufixo,
@@ -268,7 +268,7 @@ const fetchSaldoHistorico = async (
 // COMPONENTE PRINCIPAL
 // ================================================================================
 export function Graficos({ filters }: FilterProps) {
-    const { isAdmin, codCliente } = useAuth();
+    const { isAdmin, codCliente } = useAuthStore();
 
     const {
         data: dados,

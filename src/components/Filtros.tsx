@@ -1,9 +1,9 @@
+import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { IoClose } from 'react-icons/io5';
 import { MdCalendarMonth, MdFilterAlt } from 'react-icons/md';
 import { useDebounce } from 'use-debounce';
-import { useAuth } from '../context/AuthContext';
 import { corrigirTextoCorrompido } from '../formatters/formatar-texto-corrompido';
 import { useFiltersStore } from '../store/useFiltersStore';
 import { Relogio } from './Relogio';
@@ -152,7 +152,7 @@ export function Filtros() {
     const filters = useFiltersStore((state) => state.filters);
     const setFilters = useFiltersStore((state) => state.setFilters);
 
-    const { isAdmin, codCliente } = useAuth();
+    const { isAdmin, codCliente } = useAuthStore();
 
     const [ano, setAno] = useState(filters.ano);
     const [mes, setMes] = useState(filters.mes);
