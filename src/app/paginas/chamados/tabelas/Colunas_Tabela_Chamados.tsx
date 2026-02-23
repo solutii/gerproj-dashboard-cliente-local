@@ -12,8 +12,8 @@ import React from 'react';
 import { BiSolidLike } from 'react-icons/bi';
 import { MdOpenInNew, MdOutlineStar } from 'react-icons/md';
 
-// ==================== TIPOS ====================
-export type ChamadoRowProps = {
+// ========== INTERFACES ==========
+export interface ChamadoRowProps {
     COD_CHAMADO: number;
     DATA_CHAMADO: string;
     HORA_CHAMADO: string;
@@ -30,7 +30,7 @@ export type ChamadoRowProps = {
     NOME_RECURSO: string | null;
     NOME_CLASSIFICACAO: string | null;
     TOTAL_HORAS_OS: number;
-    TOTAL_HORAS_OS_FATURADAS?: number; // ✅ NOVO: necessário para o tooltip
+    TOTAL_HORAS_OS_FATURADAS?: number;
     TEM_OS?: boolean;
     DATA_HISTCHAMADO?: string | null;
     HORA_HISTCHAMADO?: string | null;
@@ -42,26 +42,25 @@ export type ChamadoRowProps = {
     SLA_TEMPO_RESTANTE?: number;
     SLA_PRAZO_TOTAL?: number;
     SLA_DENTRO_PRAZO?: boolean;
-};
+}
 
-// ==================== CONSTANTES ====================
+// ========== CONSTANTES ==========
 const STATUS_STYLES: Record<string, string> = {
-    'NAO FINALIZADO': 'bg-red-500 border border-red-600 text-black shadow-sm shadow-black',
-    'EM ATENDIMENTO': 'bg-blue-500 border border-blue-600 text-white shadow-sm shadow-black',
-    FINALIZADO: 'bg-green-500 border border-green-600 text-black shadow-sm shadow-black',
-    'NAO INICIADO': 'bg-red-500 border border-red-600 text-black shadow-sm shadow-black',
-    STANDBY: 'bg-orange-500 border border-orange-600 text-white shadow-sm shadow-black',
-    ATRIBUIDO: 'bg-cyan-500 border border-cyan-600 text-black shadow-sm shadow-black',
-    'AGUARDANDO VALIDACAO':
-        'bg-yellow-500 border border-yellow-600 text-black shadow-sm shadow-black',
-    DEFAULT: 'bg-gray-500 border border-gray-600 text-black shadow-sm shadow-black',
+    'EM ATENDIMENTO': 'bg-purple-300 border border-purple-500 text-black',
+    FINALIZADO: 'bg-green-300 border border-green-500 text-black',
+    STANDBY: 'bg-orange-300 border border-orange-500 text-black',
+    ATRIBUIDO: 'bg-cyan-300 border border-cyan-500 text-black',
+    'AGUARDANDO VALIDACAO': 'bg-yellow-300 border border-yellow-500 text-black',
+    DEFAULT: 'bg-gray-300 border border-gray-500 text-black',
 };
 
-const EMPTY_VALUE = '---------------';
+const EMPTY_VALUE = '==========';
 
-// ==================== FUNÇÕES UTILITÁRIAS ====================
+// ========== FUNÇÕES UTILITÁRIAS ==========
+
 const getStylesStatus = (status: string | undefined): string =>
     STATUS_STYLES[status?.toUpperCase() || 'DEFAULT'] || STATUS_STYLES.DEFAULT;
+// ====
 
 const setupTruncationTooltip = (el: HTMLDivElement | null, text: string) => {
     if (!el) return;
@@ -74,6 +73,7 @@ const setupTruncationTooltip = (el: HTMLDivElement | null, text: string) => {
         el.classList.remove('cursor-help');
     }
 };
+// =====
 
 const formatNomeRecurso = (value: string): string => {
     const correctedText = corrigirTextoCorrompido(value);
@@ -81,7 +81,7 @@ const formatNomeRecurso = (value: string): string => {
     return parts.length <= 2 ? parts.join(' ') : parts.slice(0, 2).join(' ');
 };
 
-// ==================== COMPONENTES AUXILIARES ====================
+// ========== COMPONENTES AUXILIARES ==========
 interface StatusBadgeProps {
     status: string;
     avaliacao: number | null;
@@ -143,6 +143,7 @@ const StatusBadge = React.memo(function StatusBadge({
         </div>
     );
 });
+// =====
 
 interface ActionButtonProps {
     onClick: (e: React.MouseEvent) => void;
@@ -159,6 +160,7 @@ const ActionButton = React.memo(function ActionButton({ onClick, title }: Action
         </button>
     );
 });
+// ====
 
 const CellHeader = React.memo(function CellHeader({ children }: { children: React.ReactNode }) {
     return (
@@ -167,6 +169,7 @@ const CellHeader = React.memo(function CellHeader({ children }: { children: Reac
         </div>
     );
 });
+// ====
 
 const CellText = React.memo(function CellText({
     value,
@@ -187,6 +190,7 @@ const CellText = React.memo(function CellText({
         </div>
     );
 });
+// ====
 
 const TruncatedCell = React.memo(function TruncatedCell({
     value,
@@ -209,7 +213,7 @@ const TruncatedCell = React.memo(function TruncatedCell({
     );
 });
 
-// ==================== DEFINIÇÃO DAS COLUNAS ====================
+// ========== COMPONENTE PRINCIPAL ==========
 export const getColunasChamados = (
     onOpenSolicitacao?: (chamado: ChamadoRowProps) => void,
     onOpenAvaliacao?: (chamado: ChamadoRowProps) => void,
@@ -246,8 +250,9 @@ export const getColunasChamados = (
             },
             enableColumnFilter: true,
         },
+        // =====
 
-        // ========== DATA/HORA DE ABERTURA ==========
+        // ========== DATA/HORA DA ABERTURA ==========
         {
             id: 'DATA_CHAMADO',
             header: () => <CellHeader>ENTRADA</CellHeader>,
@@ -261,8 +266,9 @@ export const getColunasChamados = (
             },
             enableColumnFilter: true,
         },
+        // =====
 
-        // ========== ATRIBUIÇÃO ==========
+        // ========== DATA/HORA DA ATRIBUIÇÃO ==========
         {
             accessorKey: 'DTENVIO_CHAMADO',
             id: 'DTENVIO_CHAMADO',
@@ -273,8 +279,9 @@ export const getColunasChamados = (
             },
             enableColumnFilter: true,
         },
+        // =====
 
-        // ========== INÍCIO ==========
+        // ========== DATA/HORA DO INÍCIO ==========
         {
             accessorKey: 'DTINI_CHAMADO',
             id: 'DTINI_CHAMADO',
@@ -291,6 +298,7 @@ export const getColunasChamados = (
             },
             enableColumnFilter: true,
         },
+        // =====
 
         // ========== SLA ==========
         {
@@ -311,8 +319,9 @@ export const getColunasChamados = (
             },
             enableColumnFilter: false,
         },
+        // =====
 
-        // ========== FINALIZAÇÃO ==========
+        // ========== DATA/HORA DA FINALIZAÇÃO ==========
         {
             id: 'DATA_HISTCHAMADO',
             header: () => <CellHeader>FINALIZAÇÃO</CellHeader>,
@@ -331,6 +340,7 @@ export const getColunasChamados = (
             },
             enableColumnFilter: true,
         },
+        // =====
 
         // ========== STATUS ==========
         {
@@ -356,6 +366,7 @@ export const getColunasChamados = (
                 return cellValueUpper === filterValueUpper;
             },
         },
+        // =====
 
         // ========== ASSUNTO ==========
         {
@@ -382,6 +393,7 @@ export const getColunasChamados = (
             },
             enableColumnFilter: true,
         },
+        // =====
 
         // ========== EMAIL ==========
         {
@@ -395,6 +407,7 @@ export const getColunasChamados = (
             },
             enableColumnFilter: true,
         },
+        // =====
 
         // ========== CLASSIFICAÇÃO ==========
         {
@@ -407,6 +420,7 @@ export const getColunasChamados = (
             },
             enableColumnFilter: true,
         },
+        // =====
 
         // ========== CONSULTOR ==========
         {
@@ -420,6 +434,7 @@ export const getColunasChamados = (
             },
             enableColumnFilter: true,
         },
+        // =====
 
         // ========== PRIORIDADE ==========
         {
@@ -432,8 +447,9 @@ export const getColunasChamados = (
             },
             enableColumnFilter: true,
         },
+        // =====
 
-        // ========== QTD. HORAS — com tooltip de breakdown por mês ✅ NOVO ==========
+        // ========== QUANTIDADE DE HORAS ==========
         {
             accessorKey: 'TOTAL_HORAS_OS',
             id: 'TOTAL_HORAS_OS',
@@ -469,5 +485,6 @@ export const getColunasChamados = (
             },
             enableColumnFilter: false,
         },
+        // =====
     ];
 };

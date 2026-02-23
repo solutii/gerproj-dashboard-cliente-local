@@ -2,6 +2,7 @@
 
 'use client';
 
+import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { useSLADinamico } from '@/hooks/useSLADinamico';
 import React from 'react';
 
@@ -13,39 +14,12 @@ interface SLACellProps {
     dataInicioAtendimento?: Date | string | null;
 }
 
-/**
- * Formata horas decimais para o formato "Xh:Ymin"
- * @param horas - Valor em horas (exemplo: 1.5 = 1h:30min)
- * @returns String formatada (exemplo: "1h:30min")
- */
-const formatarTempoHorasMinutos = (horas: number): string => {
-    const horasInteiras = Math.floor(horas);
-    const minutos = Math.round((horas - horasInteiras) * 60);
-
-    if (horasInteiras === 0 && minutos === 0) {
-        return '0min';
-    }
-
-    if (horasInteiras === 0) {
-        return `${minutos}min`;
-    }
-
-    if (minutos === 0) {
-        return `${horasInteiras}h`;
-    }
-
-    return `${horasInteiras}h:${minutos}min`;
-};
-
-/**
- * Retorna as classes CSS para o badge do SLA baseado no status
- */
 const getSLABadgeStyles = (status: 'OK' | 'ALERTA' | 'CRITICO' | 'VENCIDO'): string => {
     const styles = {
-        OK: 'bg-green-500 border border-green-600 text-black shadow-sm shadow-black',
-        ALERTA: 'bg-yellow-500 border border-yellow-600 text-black shadow-sm shadow-black',
-        CRITICO: 'bg-orange-500 border border-orange-600 text-white shadow-sm shadow-black',
-        VENCIDO: 'bg-red-500 border border-red-600 text-white shadow-sm shadow-black',
+        OK: 'bg-green-300 border border-green-500 text-black',
+        ALERTA: 'bg-yellow-300 border border-yellow-500 text-black',
+        CRITICO: 'bg-orange-300 border border-orange-500 text-black',
+        VENCIDO: 'bg-red-300 border border-red-500 text-black',
     };
 
     return styles[status];
@@ -58,11 +32,11 @@ export const SLACell: React.FC<SLACellProps> = ({
     statusChamado,
     dataInicioAtendimento,
 }) => {
-    // Se não tiver início de atendimento, não mostra nada
+    // Se não tiver data de início de atendimento, não mostra nada
     if (!dataInicioAtendimento) {
         return (
             <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                ----------
+                ==========
             </div>
         );
     }
@@ -80,7 +54,7 @@ export const SLACell: React.FC<SLACellProps> = ({
     if (!sla) {
         return (
             <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                ----------
+                ==========
             </div>
         );
     }
@@ -90,10 +64,10 @@ export const SLACell: React.FC<SLACellProps> = ({
     return (
         <div className="flex items-center justify-center">
             <div
-                className={`w-full rounded px-3 py-1.5 text-center text-sm font-extrabold tracking-widest select-none ${badgeStyles}`}
-                title={`Status: ${sla.status} | Percentual: ${sla.percentualUsado.toFixed(1)}% | Tempo Restante: ${formatarTempoHorasMinutos(sla.tempoRestante)}`}
+                className={`w-full cursor-help rounded py-1.5 text-center text-sm font-extrabold tracking-widest select-none ${badgeStyles}`}
+                title="Tempo decorrido, do momento que o chamado é aberto, até o início do atendimento."
             >
-                {formatarTempoHorasMinutos(sla.tempoDecorrido)}
+                {formatarHorasTotaisSufixo(sla.tempoDecorrido)}
             </div>
         </div>
     );

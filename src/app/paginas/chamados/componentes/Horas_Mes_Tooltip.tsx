@@ -31,15 +31,6 @@ const MESES_LABEL = [
 ];
 
 // ==================== COMPONENTE ====================
-/**
- * Wrapper com tooltip nativo (CSS only, zero dependências).
- * Exibe horas faturadas por mês ao passar o mouse sobre a célula.
- *
- * Uso:
- * <HorasMesTooltip meses={getHoras(chamado.COD_CHAMADO)} totalHorasFaturadas={chamado.TOTAL_HORAS_OS_FATURADAS}>
- *   <span>{formatarHoras(chamado.TOTAL_HORAS_OS_FATURADAS)}</span>
- * </HorasMesTooltip>
- */
 export function HorasMesTooltip({ meses, totalHorasFaturadas, children }: HorasMesTooltipProps) {
     // Não renderiza tooltip se não há dados mensais
     const temDados = meses.length > 0;
@@ -61,7 +52,7 @@ export function HorasMesTooltip({ meses, totalHorasFaturadas, children }: HorasM
     return (
         <div className="group relative">
             {/* Trigger */}
-            <div className="cursor-pointer rounded border-t bg-stone-50 py-1 shadow-sm shadow-black">
+            <div className="cursor-help rounded border border-stone-200 bg-stone-100 py-1">
                 {children}
             </div>
 

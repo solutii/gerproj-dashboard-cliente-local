@@ -312,30 +312,20 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
     if (!isOpen || codChamado === null) return null;
 
     if (isLoading) {
-        return (
-            <ModalOverlay>
-                <IsLoading isLoading={isLoading} title="Carregando OS's do chamado..." />
-            </ModalOverlay>
-        );
+        return <IsLoading isLoading={isLoading} title="Carregando OS's do chamado..." />;
     }
 
     if (error) {
         return (
-            <ModalOverlay>
-                <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[800px] flex-col overflow-hidden rounded-xl bg-white p-8 shadow-md shadow-black">
-                    <IsError
-                        isError={!!error}
-                        error={error as Error}
-                        title="Erro ao Carregar OS's"
-                    />
-                    <button
-                        onClick={onClose}
-                        className="mt-4 cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 px-6 py-2 text-white shadow-md shadow-black transition-all hover:scale-105 active:scale-95"
-                    >
-                        Fechar
-                    </button>
-                </div>
-            </ModalOverlay>
+            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[800px] flex-col overflow-hidden rounded-xl bg-white p-8 shadow-md shadow-black">
+                <IsError isError={!!error} error={error as Error} title="Erro ao Carregar OS's" />
+                <button
+                    onClick={onClose}
+                    className="mt-4 cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 px-6 py-2 text-white shadow-md shadow-black transition-all hover:scale-105 active:scale-95"
+                >
+                    Fechar
+                </button>
+            </div>
         );
     }
 
