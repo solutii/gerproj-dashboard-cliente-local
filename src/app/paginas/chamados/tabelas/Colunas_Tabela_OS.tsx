@@ -197,17 +197,17 @@ interface HorasAdicionaisBreakdownProps {
 const HorasAdicionaisBreakdown = React.memo(function HorasAdicionaisBreakdown({
     horas,
 }: HorasAdicionaisBreakdownProps) {
-    // Sem adicional: exibição simples
+    // Sem horas fora do horário: célula vazia — o valor já aparece em "TOTAL HORAS"
     if (!horas.temAdicional) {
-        return (
-            <div className="flex items-center justify-center">
-                <span className="text-sm font-semibold tracking-widest text-black select-none">
-                    {formatarHorasAdicional(horas.totalHorasBruto)}
-                </span>
-            </div>
-        );
+        return null;
     }
 
+    // Tem horas fora do horário mas nenhuma hora cheia → sem acréscimo real → célula vazia
+    if (horas.horasAdicionalGerado === 0) {
+        return null;
+    }
+
+    // Tem acréscimo real de 50%: exibe breakdown completo
     return (
         <div className="flex flex-col gap-1 py-1">
             {/* Horas sem adicional (comercial + janela 05–08) */}
@@ -235,16 +235,14 @@ const HorasAdicionaisBreakdown = React.memo(function HorasAdicionaisBreakdown({
             </div>
 
             {/* Adicional gerado */}
-            {horas.horasAdicionalGerado > 0 && (
-                <div className="flex items-center justify-between gap-2 rounded bg-yellow-50 px-2 py-0.5">
-                    <span className="text-xs font-bold tracking-wide whitespace-nowrap text-yellow-700 select-none">
-                        Adicional
-                    </span>
-                    <span className="text-xs font-semibold text-yellow-800 select-none">
-                        +{formatarHorasAdicional(horas.horasAdicionalGerado)}
-                    </span>
-                </div>
-            )}
+            <div className="flex items-center justify-between gap-2 rounded bg-yellow-50 px-2 py-0.5">
+                <span className="text-xs font-bold tracking-wide whitespace-nowrap text-yellow-700 select-none">
+                    Adicional
+                </span>
+                <span className="text-xs font-semibold text-yellow-800 select-none">
+                    +{formatarHorasAdicional(horas.horasAdicionalGerado)}
+                </span>
+            </div>
 
             {/* Total equivalente */}
             <div className="flex items-center justify-between gap-2 rounded bg-purple-100 px-2 py-0.5">

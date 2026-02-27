@@ -2,7 +2,7 @@
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import {
     agregarHorasAdicionais,
-    calcularHorasComAdicional,
+    calcularHorasComAdicionalAsync,
     HorasAdicionaisResult,
 } from '@/lib/os/calcular-horas-adicionais';
 import { NextRequest, NextResponse } from 'next/server';
@@ -168,15 +168,21 @@ ORDER BY OS.DTINI_OS DESC, OS.NUM_OS DESC`;
 }
 
 // ==================== PROCESSAMENTO DE DADOS ====================
-function processarOrdemServico(os: any[]): OrdemServico[] {
-    return os.map((item) => {
-        const horasAdicional = calcularHorasComAdicional(
+async function processarOrdemServico(
+    os: any[],
+    state?: string,
+    city?: string
+): Promise<OrdemServico[]> {
+    const results: OrdemServico[] = [];
+    for (const item of os) {
+        const horasAdicional = await calcularHorasComAdicionalAsync(
             item.DTINI_OS,
             item.HRINI_OS,
-            item.HRFIM_OS
+            item.HRFIM_OS,
+            { state, city }
         );
 
-        return {
+        results.push({
             COD_OS: item.COD_OS,
             CODTRF_OS: item.CODTRF_OS,
             DTINI_OS: item.DTINI_OS,
@@ -190,10 +196,10 @@ function processarOrdemServico(os: any[]): OrdemServico[] {
             NOME_TAREFA: item.NOME_TAREFA || null,
             NOME_CLIENTE: item.NOME_CLIENTE || null,
             TOTAL_HORAS_OS: calcularHorasTrabalhadas(item.HRINI_OS, item.HRFIM_OS),
-            // ✅ NOVO: breakdown calculado por OS
             HORAS_ADICIONAL: horasAdicional,
-        };
-    });
+        });
+    }
+    return results;
 }
 
 // ==================== HANDLER PRINCIPAL ====================
@@ -226,7 +232,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             firebirdQuery<any>(construirSQLBase(), [codChamado]),
         ]);
 
-        const osProcessadas = processarOrdemServico(os);
+        const osProcessadas = await processarOrdemServico(os, 'MG', 'Belo Horizonte');
 
         // ✅ NOVO: agrega o breakdown de todas as OS do chamado
         const horasAdicionaisAgregadas = agregarHorasAdicionais(

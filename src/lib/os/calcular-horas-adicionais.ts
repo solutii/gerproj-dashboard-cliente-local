@@ -67,16 +67,9 @@ export const CONFIG_PADRAO_ADICIONAL: ConfigHorasAdicionais = {
     horaComercialInicio: 8,
     horaComercialFim: 18,
     multiplicador: 1.5,
-    feriados: [
-        '01/01', // Ano Novo
-        '21/04', // Tiradentes
-        '01/05', // Dia do Trabalho
-        '07/09', // Independência
-        '12/10', // Nossa Senhora Aparecida
-        '02/11', // Finados
-        '15/11', // Proclamação da República
-        '25/12', // Natal
-    ],
+    // Lista vazia por padrão — feriados são injetados via buscarFeriados()
+    // ou passando um config customizado com a lista desejada.
+    feriados: [],
 };
 
 // ==================== HELPERS INTERNOS ====================
@@ -331,4 +324,54 @@ function resultado_zerado(): HorasAdicionaisResult {
         temAdicional: false,
         horasAdicionalGerado: 0,
     };
+}
+
+// ==================== FUNÇÃO ASSÍNCRONA (com feriados da API) ====================
+
+import type { FeriadosQueryParams } from './feriados-service';
+
+/**
+ * Versão assíncrona de calcularHorasComAdicional que busca automaticamente
+ * os feriados via feriados-service antes de calcular.
+ *
+ * Use esta função no route.ts para garantir que feriados nacionais,
+ * estaduais e municipais sejam considerados corretamente.
+ *
+ * @param dtIniOS        - Data da OS
+ * @param hrIniOS        - Hora de início "HHMM" ou "HH:MM"
+ * @param hrFimOS        - Hora de fim "HHMM" ou "HH:MM"
+ * @param feriadosParams - Parâmetros para a busca de feriados (state, city opcionais)
+ *
+ * @example
+ * const resultado = await calcularHorasComAdicionalAsync(
+ *     item.DTINI_OS,
+ *     item.HRINI_OS,
+ *     item.HRFIM_OS,
+ *     { year: 2025, state: 'SP' }
+ * );
+ */
+export async function calcularHorasComAdicionalAsync(
+    dtIniOS: Date | string,
+    hrIniOS: string,
+    hrFimOS: string,
+    feriadosParams?: Omit<FeriadosQueryParams, 'year'>
+): Promise<HorasAdicionaisResult> {
+    const data = typeof dtIniOS === 'string' ? new Date(dtIniOS) : new Date(dtIniOS);
+
+    if (isNaN(data.getTime())) {
+        return resultado_zerado();
+    }
+
+    // Import dinâmico para evitar dependência circular em contextos síncronos
+    const { buscarFeriados } = await import('./feriados-service');
+
+    const feriados = await buscarFeriados({
+        year: data.getFullYear(),
+        ...feriadosParams,
+    });
+
+    return calcularHorasComAdicional(dtIniOS, hrIniOS, hrFimOS, {
+        ...CONFIG_PADRAO_ADICIONAL,
+        feriados,
+    });
 }
