@@ -1,5 +1,10 @@
 // app/api/chamados/[codChamado]/os/route.ts
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
+import {
+    agregarHorasAdicionais,
+    calcularHorasComAdicional,
+    HorasAdicionaisResult,
+} from '@/lib/os/calcular-horas-adicionais';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ==================== TIPOS ====================
@@ -17,6 +22,8 @@ export interface OrdemServico {
     NOME_TAREFA?: string | null;
     NOME_CLIENTE?: string | null;
     TOTAL_HORAS_OS: number;
+    // ✅ NOVO: breakdown de horas com adicional
+    HORAS_ADICIONAL: HorasAdicionaisResult;
 }
 
 interface RouteParams {
@@ -78,7 +85,6 @@ function validarAutorizacao(
         );
     }
 
-    // Validar mes e ano se fornecidos
     let mesNum: number | undefined = undefined;
     let anoNum: number | undefined = undefined;
 
@@ -109,28 +115,13 @@ function validarAutorizacao(
     };
 }
 
-// ==================== CONSTRUÇÃO DE DATAS ====================
-function construirDatas(mes: number, ano: number): { dataInicio: string; dataFim: string } {
-    const mesFormatado = mes.toString().padStart(2, '0');
-    const dataInicio = `01.${mesFormatado}.${ano}`;
-
-    const dataFim =
-        mes === 12 ? `01.01.${ano + 1}` : `01.${(mes + 1).toString().padStart(2, '0')}.${ano}`;
-
-    return { dataInicio, dataFim };
-}
-
-// ✅ NOVA FUNÇÃO: Buscar data do chamado
+// ==================== BUSCAR DATA DO CHAMADO ====================
 async function buscarDataChamado(codChamado: number): Promise<Date | null> {
     try {
-        const sql = `
-      SELECT DATA_CHAMADO
-      FROM CHAMADO
-      WHERE COD_CHAMADO = ?
-    `;
-
-        const resultado = await firebirdQuery<{ DATA_CHAMADO: Date }>(sql, [codChamado]);
-
+        const resultado = await firebirdQuery<{ DATA_CHAMADO: Date }>(
+            `SELECT DATA_CHAMADO FROM CHAMADO WHERE COD_CHAMADO = ?`,
+            [codChamado]
+        );
         return resultado.length > 0 ? resultado[0].DATA_CHAMADO : null;
     } catch (error) {
         console.error('[API OS] Erro ao buscar data do chamado:', error);
@@ -141,17 +132,10 @@ async function buscarDataChamado(codChamado: number): Promise<Date | null> {
 // ==================== VERIFICAR PERMISSÃO ====================
 async function verificarPermissaoChamado(codChamado: number, codCliente: number): Promise<boolean> {
     try {
-        const sql = `
-      SELECT COD_CHAMADO
-      FROM CHAMADO
-      WHERE COD_CHAMADO = ? AND COD_CLIENTE = ?
-    `;
-
-        const resultado = await firebirdQuery<{ COD_CHAMADO: number }>(sql, [
-            codChamado,
-            codCliente,
-        ]);
-
+        const resultado = await firebirdQuery<{ COD_CHAMADO: number }>(
+            `SELECT COD_CHAMADO FROM CHAMADO WHERE COD_CHAMADO = ? AND COD_CLIENTE = ?`,
+            [codChamado, codCliente]
+        );
         return resultado.length > 0;
     } catch (error) {
         console.error('[API OS] Erro ao verificar permissão do chamado:', error);
@@ -161,10 +145,8 @@ async function verificarPermissaoChamado(codChamado: number, codCliente: number)
 
 // ==================== CÁLCULO DE HORAS TRABALHADAS ====================
 function calcularHorasTrabalhadas(hrIni: string, hrFim: string): number {
-    // Formato esperado: "HHMM" (ex: "0830" = 08:30)
     const horaIni = parseInt(hrIni.substring(0, 2)) + parseInt(hrIni.substring(2, 4)) / 60;
     const horaFim = parseInt(hrFim.substring(0, 2)) + parseInt(hrFim.substring(2, 4)) / 60;
-
     return horaFim - horaIni;
 }
 
@@ -187,21 +169,31 @@ ORDER BY OS.DTINI_OS DESC, OS.NUM_OS DESC`;
 
 // ==================== PROCESSAMENTO DE DADOS ====================
 function processarOrdemServico(os: any[]): OrdemServico[] {
-    return os.map((item) => ({
-        COD_OS: item.COD_OS,
-        CODTRF_OS: item.CODTRF_OS,
-        DTINI_OS: item.DTINI_OS,
-        HRINI_OS: item.HRINI_OS,
-        HRFIM_OS: item.HRFIM_OS,
-        OBS: item.OBS || null,
-        NUM_OS: item.NUM_OS || null,
-        VALCLI_OS: item.VALCLI_OS || null,
-        OBSCLI_OS: item.OBSCLI_OS || null,
-        NOME_RECURSO: item.NOME_RECURSO || null,
-        NOME_TAREFA: item.NOME_TAREFA || null,
-        NOME_CLIENTE: item.NOME_CLIENTE || null,
-        TOTAL_HORAS_OS: calcularHorasTrabalhadas(item.HRINI_OS, item.HRFIM_OS),
-    }));
+    return os.map((item) => {
+        const horasAdicional = calcularHorasComAdicional(
+            item.DTINI_OS,
+            item.HRINI_OS,
+            item.HRFIM_OS
+        );
+
+        return {
+            COD_OS: item.COD_OS,
+            CODTRF_OS: item.CODTRF_OS,
+            DTINI_OS: item.DTINI_OS,
+            HRINI_OS: item.HRINI_OS,
+            HRFIM_OS: item.HRFIM_OS,
+            OBS: item.OBS || null,
+            NUM_OS: item.NUM_OS || null,
+            VALCLI_OS: item.VALCLI_OS || null,
+            OBSCLI_OS: item.OBSCLI_OS || null,
+            NOME_RECURSO: item.NOME_RECURSO || null,
+            NOME_TAREFA: item.NOME_TAREFA || null,
+            NOME_CLIENTE: item.NOME_CLIENTE || null,
+            TOTAL_HORAS_OS: calcularHorasTrabalhadas(item.HRINI_OS, item.HRFIM_OS),
+            // ✅ NOVO: breakdown calculado por OS
+            HORAS_ADICIONAL: horasAdicional,
+        };
+    });
 }
 
 // ==================== HANDLER PRINCIPAL ====================
@@ -210,21 +202,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const { searchParams } = new URL(request.url);
         const { codChamado } = await params;
 
-        // Validar código do chamado
         const codChamadoValidado = validarCodChamado(codChamado);
         if (codChamadoValidado instanceof NextResponse) return codChamadoValidado;
 
-        // Validar autorização
         const auth = validarAutorizacao(searchParams, codChamadoValidado);
         if (auth instanceof NextResponse) return auth;
 
-        // Se não for admin, verificar se o chamado pertence ao cliente
         if (!auth.isAdmin && auth.codCliente) {
             const temPermissao = await verificarPermissaoChamado(
                 codChamadoValidado,
                 auth.codCliente
             );
-
             if (!temPermissao) {
                 return NextResponse.json(
                     { error: 'Você não tem permissão para acessar este chamado' },
@@ -233,32 +221,30 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             }
         }
 
-        // ✅ NOVO: Buscar data do chamado
-        const dataChamado = await buscarDataChamado(codChamadoValidado);
+        const [dataChamado, os] = await Promise.all([
+            buscarDataChamado(codChamadoValidado),
+            firebirdQuery<any>(construirSQLBase(), [codChamado]),
+        ]);
 
-        const sqlFinal = construirSQLBase();
-        const sqlParams: any[] = [codChamado];
-
-        // Se tem filtro de período, adicionar os parâmetros de data
-
-        // Buscar OS's do chamado
-        const os = await firebirdQuery<any>(sqlFinal, sqlParams);
-
-        // Processar dados
         const osProcessadas = processarOrdemServico(os);
 
-        // Calcular totais
+        // ✅ NOVO: agrega o breakdown de todas as OS do chamado
+        const horasAdicionaisAgregadas = agregarHorasAdicionais(
+            osProcessadas.map((o) => o.HORAS_ADICIONAL)
+        );
+
         const totais = {
             quantidade_OS: osProcessadas.length,
             total_horas_chamado: osProcessadas.reduce((acc, item) => acc + item.TOTAL_HORAS_OS, 0),
+            // ✅ NOVO: totais de horas com adicional agregados
+            horas_adicional: horasAdicionaisAgregadas,
         };
 
-        // ✅ MODIFICADO: Incluir dataChamado na resposta
         return NextResponse.json(
             {
                 success: true,
                 codChamado: codChamadoValidado,
-                dataChamado: dataChamado, // ✅ NOVO campo
+                dataChamado,
                 totais,
                 data: osProcessadas,
             },
@@ -266,8 +252,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         );
     } catch (error) {
         console.error('[API OS] ❌ Erro geral:', error);
-        console.error('[API OS] Stack:', error instanceof Error ? error.stack : 'N/A');
-        console.error('[API OS] Message:', error instanceof Error ? error.message : error);
 
         return NextResponse.json(
             {

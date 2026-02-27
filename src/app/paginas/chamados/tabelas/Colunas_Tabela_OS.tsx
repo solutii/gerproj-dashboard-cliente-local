@@ -4,8 +4,8 @@ import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
+import { formatarHorasAdicional, HorasAdicionaisResult } from '@/lib/os/calcular-horas-adicionais';
 import { ColumnDef } from '@tanstack/react-table';
-// =====================================================
 import React from 'react';
 import { FaCheck } from 'react-icons/fa';
 import { MdClose, MdOpenInNew } from 'react-icons/md';
@@ -36,6 +36,8 @@ export interface OSRowProps {
     VALCLI_OS: string | null;
     OBSCLI_OS?: string | null;
     NOME_CLIENTE?: string | null;
+    // ✅ NOVO: breakdown de horas com adicional
+    HORAS_ADICIONAL?: HorasAdicionaisResult;
 }
 
 // =====================================================
@@ -69,7 +71,6 @@ const VALIDATION_STYLES = {
 // =====================================================
 const setupTruncationTooltip = (el: HTMLDivElement | null, text: string) => {
     if (!el) return;
-
     const isTruncated = el.scrollWidth > el.clientWidth;
     if (isTruncated) {
         el.setAttribute('title', text);
@@ -94,7 +95,7 @@ const normalizeValidationStatus = (status?: string | null): keyof typeof VALIDAT
 };
 
 // =====================================================
-// COMPONENTES AUXILIARES
+// COMPONENTES AUXILIARES BASE
 // =====================================================
 interface ValidacaoBadgeProps {
     status?: string | null;
@@ -178,6 +179,87 @@ const TruncatedCellOS = React.memo(function TruncatedCellOS({
 });
 
 // =====================================================
+// COMPONENTE: BREAKDOWN DE HORAS ADICIONAIS
+// =====================================================
+
+interface HorasAdicionaisBreakdownProps {
+    horas: HorasAdicionaisResult;
+}
+
+/**
+ * Exibe o breakdown completo de horas:
+ *  - Linha de horas dentro do horário comercial (verde)
+ *  - Linha de horas fora do horário (laranja) + equivalente com ×1.5
+ *  - Linha de total equivalente em destaque
+ *
+ * Se não houver adicional, exibe apenas o total bruto de forma compacta.
+ */
+const HorasAdicionaisBreakdown = React.memo(function HorasAdicionaisBreakdown({
+    horas,
+}: HorasAdicionaisBreakdownProps) {
+    // Sem adicional: exibição simples
+    if (!horas.temAdicional) {
+        return (
+            <div className="flex items-center justify-center">
+                <span className="text-sm font-semibold tracking-widest text-black select-none">
+                    {formatarHorasAdicional(horas.totalHorasBruto)}
+                </span>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-1 py-1">
+            {/* Horas sem adicional (comercial + janela 05–08) */}
+            {horas.horasSemAdicional > 0 && (
+                <div className="flex items-center justify-between gap-2 rounded bg-green-100 px-2 py-0.5">
+                    <span className="text-xs font-bold tracking-wide whitespace-nowrap text-green-700 select-none">
+                        Comercial
+                    </span>
+                    <span className="text-xs font-semibold text-green-800 select-none">
+                        {formatarHorasAdicional(horas.horasSemAdicional)}
+                    </span>
+                </div>
+            )}
+
+            {/* Horas com adicional: bruto → equivalente */}
+            <div className="flex items-center justify-between gap-2 rounded bg-orange-100 px-2 py-0.5">
+                <span className="text-xs font-bold tracking-wide whitespace-nowrap text-orange-700 select-none">
+                    +50%
+                </span>
+                <span className="text-xs font-semibold text-orange-800 select-none">
+                    {formatarHorasAdicional(horas.horasComAdicional)}
+                    <span className="mx-1 text-orange-400">→</span>
+                    {formatarHorasAdicional(horas.horasComAdicionalEquivalente)}
+                </span>
+            </div>
+
+            {/* Adicional gerado */}
+            {horas.horasAdicionalGerado > 0 && (
+                <div className="flex items-center justify-between gap-2 rounded bg-yellow-50 px-2 py-0.5">
+                    <span className="text-xs font-bold tracking-wide whitespace-nowrap text-yellow-700 select-none">
+                        Adicional
+                    </span>
+                    <span className="text-xs font-semibold text-yellow-800 select-none">
+                        +{formatarHorasAdicional(horas.horasAdicionalGerado)}
+                    </span>
+                </div>
+            )}
+
+            {/* Total equivalente */}
+            <div className="flex items-center justify-between gap-2 rounded bg-purple-100 px-2 py-0.5">
+                <span className="text-xs font-bold tracking-wide whitespace-nowrap text-purple-700 select-none">
+                    Total
+                </span>
+                <span className="text-xs font-bold text-purple-900 select-none">
+                    {formatarHorasAdicional(horas.totalHorasEquivalente)}
+                </span>
+            </div>
+        </div>
+    );
+});
+
+// =====================================================
 // DEFINIÇÃO DAS COLUNAS
 // =====================================================
 export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
@@ -241,7 +323,7 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
             },
         },
 
-        // ==================== TOTAL HORAS ====================
+        // ==================== TOTAL HORAS (bruto) ====================
         {
             accessorKey: 'TOTAL_HORAS_OS',
             id: 'TOTAL_HORAS_OS',
@@ -249,6 +331,22 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
             cell: ({ getValue }) => {
                 const value = getValue() as number;
                 return <CellTextOS value={formatarHorasTotaisSufixo(value)} />;
+            },
+        },
+
+        // ==================== HORAS COM ADICIONAL (breakdown) ====================
+        {
+            accessorKey: 'HORAS_ADICIONAL',
+            id: 'HORAS_ADICIONAL',
+            header: () => <CellHeaderOS>HORAS EQUIV.</CellHeaderOS>,
+            cell: ({ getValue }) => {
+                const horas = getValue() as HorasAdicionaisResult | undefined;
+
+                if (!horas) {
+                    return <CellTextOS value={EMPTY_VALUE} />;
+                }
+
+                return <HorasAdicionaisBreakdown horas={horas} />;
             },
         },
 
@@ -287,13 +385,8 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
             header: () => <CellHeaderOS>CONSULTOR</CellHeaderOS>,
             cell: ({ getValue }) => {
                 const value = (getValue() as string) ?? EMPTY_VALUE;
-
-                if (value === EMPTY_VALUE) {
-                    return <CellTextOS value={value} />;
-                }
-
-                const displayName = formatNomeRecurso(value);
-                return <TruncatedCellOS value={displayName} />;
+                if (value === EMPTY_VALUE) return <CellTextOS value={value} />;
+                return <TruncatedCellOS value={formatNomeRecurso(value)} />;
             },
         },
 
@@ -304,13 +397,8 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
             header: () => <CellHeaderOS>ENTREGÁVEL</CellHeaderOS>,
             cell: ({ getValue }) => {
                 const value = (getValue() as string) ?? EMPTY_VALUE;
-
-                if (value === EMPTY_VALUE) {
-                    return <CellTextOS value={value} />;
-                }
-
-                const correctedText = corrigirTextoCorrompido(value);
-                return <TruncatedCellOS value={correctedText} />;
+                if (value === EMPTY_VALUE) return <CellTextOS value={value} />;
+                return <TruncatedCellOS value={corrigirTextoCorrompido(value)} />;
             },
         },
 

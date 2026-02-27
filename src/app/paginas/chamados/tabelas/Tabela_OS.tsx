@@ -31,13 +31,14 @@ const MAX_HEIGHT = `calc(${ZOOM_COMPENSATION}vh - ${HEADER_HEIGHT}px)`;
 const MIN_HEIGHT = `${(BASE_MIN_HEIGHT * ZOOM_COMPENSATION) / 100}px`;
 
 const INITIAL_COLUMN_WIDTHS = {
-    NUM_OS: 120,
-    DTINI_OS: 140,
+    NUM_OS: 130,
+    DTINI_OS: 130,
     HRINI_OS: 120,
     HRFIM_OS: 120,
-    TOTAL_HORAS_OS: 150,
-    OBS: 300,
-    NOME_RECURSO: 200,
+    TOTAL_HORAS_OS: 120,
+    HORAS_ADICIONAL: 250,
+    OBS: 250,
+    NOME_RECURSO: 250,
     NOME_TAREFA: 250,
     VALCLI_OS: 150,
 } as const;
@@ -407,7 +408,7 @@ interface ModalContainerProps {
 
 const ModalContainer = React.memo(function ModalContainer({ children }: ModalContainerProps) {
     return (
-        <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[2000px] flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black transition-all duration-200 ease-out">
+        <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[2400px] flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black transition-all duration-200 ease-out">
             {children}
         </div>
     );
