@@ -4,7 +4,7 @@ import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
-import { formatarHorasAdicional, HorasAdicionaisResult } from '@/lib/os/calcular-horas-adicionais';
+import { HorasAdicionaisResult } from '@/lib/os/calcular-horas-adicionais';
 import { ColumnDef } from '@tanstack/react-table';
 import React from 'react';
 import { FaCheck } from 'react-icons/fa';
@@ -197,60 +197,51 @@ interface HorasAdicionaisBreakdownProps {
 const HorasAdicionaisBreakdown = React.memo(function HorasAdicionaisBreakdown({
     horas,
 }: HorasAdicionaisBreakdownProps) {
-    // Sem horas fora do horário: célula vazia — o valor já aparece em "TOTAL HORAS"
-    if (!horas.temAdicional) {
-        return null;
-    }
-
-    // Tem horas fora do horário mas nenhuma hora cheia → sem acréscimo real → célula vazia
-    if (horas.horasAdicionalGerado === 0) {
-        return null;
-    }
-
-    // Tem acréscimo real de 50%: exibe breakdown completo
     return (
-        <div className="flex flex-col gap-1 py-1">
+        <div className="flex flex-col gap-1 p-0.5">
             {/* Horas sem adicional (comercial + janela 05–08) */}
-            {horas.horasSemAdicional > 0 && (
-                <div className="flex items-center justify-between gap-2 rounded bg-green-100 px-2 py-0.5">
-                    <span className="text-xs font-bold tracking-wide whitespace-nowrap text-green-700 select-none">
-                        Comercial
+            {horas.temAdicional && horas.horasSemAdicional > 0 && (
+                <div className="flex items-center justify-between gap-2 rounded border border-green-300 bg-green-100 px-2 py-0.5">
+                    <span className="text-sm font-extrabold tracking-widest text-green-700 select-none">
+                        HR Comercial
                     </span>
-                    <span className="text-xs font-semibold text-green-800 select-none">
-                        {formatarHorasAdicional(horas.horasSemAdicional)}
+                    <span className="text-sm font-extrabold tracking-widest text-green-700 select-none">
+                        {formatarHorasTotaisSufixo(horas.horasSemAdicional)}
                     </span>
                 </div>
             )}
 
             {/* Horas com adicional: bruto → equivalente */}
-            <div className="flex items-center justify-between gap-2 rounded bg-orange-100 px-2 py-0.5">
-                <span className="text-xs font-bold tracking-wide whitespace-nowrap text-orange-700 select-none">
-                    +50%
-                </span>
-                <span className="text-xs font-semibold text-orange-800 select-none">
-                    {formatarHorasAdicional(horas.horasComAdicional)}
-                    <span className="mx-1 text-orange-400">→</span>
-                    {formatarHorasAdicional(horas.horasComAdicionalEquivalente)}
-                </span>
-            </div>
+            {horas.temAdicional && horas.horasAdicionalGerado > 0 && (
+                <div className="flex items-center justify-between gap-2 rounded border border-orange-300 bg-orange-100 px-2 py-0.5">
+                    <span className="text-sm font-extrabold tracking-widest text-orange-700 select-none">
+                        HR Não Comercial
+                    </span>
+                    <span className="text-sm font-extrabold tracking-widest text-orange-700 select-none">
+                        {formatarHorasTotaisSufixo(horas.horasComAdicional)}
+                    </span>
+                </div>
+            )}
 
             {/* Adicional gerado */}
-            <div className="flex items-center justify-between gap-2 rounded bg-yellow-50 px-2 py-0.5">
-                <span className="text-xs font-bold tracking-wide whitespace-nowrap text-yellow-700 select-none">
-                    Adicional
-                </span>
-                <span className="text-xs font-semibold text-yellow-800 select-none">
-                    +{formatarHorasAdicional(horas.horasAdicionalGerado)}
-                </span>
-            </div>
+            {horas.temAdicional && horas.horasAdicionalGerado > 0 && (
+                <div className="flex items-center justify-between gap-2 rounded border border-yellow-300 bg-yellow-100 px-2 py-0.5">
+                    <span className="text-sm font-extrabold tracking-widest text-yellow-700 select-none">
+                        HR Adicional
+                    </span>
+                    <span className="text-sm font-extrabold tracking-widest text-yellow-700 select-none">
+                        +{formatarHorasTotaisSufixo(horas.horasAdicionalGerado)}
+                    </span>
+                </div>
+            )}
 
-            {/* Total equivalente */}
-            <div className="flex items-center justify-between gap-2 rounded bg-purple-100 px-2 py-0.5">
-                <span className="text-xs font-bold tracking-wide whitespace-nowrap text-purple-700 select-none">
-                    Total
+            {/* Total equivalente — sempre visível */}
+            <div className="flex items-center justify-between gap-2 rounded border border-purple-300 bg-purple-100 px-2 py-0.5">
+                <span className="text-sm font-extrabold tracking-widest text-purple-700 select-none">
+                    Total HR
                 </span>
-                <span className="text-xs font-bold text-purple-900 select-none">
-                    {formatarHorasAdicional(horas.totalHorasEquivalente)}
+                <span className="text-sm font-extrabold tracking-widest text-purple-700 select-none">
+                    {formatarHorasTotaisSufixo(horas.totalHorasEquivalente)}
                 </span>
             </div>
         </div>
@@ -321,22 +312,11 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
             },
         },
 
-        // ==================== TOTAL HORAS (bruto) ====================
-        {
-            accessorKey: 'TOTAL_HORAS_OS',
-            id: 'TOTAL_HORAS_OS',
-            header: () => <CellHeaderOS>TOTAL HORAS</CellHeaderOS>,
-            cell: ({ getValue }) => {
-                const value = getValue() as number;
-                return <CellTextOS value={formatarHorasTotaisSufixo(value)} />;
-            },
-        },
-
         // ==================== HORAS COM ADICIONAL (breakdown) ====================
         {
             accessorKey: 'HORAS_ADICIONAL',
             id: 'HORAS_ADICIONAL',
-            header: () => <CellHeaderOS>HORAS EQUIV.</CellHeaderOS>,
+            header: () => <CellHeaderOS>DESCRIÇÃO HORAS</CellHeaderOS>,
             cell: ({ getValue }) => {
                 const horas = getValue() as HorasAdicionaisResult | undefined;
 

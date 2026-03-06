@@ -3,7 +3,7 @@
 import type { HorasMes } from '@/app/api/chamados/horas-por-mes/route';
 import { HorasMesTooltip } from '@/app/paginas/chamados/componentes/Horas_Mes_Tooltip';
 import { SLACell } from '@/app/paginas/chamados/componentes/SLA_Cell';
-import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarDataHoraChamado } from '@/formatters/formatar-data';
 import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros, formatarPrioridade } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
@@ -34,6 +34,8 @@ export interface ChamadoRowProps {
     TEM_OS?: boolean;
     DATA_HISTCHAMADO?: string | null;
     HORA_HISTCHAMADO?: string | null;
+    DATA_INICIO_ATENDIMENTO?: string | null;
+    HORA_INICIO_ATENDIMENTO?: string | null;
     COD_RECURSO?: number | null;
 
     SLA_STATUS?: string;
@@ -117,7 +119,7 @@ const StatusBadge = React.memo(function StatusBadge({
                                     size={14}
                                     className={
                                         i < avaliacaoValor
-                                            ? 'fill-yellow-300 text-yellow-300'
+                                            ? 'fill-yellow-600 text-yellow-600'
                                             : 'fill-white/50 text-white/50'
                                     }
                                 />
@@ -283,20 +285,23 @@ export const getColunasChamados = (
 
         // ========== DATA/HORA DO INÍCIO ==========
         {
-            accessorKey: 'DTINI_CHAMADO',
             id: 'DTINI_CHAMADO',
             header: () => <CellHeader>INÍCIO</CellHeader>,
-            cell: ({ getValue }) => {
-                const value = getValue() as string | null;
-                if (!value) return <CellText value={EMPTY_VALUE} />;
+            cell: ({ row }) => {
+                const { DATA_INICIO_ATENDIMENTO, HORA_INICIO_ATENDIMENTO } = row.original;
 
-                const separator = value.includes('T') ? 'T' : ' ';
-                const [data, hora] = value.split(separator);
+                if (!DATA_INICIO_ATENDIMENTO || !HORA_INICIO_ATENDIMENTO)
+                    return <CellText value={EMPTY_VALUE} />;
 
-                if (data && hora) return <CellText value={formatarDataHoraChamado(data, hora)} />;
-                return <CellText value={formatarDataParaBR(data || value)} />;
+                return (
+                    <CellText
+                        value={formatarDataHoraChamado(
+                            DATA_INICIO_ATENDIMENTO,
+                            HORA_INICIO_ATENDIMENTO
+                        )}
+                    />
+                );
             },
-            enableColumnFilter: true,
         },
         // =====
 
@@ -456,10 +461,12 @@ export const getColunasChamados = (
             header: () => <CellHeader>QTD. HORAS</CellHeader>,
             cell: ({ getValue, row }) => {
                 const totalHoras = getValue() as number | null;
-                const { COD_CHAMADO, TEM_OS, TOTAL_HORAS_OS_FATURADAS } = row.original;
+                const { COD_CHAMADO, TEM_OS, TOTAL_HORAS_OS_FATURADAS, STATUS_CHAMADO } =
+                    row.original;
 
-                // ✅ Só exibe tooltip se: tem OS + getHoras disponível + dados carregados
-                const meses = TEM_OS && getHoras ? getHoras(COD_CHAMADO) : [];
+                // ✅ Só exibe tooltip se: tem OS + getHoras disponível + não é FINALIZADO
+                const isFinalizado = STATUS_CHAMADO?.toUpperCase() === 'FINALIZADO';
+                const meses = TEM_OS && getHoras && !isFinalizado ? getHoras(COD_CHAMADO) : [];
 
                 const conteudo = (
                     <div className="text-center text-base font-extrabold tracking-widest text-black select-none">
@@ -471,7 +478,6 @@ export const getColunasChamados = (
                     </div>
                 );
 
-                // Sem dados mensais: renderiza normalmente, sem tooltip
                 if (meses.length === 0) return conteudo;
 
                 return (

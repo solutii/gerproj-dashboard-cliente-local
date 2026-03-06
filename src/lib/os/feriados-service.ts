@@ -1,82 +1,133 @@
 // lib/os/feriados-service.ts
 
 /**
- * Serviço de feriados integrado com https://api.feriados.dev
+ * Serviço de feriados integrado com https://brasilapi.com.br
  *
- * Endpoints utilizados:
- *   GET /v1/holidays/year/{year}          → todos os feriados nacionais do ano
- *   GET /v1/holidays?year=X&state=SP      → feriados nacionais + estaduais
- *   GET /v1/holidays?year=X&state=SP&city=São Paulo → + municipais
+ * Endpoint utilizado:
+ *   GET /api/feriados/v1/{year} → todos os feriados nacionais do ano
  *
  * Funcionalidades:
- *   - Cache em memória por ano/estado/cidade com TTL de 24h
- *   - Paginação automática (PaginatedResponse)
+ *   - Cache em memória por ano com TTL de 24h
  *   - Fallback estático em caso de falha da API
+ *   - Suporte a feriados estaduais e municipais via arrays configuráveis
  *   - Retorna datas no formato "DD/MM/YYYY" para o calcular-horas-adicionais
  */
-
-// ==================== TIPOS DA API ====================
-
-interface FeriadoAPI {
-    id: string;
-    name: string;
-    date: string; // "2024-12-25"
-    type: 'national' | 'state' | 'municipal';
-    state?: string;
-    city?: string;
-    description?: string;
-}
-
-interface PaginatedResponse {
-    success: true;
-    data: FeriadoAPI[];
-    pagination: {
-        page: number;
-        limit: number;
-        total: number;
-        totalPages: number;
-    };
-}
-
-interface SuccessResponse {
-    success: true;
-    data: FeriadoAPI[];
-    message?: string;
-}
-
-interface ErrorResponse {
-    success: false;
-    error: {
-        code: string;
-        message: string;
-        details?: object;
-    };
-}
-
-type APIResponse = PaginatedResponse | SuccessResponse | ErrorResponse;
 
 // ==================== TIPOS PÚBLICOS ====================
 
 export interface FeriadosQueryParams {
     /** Ano dos feriados (obrigatório) */
     year: number;
-    /** Sigla do estado para incluir feriados estaduais (ex: "SP") */
-    state?: string;
-    /** Nome da cidade para incluir feriados municipais (ex: "São Paulo") */
-    city?: string;
 }
+
+// ==================== FERIADOS ESTADUAIS ====================
+// Adicione aqui os feriados do seu estado no formato "DD/MM"
+// Eles serão aplicados em TODOS os anos automaticamente
+
+const FERIADOS_ESTADUAIS: string[] = [
+    // Exemplo — MG:
+    // '24/04', // São Jorge
+];
+
+// ==================== FERIADOS MUNICIPAIS ====================
+// Adicione aqui os feriados da sua cidade no formato "DD/MM"
+// Eles serão aplicados em TODOS os anos automaticamente
+
+const FERIADOS_MUNICIPAIS: string[] = [
+    '15/08', // Exemplo — Assunção de Nossa Senhora
+    '08/12', // Exemplo — Imaculada Conceição
+];
+
+// ==================== FERIADOS EXTRAS POR ANO ====================
+// Para feriados pontuais (ex: eleições, eventos específicos)
+// Formato: { ano: ["DD/MM", "DD/MM"] }
+
+const FERIADOS_EXTRAS_POR_ANO: Record<number, string[]> = {
+    // Exemplo:
+    // 2026: ['04/10', '25/10'], // 1º e 2º turno eleições 2026
+};
 
 // ==================== CONSTANTES ====================
 
-const BASE_URL = 'https://api.feriados.dev';
-const LIMIT_POR_PAGINA = 100;
+const BASE_URL = 'https://brasilapi.com.br/api/feriados/v1';
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
 /**
- * Fallback usado quando a API está indisponível.
- * Formato "DD/MM" é válido para qualquer ano no isFeriado().
+ * Fallback estático com feriados nacionais + móveis por ano.
+ * Usado quando a BrasilAPI está indisponível.
+ * Formato "DD/MM" — o ano é concatenado dinamicamente.
  */
-const FERIADOS_NACIONAIS_FALLBACK: string[] = [
+const FERIADOS_FALLBACK: Record<number, string[]> = {
+    2024: [
+        '01/01', // Ano Novo
+        '12/02', // Carnaval
+        '13/02', // Carnaval
+        '29/03', // Sexta-feira Santa
+        '31/03', // Páscoa
+        '21/04', // Tiradentes
+        '01/05', // Dia do Trabalho
+        '30/05', // Corpus Christi
+        '07/09', // Independência
+        '12/10', // Nossa Senhora Aparecida
+        '02/11', // Finados
+        '15/11', // Proclamação da República
+        '20/11', // Consciência Negra
+        '25/12', // Natal
+    ],
+    2025: [
+        '01/01', // Ano Novo
+        '03/03', // Carnaval
+        '04/03', // Carnaval
+        '18/04', // Sexta-feira Santa
+        '20/04', // Páscoa
+        '21/04', // Tiradentes
+        '01/05', // Dia do Trabalho
+        '19/06', // Corpus Christi
+        '07/09', // Independência
+        '12/10', // Nossa Senhora Aparecida
+        '02/11', // Finados
+        '15/11', // Proclamação da República
+        '20/11', // Consciência Negra
+        '25/12', // Natal
+    ],
+    2026: [
+        '01/01', // Ano Novo
+        '17/02', // Carnaval
+        '18/02', // Carnaval
+        '03/04', // Sexta-feira Santa
+        '05/04', // Páscoa
+        '21/04', // Tiradentes
+        '01/05', // Dia do Trabalho
+        '04/06', // Corpus Christi
+        '07/09', // Independência
+        '12/10', // Nossa Senhora Aparecida
+        '02/11', // Finados
+        '15/11', // Proclamação da República
+        '20/11', // Consciência Negra
+        '25/12', // Natal
+    ],
+    2027: [
+        '01/01', // Ano Novo
+        '08/02', // Carnaval
+        '09/02', // Carnaval
+        '26/03', // Sexta-feira Santa
+        '28/03', // Páscoa
+        '21/04', // Tiradentes
+        '01/05', // Dia do Trabalho
+        '27/05', // Corpus Christi
+        '07/09', // Independência
+        '12/10', // Nossa Senhora Aparecida
+        '02/11', // Finados
+        '15/11', // Proclamação da República
+        '20/11', // Consciência Negra
+        '25/12', // Natal
+    ],
+};
+
+/**
+ * Feriados fixos genéricos usados quando o ano não está mapeado no fallback.
+ */
+const FERIADOS_FIXOS_GENERICOS: string[] = [
     '01/01', // Ano Novo
     '21/04', // Tiradentes
     '01/05', // Dia do Trabalho
@@ -84,6 +135,7 @@ const FERIADOS_NACIONAIS_FALLBACK: string[] = [
     '12/10', // Nossa Senhora Aparecida
     '02/11', // Finados
     '15/11', // Proclamação da República
+    '20/11', // Consciência Negra
     '25/12', // Natal
 ];
 
@@ -96,141 +148,91 @@ interface CacheEntry {
 
 const feriadosCache = new Map<string, CacheEntry>();
 
-function buildCacheKey(params: FeriadosQueryParams): string {
-    return `${params.year}|${params.state ?? ''}|${params.city ?? ''}`;
-}
-
-function getFromCache(key: string): string[] | undefined {
-    const entry = feriadosCache.get(key);
+function getFromCache(year: number): string[] | undefined {
+    const entry = feriadosCache.get(String(year));
     if (!entry) return undefined;
     if (Date.now() - entry.ts >= CACHE_TTL_MS) {
-        feriadosCache.delete(key);
+        feriadosCache.delete(String(year));
         return undefined;
     }
     return entry.datas;
 }
 
-function setToCache(key: string, datas: string[]): void {
+function setToCache(year: number, datas: string[]): void {
     if (feriadosCache.size >= 50) {
         const oldest = feriadosCache.keys().next().value;
         if (oldest) feriadosCache.delete(oldest);
     }
-    feriadosCache.set(key, { datas, ts: Date.now() });
+    feriadosCache.set(String(year), { datas, ts: Date.now() });
 }
 
 // ==================== NORMALIZAÇÃO ====================
 
-/** "2024-12-25" → "25/12/2024" */
+/** "2026-12-25" → "25/12/2026" */
 function isoParaDDMMYYYY(isoDate: string): string {
     const [ano, mes, dia] = isoDate.split('-');
     return `${dia}/${mes}/${ano}`;
 }
 
-// ==================== FETCH INTERNO ====================
+// ==================== MESCLAGEM ====================
 
 /**
- * Escolhe o endpoint mais adequado:
- *  - Sem state/city → /v1/holidays/year/{year}  (mais direto, retorna só nacionais)
- *  - Com state/city → /v1/holidays?year=X&state=X&city=X  (filtros adicionais)
+ * Mescla feriados nacionais com estaduais, municipais e extras do ano,
+ * removendo duplicatas.
  */
-function buildUrl(params: FeriadosQueryParams, page: number): string {
-    if (!params.state && !params.city) {
-        return `${BASE_URL}/v1/holidays/year/${params.year}?page=${page}&limit=${LIMIT_POR_PAGINA}`;
-    }
+function mesclarFeriados(nacionais: string[], year: number): string[] {
+    const estaduais = FERIADOS_ESTADUAIS.map((f) => `${f}/${year}`);
+    const municipais = FERIADOS_MUNICIPAIS.map((f) => `${f}/${year}`);
+    const extras = (FERIADOS_EXTRAS_POR_ANO[year] ?? []).map((f) => `${f}/${year}`);
 
-    const qs = new URLSearchParams({
-        year: String(params.year),
-        page: String(page),
-        limit: String(LIMIT_POR_PAGINA),
-    });
+    const todos = [...nacionais, ...estaduais, ...municipais, ...extras];
 
-    if (params.state) qs.append('state', params.state);
-    if (params.city) qs.append('city', params.city);
-
-    return `${BASE_URL}/v1/holidays?${qs.toString()}`;
-}
-
-async function fetchPagina(
-    params: FeriadosQueryParams,
-    page: number
-): Promise<{ feriados: FeriadoAPI[]; totalPages: number }> {
-    const url = buildUrl(params, page);
-
-    const response = await fetch(url, {
-        headers: { 'Content-Type': 'application/json' },
-        next: { revalidate: 86400 }, // Next.js ISR: revalida em 24h no servidor
-    });
-
-    if (!response.ok) {
-        throw new Error(`[feriados-service] HTTP ${response.status} — ${url}`);
-    }
-
-    const json: APIResponse = await response.json();
-
-    if (!json.success) {
-        const err = json as ErrorResponse;
-        throw new Error(`[feriados-service] ${err.error.code}: ${err.error.message}`);
-    }
-
-    const data = (json as SuccessResponse | PaginatedResponse).data;
-    const totalPages = 'pagination' in json ? json.pagination.totalPages : 1;
-
-    return { feriados: data, totalPages };
-}
-
-async function fetchTodosFeriados(params: FeriadosQueryParams): Promise<FeriadoAPI[]> {
-    const { feriados, totalPages } = await fetchPagina(params, 1);
-
-    if (totalPages <= 1) return feriados;
-
-    // Páginas restantes em paralelo
-    const paginas = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
-    const resultados = await Promise.all(paginas.map((p) => fetchPagina(params, p)));
-
-    return [...feriados, ...resultados.flatMap((r) => r.feriados)];
+    // Remove duplicatas
+    return [...new Set(todos)];
 }
 
 // ==================== FUNÇÃO PRINCIPAL ====================
 
 /**
- * Retorna datas de feriados no formato "DD/MM/YYYY" para um determinado
- * ano (e opcionalmente estado/cidade), prontas para uso no
- * calcularHorasComAdicional.
+ * Retorna datas de feriados no formato "DD/MM/YYYY" para um determinado ano,
+ * incluindo nacionais (via BrasilAPI), estaduais, municipais e extras.
  *
- * Em caso de falha da API, retorna os feriados nacionais fixos como fallback.
- *
- * @example
- * // Apenas nacionais
- * await buscarFeriados({ year: 2025 })
- * // ["01/01/2025", "21/04/2025", ...]
+ * Em caso de falha da API, retorna os feriados do fallback estático.
  *
  * @example
- * // Nacionais + estaduais SP
- * await buscarFeriados({ year: 2025, state: 'SP' })
- *
- * @example
- * // Nacionais + estaduais + municipais de São Paulo
- * await buscarFeriados({ year: 2025, state: 'SP', city: 'São Paulo' })
+ * await buscarFeriados({ year: 2026 })
+ * // ["01/01/2026", "17/02/2026", "03/04/2026", ...]
  */
 export async function buscarFeriados(params: FeriadosQueryParams): Promise<string[]> {
-    const cacheKey = buildCacheKey(params);
-    const cached = getFromCache(cacheKey);
+    const cached = getFromCache(params.year);
     if (cached) return cached;
 
     try {
-        const feriados = await fetchTodosFeriados(params);
-        const datas = feriados.map((f) => isoParaDDMMYYYY(f.date));
+        const response = await fetch(`${BASE_URL}/${params.year}`, {
+            headers: { 'Content-Type': 'application/json' },
+            next: { revalidate: 86400 }, // Next.js ISR: revalida em 24h no servidor
+        });
 
-        setToCache(cacheKey, datas);
+        if (!response.ok) {
+            throw new Error(`[feriados-service] HTTP ${response.status}`);
+        }
+
+        const feriados: { date: string; name: string; type: string }[] = await response.json();
+        const nacionais = feriados.map((f) => isoParaDDMMYYYY(f.date));
+        const datas = mesclarFeriados(nacionais, params.year);
+
+        setToCache(params.year, datas);
         return datas;
     } catch (error) {
         console.error(
-            '[feriados-service] API indisponível, usando fallback estático:',
+            '[feriados-service] BrasilAPI indisponível, usando fallback estático:',
             error instanceof Error ? error.message : error
         );
 
-        // Fallback: converte "DD/MM" para "DD/MM/YYYY"
-        return FERIADOS_NACIONAIS_FALLBACK.map((f) => `${f}/${params.year}`);
+        // Fallback com feriados do ano mapeado
+        const fallback = FERIADOS_FALLBACK[params.year] ?? FERIADOS_FIXOS_GENERICOS;
+        const nacionais = fallback.map((f) => `${f}/${params.year}`);
+        return mesclarFeriados(nacionais, params.year);
     }
 }
 

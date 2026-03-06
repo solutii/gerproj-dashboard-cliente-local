@@ -39,8 +39,8 @@ interface ModalSaldoHorasProps {
 export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
     const { isAdmin, codCliente } = useAuthStore();
 
-    const mes = useFiltersStore((state) => state.filters.mes);
-    const ano = useFiltersStore((state) => state.filters.ano);
+    const mesAtual = new Date().getMonth() + 1;
+    const anoAtual = new Date().getFullYear();
     const cliente = useFiltersStore((state) => state.filters.cliente);
 
     useEffect(() => {
@@ -73,21 +73,19 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
 
         const params = new URLSearchParams({
             codCliente: clienteParam,
-            mes: (mes || new Date().getMonth() + 1).toString(),
-            ano: (ano || new Date().getFullYear()).toString(),
+            mes: mesAtual.toString(), // ✅ sempre o mês atual real
+            ano: anoAtual.toString(), // ✅ sempre o ano atual real
             isAdmin: isAdmin.toString(),
             mesesHistorico: '6',
         });
 
         const response = await fetch(`/api/saldo-horas?${params.toString()}`);
-
         if (!response.ok) throw new Error('Erro ao carregar dados');
-
         return response.json();
     };
 
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['saldoHoras', mes, ano, cliente, isAdmin, codCliente],
+        queryKey: ['saldoHoras', mesAtual, anoAtual, cliente, isAdmin, codCliente],
         queryFn: fetchData,
         enabled: isOpen && ((isAdmin && !!cliente) || (!isAdmin && !!codCliente)),
     });
@@ -112,20 +110,19 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
     // RENDERIZAÇÃO PRINCIPAL
     // ================================================================================
     return (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out">
-            {/* Overlay */}
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ease-out">
+            {/* OVERLAY */}
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-            {/* Modal Container */}
             <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[2200px] flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
-                {/* Header */}
+                {/* ========== HEADER ========== */}
                 <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
                     <div className="flex items-center gap-6">
                         <PiTimerFill className="flex-shrink-0 text-white" size={60} />
                         <div className="flex flex-col gap-1 tracking-widest text-white select-none">
-                            <h1 className="text-2xl font-extrabold">SALDO DE HORAS</h1>
+                            <h1 className="text-3xl font-extrabold">SALDO DE HORAS</h1>
                             {isAdmin && data && (
-                                <p className="text-base font-semibold">
+                                <p className="text-lg font-semibold">
                                     {data.nomeCliente} • {data.mesAtual.toString().padStart(2, '0')}
                                     /{data.anoAtual}
                                 </p>
@@ -135,13 +132,10 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
 
                     <button
                         onClick={onClose}
-                        className="group flex-shrink-0 cursor-pointer rounded-full border border-red-700 bg-red-500 p-2 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:shadow-xl hover:shadow-black active:scale-95"
+                        className="mr-2 flex-shrink-0 cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-red-500 hover:shadow-xl hover:shadow-black active:scale-95"
                         aria-label="Fechar modal"
                     >
-                        <IoClose
-                            className="text-white group-hover:scale-125 group-active:scale-95"
-                            size={20}
-                        />
+                        <IoClose className="text-white" size={36} />
                     </button>
                 </header>
 

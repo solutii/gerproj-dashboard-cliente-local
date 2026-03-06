@@ -541,7 +541,6 @@ function useFinalizacoesLocais(dadosChamados: FiltrosChamadoProps['dadosChamados
 // ==================== COMPONENTE SELECT ====================
 function SelectWithClear({
     value,
-    valorAplicado,
     onChange,
     onClearImmediate,
     disabled,
@@ -583,7 +582,7 @@ function SelectWithClear({
                             className="text-base font-semibold tracking-widest text-black select-none"
                             title={optLabel}
                         >
-                            {processarNome(optLabel, 2)}
+                            {processarNome(optLabel, 3)}
                         </option>
                     );
                 })}
@@ -1297,7 +1296,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     );
 
     const selectClassName =
-        'w-full cursor-pointer rounded-md bg-white p-2 text-sm font-bold tracking-widest shadow-xs shadow-black transition-all duration-200 select-none hover:shadow-md hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30';
+        'w-full cursor-pointer rounded-md bg-white p-1.5 text-sm font-bold tracking-widest shadow-xs shadow-black transition-all duration-200 select-none hover:shadow-md hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30';
 
     return (
         <FiltrosContext.Provider value={filtrosAtuais}>
@@ -1386,270 +1385,400 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                 {dropdownAberto && (
                     <div className="mx-4 rounded-md border-t border-gray-300 bg-white p-6 shadow-md shadow-black">
                         <div className="grid grid-cols-3 gap-6">
-                            {/* COLUNA 1: PERÍODO E CONTEXTO */}
-                            <div className="flex flex-col gap-2">
-                                <h3 className="flex items-center gap-2 text-base font-extrabold tracking-widest text-black select-none">
-                                    PERÍODO / CONTEXTO
+                            {/* COLUNA 1: PERÍODO, CONSULTOR, STATUS */}
+                            <div className="flex flex-col gap-1">
+                                <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
+                                    PERÍODO / CONSULTOR / STATUS
                                 </h3>
 
                                 <div className="flex flex-col gap-4">
-                                    <SelectWithClear
-                                        value={anoTemp}
-                                        valorAplicado={ano}
-                                        onChange={(value) =>
-                                            setAnoTemp(value ? Number(value) : undefined)
-                                        }
-                                        onClearImmediate={() => limparFiltroIndividual('ano')}
-                                        disabled={anoDesabilitado}
-                                        options={years.map((y) => ({ value: y, label: String(y) }))}
-                                        placeholder={anoDesabilitado ? 'Aplique o status' : 'Ano'}
-                                        className={selectClassName}
-                                    />
-
-                                    <SelectWithClear
-                                        value={mesTemp}
-                                        valorAplicado={mes}
-                                        onChange={(value) =>
-                                            setMesTemp(value ? Number(value) : undefined)
-                                        }
-                                        onClearImmediate={() => limparFiltroIndividual('mes')}
-                                        disabled={mesDesabilitado}
-                                        options={mesesDisponiveis}
-                                        placeholder={
-                                            !anoTemp
-                                                ? 'Selecione o ano primeiro'
-                                                : mesesDisponiveis.length === 0
-                                                  ? 'Nenhum mês disponível'
-                                                  : 'Mês'
-                                        }
-                                        className={selectClassName}
-                                    />
-
-                                    {isAdmin && (
+                                    {/* DROPDOWN ANO */}
+                                    <div className="flex flex-col gap-1">
+                                        <label
+                                            htmlFor=""
+                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
+                                        >
+                                            Ano
+                                        </label>
                                         <SelectWithClear
-                                            value={clienteTemp}
-                                            valorAplicado={clienteSelecionado}
-                                            onChange={setClienteTemp}
-                                            onClearImmediate={() =>
-                                                limparFiltroIndividual('cliente')
+                                            value={anoTemp}
+                                            valorAplicado={ano}
+                                            onChange={(value) =>
+                                                setAnoTemp(value ? Number(value) : undefined)
                                             }
-                                            disabled={
-                                                !clientesData.length ||
-                                                !!codCliente ||
-                                                clientesLoading
-                                            }
-                                            options={clientesData.map((c) => ({
-                                                value: c.cod,
-                                                label: c.nome,
+                                            onClearImmediate={() => limparFiltroIndividual('ano')}
+                                            disabled={anoDesabilitado}
+                                            options={years.map((y) => ({
+                                                value: y,
+                                                label: String(y),
                                             }))}
                                             placeholder={
-                                                clientesLoading ? 'Carregando...' : 'Cliente'
+                                                anoDesabilitado
+                                                    ? 'Aplique o status'
+                                                    : 'Selecione um ano'
                                             }
-                                            showClearButton={!codCliente}
                                             className={selectClassName}
                                         />
+                                    </div>
+
+                                    {/* DROPDOWN MÊS */}
+                                    <div className="flex flex-col gap-1">
+                                        <label
+                                            htmlFor=""
+                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
+                                        >
+                                            Mês
+                                        </label>
+                                        <SelectWithClear
+                                            value={mesTemp}
+                                            valorAplicado={mes}
+                                            onChange={(value) =>
+                                                setMesTemp(value ? Number(value) : undefined)
+                                            }
+                                            onClearImmediate={() => limparFiltroIndividual('mes')}
+                                            disabled={mesDesabilitado}
+                                            options={mesesDisponiveis}
+                                            placeholder={
+                                                !anoTemp
+                                                    ? 'Selecione um ano, para selecionar um mês'
+                                                    : mesesDisponiveis.length === 0
+                                                      ? 'Nenhum mês disponível'
+                                                      : 'Mês'
+                                            }
+                                            className={selectClassName}
+                                        />
+                                    </div>
+
+                                    {/* DROPDOWN CLIENTE */}
+                                    {isAdmin && (
+                                        <div className="flex flex-col gap-1">
+                                            <label
+                                                htmlFor=""
+                                                className="text-sm font-semibold tracking-widest select-none"
+                                            >
+                                                Cliente
+                                            </label>
+                                            <SelectWithClear
+                                                value={clienteTemp}
+                                                valorAplicado={clienteSelecionado}
+                                                onChange={setClienteTemp}
+                                                onClearImmediate={() =>
+                                                    limparFiltroIndividual('cliente')
+                                                }
+                                                disabled={
+                                                    !clientesData.length ||
+                                                    !!codCliente ||
+                                                    clientesLoading
+                                                }
+                                                options={clientesData.map((c) => ({
+                                                    value: c.cod,
+                                                    label: c.nome,
+                                                }))}
+                                                placeholder={
+                                                    clientesLoading ? 'Carregando...' : 'Cliente'
+                                                }
+                                                showClearButton={!codCliente}
+                                                className={selectClassName}
+                                            />
+                                        </div>
                                     )}
 
-                                    <SelectWithClear
-                                        value={recursoTemp}
-                                        valorAplicado={recursoSelecionado}
-                                        onChange={setRecursoTemp}
-                                        onClearImmediate={() => limparFiltroIndividual('recurso')}
-                                        disabled={recursoDesabilitado}
-                                        options={recursosLocais.map((r) => ({
-                                            value: r.cod,
-                                            label: r.nome,
-                                        }))}
-                                        placeholder={
-                                            recursoDesabilitadoPorStatus
-                                                ? 'Aplique o status'
-                                                : isLoadingRecursos
-                                                  ? 'Carregando...'
-                                                  : recursosLocais.length === 0
-                                                    ? 'Nenhum recurso disponível'
-                                                    : 'Consultor'
-                                        }
-                                        className={selectClassName}
-                                    />
+                                    {/* DROPDOWN CONSULTOR */}
+                                    <div className="flex flex-col gap-1">
+                                        <label
+                                            htmlFor=""
+                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
+                                        >
+                                            Consultor
+                                        </label>
 
-                                    <SelectWithClear
-                                        value={statusTemp}
-                                        valorAplicado={statusSelecionado}
-                                        onChange={setStatusTemp}
-                                        onClearImmediate={() => limparFiltroIndividual('status')}
-                                        disabled={!statusData.length || statusLoading}
-                                        options={statusData.map((s) => ({ value: s, label: s }))}
-                                        placeholder={statusLoading ? 'Carregando...' : 'Status'}
-                                        className={selectClassName}
-                                    />
+                                        <SelectWithClear
+                                            value={recursoTemp}
+                                            valorAplicado={recursoSelecionado}
+                                            onChange={setRecursoTemp}
+                                            onClearImmediate={() =>
+                                                limparFiltroIndividual('recurso')
+                                            }
+                                            disabled={recursoDesabilitado}
+                                            options={recursosLocais.map((r) => ({
+                                                value: r.cod,
+                                                label: r.nome,
+                                            }))}
+                                            placeholder={
+                                                recursoDesabilitadoPorStatus
+                                                    ? 'Aplique o status'
+                                                    : isLoadingRecursos
+                                                      ? 'Carregando...'
+                                                      : recursosLocais.length === 0
+                                                        ? 'Nenhum recurso disponível'
+                                                        : 'Selecione um consultor'
+                                            }
+                                            className={selectClassName}
+                                        />
+                                    </div>
+
+                                    {/* DROPDOWN STATUS */}
+                                    <div className="flex flex-col gap-1">
+                                        <label
+                                            htmlFor=""
+                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
+                                        >
+                                            Status
+                                        </label>
+
+                                        <SelectWithClear
+                                            value={statusTemp}
+                                            valorAplicado={statusSelecionado}
+                                            onChange={setStatusTemp}
+                                            onClearImmediate={() =>
+                                                limparFiltroIndividual('status')
+                                            }
+                                            disabled={!statusData.length || statusLoading}
+                                            options={statusData.map((s) => ({
+                                                value: s,
+                                                label: `Chamados ${s}`,
+                                            }))}
+                                            placeholder={
+                                                statusLoading ? 'Carregando...' : 'Chamados ATIVOS'
+                                            }
+                                            className={selectClassName}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-
                             {/* COLUNA 2: DADOS DO CHAMADO */}
-                            <div className="gap- flex flex-col gap-2">
-                                <h3 className="flex items-center gap-2 text-base font-extrabold tracking-widest text-black select-none">
+                            <div className="flex flex-col gap-1">
+                                <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
                                     DADOS DO CHAMADO
                                 </h3>
 
                                 <div className="flex flex-col gap-4">
-                                    <SelectWithClear
-                                        value={chamadoTemp}
-                                        valorAplicado={chamadoSelecionado}
-                                        onChange={setChamadoTemp}
-                                        onClearImmediate={() => limparFiltroIndividual('chamado')}
-                                        disabled={chamadosLocais.length === 0}
-                                        options={chamadosLocais}
-                                        placeholder={
-                                            chamadosLocais.length === 0
-                                                ? 'Nenhum chamado disponível'
-                                                : 'Nº do Chamado'
-                                        }
-                                        className={selectClassName}
-                                    />
+                                    {/* DROPDOWN Nº CHAMADO */}
+                                    <div className="flex flex-col gap-1">
+                                        <label
+                                            htmlFor=""
+                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
+                                        >
+                                            Nº Chamado
+                                        </label>
 
-                                    <SelectWithClear
-                                        value={entradaTemp}
-                                        valorAplicado={entradaSelecionada}
-                                        onChange={setEntradaTemp}
-                                        onClearImmediate={() => limparFiltroIndividual('entrada')}
-                                        disabled={entradasLocais.length === 0}
-                                        options={entradasLocais}
-                                        placeholder={
-                                            entradasLocais.length === 0
-                                                ? 'Nenhuma data de entrada disponível'
-                                                : 'Data de Entrada'
-                                        }
-                                        className={selectClassName}
-                                    />
+                                        <SelectWithClear
+                                            value={chamadoTemp}
+                                            valorAplicado={chamadoSelecionado}
+                                            onChange={setChamadoTemp}
+                                            onClearImmediate={() =>
+                                                limparFiltroIndividual('chamado')
+                                            }
+                                            disabled={chamadosLocais.length === 0}
+                                            options={chamadosLocais}
+                                            placeholder={
+                                                chamadosLocais.length === 0
+                                                    ? 'Nenhum chamado disponível'
+                                                    : 'Selecione um chamado'
+                                            }
+                                            className={selectClassName}
+                                        />
+                                    </div>
 
-                                    <SelectWithClear
-                                        value={inicioTemp}
-                                        valorAplicado={inicioSelecionado}
-                                        onChange={setInicioTemp}
-                                        onClearImmediate={() => limparFiltroIndividual('inicio')}
-                                        disabled={iniciosLocais.length === 0}
-                                        options={iniciosLocais}
-                                        placeholder={
-                                            iniciosLocais.length === 0
-                                                ? 'Nenhuma data de início disponível'
-                                                : 'Data de Início'
-                                        }
-                                        className={selectClassName}
-                                    />
+                                    {/* DROPDOWN DT ENTRADA */}
+                                    <div className="flex flex-col gap-1">
+                                        <label
+                                            htmlFor=""
+                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
+                                        >
+                                            Data de Entrada
+                                        </label>
 
-                                    <SelectWithClear
-                                        value={atribuicaoTemp}
-                                        valorAplicado={atribuicaoSelecionada}
-                                        onChange={setAtribuicaoTemp}
-                                        onClearImmediate={() =>
-                                            limparFiltroIndividual('atribuicao')
-                                        }
-                                        disabled={atribuicoesLocais.length === 0}
-                                        options={atribuicoesLocais}
-                                        placeholder={
-                                            atribuicoesLocais.length === 0
-                                                ? 'Nenhuma data de atribuição disponível'
-                                                : 'Data de Atribuição'
-                                        }
-                                        className={selectClassName}
-                                    />
+                                        <SelectWithClear
+                                            value={entradaTemp}
+                                            valorAplicado={entradaSelecionada}
+                                            onChange={setEntradaTemp}
+                                            onClearImmediate={() =>
+                                                limparFiltroIndividual('entrada')
+                                            }
+                                            disabled={entradasLocais.length === 0}
+                                            options={entradasLocais}
+                                            placeholder={
+                                                entradasLocais.length === 0
+                                                    ? 'Nenhuma data de entrada disponível'
+                                                    : 'Selecione uma data'
+                                            }
+                                            className={selectClassName}
+                                        />
+                                    </div>
 
-                                    <SelectWithClear
-                                        value={finalizacaoTemp}
-                                        valorAplicado={finalizacaoSelecionada}
-                                        onChange={setFinalizacaoTemp}
-                                        onClearImmediate={() =>
-                                            limparFiltroIndividual('finalizacao')
-                                        }
-                                        disabled={finalizacoesLocais.length === 0}
-                                        options={finalizacoesLocais}
-                                        placeholder={
-                                            finalizacoesLocais.length === 0
-                                                ? 'Selecione o status FINALIZADO para ver as datas de finalização'
-                                                : 'Data de Finalização'
-                                        }
-                                        className={selectClassName}
-                                    />
+                                    {/* DROPDOWN DT ATRIBUICAO */}
+                                    <div className="flex flex-col gap-1">
+                                        <label
+                                            htmlFor=""
+                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
+                                        >
+                                            Data de Atribuição
+                                        </label>
+                                        <SelectWithClear
+                                            value={atribuicaoTemp}
+                                            valorAplicado={atribuicaoSelecionada}
+                                            onChange={setAtribuicaoTemp}
+                                            onClearImmediate={() =>
+                                                limparFiltroIndividual('atribuicao')
+                                            }
+                                            disabled={atribuicoesLocais.length === 0}
+                                            options={atribuicoesLocais}
+                                            placeholder={
+                                                atribuicoesLocais.length === 0
+                                                    ? 'Nenhuma data de atribuição disponível'
+                                                    : 'Selecione uma data'
+                                            }
+                                            className={selectClassName}
+                                        />
+                                    </div>
+
+                                    {/* DROPDOWN DT INÍCIO */}
+                                    <div className="flex flex-col gap-1">
+                                        <label
+                                            htmlFor=""
+                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
+                                        >
+                                            Data de Início
+                                        </label>
+                                        <SelectWithClear
+                                            value={inicioTemp}
+                                            valorAplicado={inicioSelecionado}
+                                            onChange={setInicioTemp}
+                                            onClearImmediate={() =>
+                                                limparFiltroIndividual('inicio')
+                                            }
+                                            disabled={iniciosLocais.length === 0}
+                                            options={iniciosLocais}
+                                            placeholder={
+                                                iniciosLocais.length === 0
+                                                    ? 'Nenhuma data de início disponível'
+                                                    : 'Selecione uma data'
+                                            }
+                                            className={selectClassName}
+                                        />
+                                    </div>
+
+                                    {/* DROPDOWN DT FINALIZAÇÃO */}
+                                    <div className="flex flex-col gap-1">
+                                        <label
+                                            htmlFor=""
+                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
+                                        >
+                                            Data de Finalização
+                                        </label>
+                                        <SelectWithClear
+                                            value={finalizacaoTemp}
+                                            valorAplicado={finalizacaoSelecionada}
+                                            onChange={setFinalizacaoTemp}
+                                            onClearImmediate={() =>
+                                                limparFiltroIndividual('finalizacao')
+                                            }
+                                            disabled={finalizacoesLocais.length === 0}
+                                            options={finalizacoesLocais}
+                                            placeholder={
+                                                finalizacoesLocais.length === 0
+                                                    ? 'Selecione o Status FINALIZADO, para selecionar uma data'
+                                                    : 'Selecione uma data'
+                                            }
+                                            className={selectClassName}
+                                        />
+                                    </div>
                                 </div>
                             </div>
-
                             {/* COLUNA 3: CARACTERÍSTICAS */}
-                            <div className="gap- flex flex-col gap-2">
-                                <h3 className="flex items-center gap-2 text-base font-extrabold tracking-widest text-black select-none">
-                                    CARACTERÍSTICAS
+                            <div className="flex flex-col gap-1">
+                                <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
+                                    CARACTERÍSTICAS DO CHAMADO
                                 </h3>
 
-                                <div className="flex flex-col gap-4">
-                                    <SelectWithClear
-                                        value={prioridadeTemp}
-                                        valorAplicado={prioridadeSelecionada}
-                                        onChange={setPrioridadeTemp}
-                                        onClearImmediate={() =>
-                                            limparFiltroIndividual('prioridade')
-                                        }
-                                        disabled={prioridadesLocais.length === 0}
-                                        options={prioridadesLocais}
-                                        placeholder={
-                                            prioridadesLocais.length === 0
-                                                ? 'Nenhuma prioridade disponível'
-                                                : 'Prioridade'
-                                        }
-                                        className={selectClassName}
-                                    />
+                                <div className="flex h-full flex-col">
+                                    <div className="flex flex-col gap-4">
+                                        {/* DROPDOWN PRIORIDADE */}
+                                        <div className="flex flex-col gap-1">
+                                            <label className="ml-4 text-sm font-semibold tracking-widest select-none">
+                                                Prioridade
+                                            </label>
+                                            <SelectWithClear
+                                                value={prioridadeTemp}
+                                                valorAplicado={prioridadeSelecionada}
+                                                onChange={setPrioridadeTemp}
+                                                onClearImmediate={() =>
+                                                    limparFiltroIndividual('prioridade')
+                                                }
+                                                disabled={prioridadesLocais.length === 0}
+                                                options={prioridadesLocais}
+                                                placeholder={
+                                                    prioridadesLocais.length === 0
+                                                        ? 'Nenhuma prioridade disponível'
+                                                        : 'Selecione uma prioridade'
+                                                }
+                                                className={selectClassName}
+                                            />
+                                        </div>
 
-                                    <SelectWithClear
-                                        value={classificacaoTemp}
-                                        valorAplicado={classificacaoSelecionada}
-                                        onChange={setClassificacaoTemp}
-                                        onClearImmediate={() =>
-                                            limparFiltroIndividual('classificacao')
-                                        }
-                                        disabled={classificacoesLocais.length === 0}
-                                        options={classificacoesLocais}
-                                        placeholder={
-                                            classificacoesLocais.length === 0
-                                                ? 'Nenhuma classificação disponível'
-                                                : 'Classificação'
-                                        }
-                                        className={selectClassName}
-                                    />
+                                        {/* DROPDOWN CLASSIFICAÇÃO */}
+                                        <div className="flex flex-col gap-1">
+                                            <label className="ml-4 text-sm font-semibold tracking-widest select-none">
+                                                Classificação
+                                            </label>
+                                            <SelectWithClear
+                                                value={classificacaoTemp}
+                                                valorAplicado={classificacaoSelecionada}
+                                                onChange={setClassificacaoTemp}
+                                                onClearImmediate={() =>
+                                                    limparFiltroIndividual('classificacao')
+                                                }
+                                                disabled={classificacoesLocais.length === 0}
+                                                options={classificacoesLocais}
+                                                placeholder={
+                                                    classificacoesLocais.length === 0
+                                                        ? 'Nenhuma classificação disponível'
+                                                        : 'Selecione uma classificação'
+                                                }
+                                                className={selectClassName}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* BOTÕES LIMPAR, APLICAR */}
+                                    <div className="mt-auto flex items-center justify-end gap-6 pt-4">
+                                        {/* BOTÃO LIMPAR */}
+                                        <button
+                                            onClick={limparFiltros}
+                                            disabled={!temFiltrosAtivos}
+                                            className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+                                                temFiltrosAtivos
+                                                    ? 'cursor-pointer border-t border-red-700 bg-gradient-to-br from-red-600 to-red-700 text-white hover:from-red-500 hover:to-red-600 hover:shadow-lg hover:shadow-black active:scale-95'
+                                                    : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'
+                                            }`}
+                                        >
+                                            {temFiltrosAtivos && <MdFilterAltOff size={24} />}
+                                            <span>Limpar</span>
+                                        </button>
+
+                                        {/* BOTÃO APLICAR */}
+                                        <button
+                                            onClick={aplicarFiltros}
+                                            disabled={!temMudancas}
+                                            className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
+                                                temMudancas
+                                                    ? 'cursor-pointer border-t border-blue-700 bg-gradient-to-br from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 hover:shadow-lg hover:shadow-black active:scale-95'
+                                                    : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'
+                                            }`}
+                                        >
+                                            {temMudancas && <MdFilterAlt size={24} />}
+                                            <span>
+                                                {mudancasCount > 1
+                                                    ? 'Aplicar Filtros'
+                                                    : mudancasCount === 1
+                                                      ? 'Aplicar Filtro'
+                                                      : 'Aplicar'}
+                                            </span>
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* BOTÕES NO RODAPÉ DO DROPDOWN */}
-                        <div className="flex items-center justify-end gap-6">
-                            <button
-                                onClick={limparFiltros}
-                                disabled={!temFiltrosAtivos}
-                                className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
-                                    temFiltrosAtivos
-                                        ? 'cursor-pointer border-t border-red-700 bg-gradient-to-br from-red-600 to-red-700 text-white hover:from-red-500 hover:to-red-600 hover:shadow-lg hover:shadow-black active:scale-95'
-                                        : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'
-                                }`}
-                            >
-                                {temFiltrosAtivos && <MdFilterAltOff size={24} />}
-                                <span>Limpar</span>
-                            </button>
-
-                            <button
-                                onClick={aplicarFiltros}
-                                disabled={!temMudancas}
-                                className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
-                                    temMudancas
-                                        ? 'cursor-pointer border-t border-blue-700 bg-gradient-to-br from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 hover:shadow-lg hover:shadow-black active:scale-95'
-                                        : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'
-                                }`}
-                            >
-                                {temMudancas && <MdFilterAlt size={24} />}
-                                <span>
-                                    {mudancasCount > 1
-                                        ? 'Aplicar Filtros'
-                                        : mudancasCount === 1
-                                          ? 'Aplicar Filtro'
-                                          : 'Aplicar'}
-                                </span>
-                            </button>
+                            </div>{' '}
                         </div>
                     </div>
                 )}

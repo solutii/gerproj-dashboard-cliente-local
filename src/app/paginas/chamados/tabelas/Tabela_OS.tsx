@@ -408,7 +408,7 @@ interface ModalContainerProps {
 
 const ModalContainer = React.memo(function ModalContainer({ children }: ModalContainerProps) {
     return (
-        <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[2400px] flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black transition-all duration-200 ease-out">
+        <div className="animate-in slide-in-from-bottom-4 relative z-10 flex h-auto max-h-[100vh] w-[2400px] flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black transition-all duration-200 ease-out">
             {children}
         </div>
     );

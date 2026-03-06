@@ -250,17 +250,36 @@ export function CardMediaHrsChamadoTarefa({ filters }: FilterProps) {
 
                 {/* Body do Card */}
                 <div className="flex h-full items-center justify-center gap-4 p-4">
-                    {/* Grid com duas colunas */}
-                    <div className="grid w-full grid-cols-2 gap-4">
-                        {mediasData.map((media, index) => (
-                            <div key={index} className="flex flex-col items-center">
-                                <MediaCard {...media} />
-                            </div>
-                        ))}
-                    </div>
+                    {(() => {
+                        const visibleMedias = mediasData.filter((media) => {
+                            if (
+                                media.label === 'Média por Tarefa' &&
+                                data.TOTAL_TAREFAS_COM_HORAS <= 1
+                            ) {
+                                return false;
+                            }
+                            return true;
+                        });
 
-                    {/* Linha Divisória */}
-                    <div className="absolute top-4 bottom-4 left-1/2 w-[2px] -translate-x-1/2 bg-gradient-to-b from-transparent via-gray-400 to-transparent"></div>
+                        return (
+                            <>
+                                <div
+                                    className={`grid w-full gap-4 ${visibleMedias.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}
+                                >
+                                    {visibleMedias.map((media, index) => (
+                                        <div key={index} className="flex flex-col items-center">
+                                            <MediaCard {...media} />
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {/* Linha Divisória — só aparece se ambos os cards estiverem visíveis */}
+                                {visibleMedias.length > 1 && (
+                                    <div className="absolute top-4 bottom-4 left-1/2 w-[2px] -translate-x-1/2 bg-gradient-to-b from-transparent via-gray-400 to-transparent"></div>
+                                )}
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
         </div>

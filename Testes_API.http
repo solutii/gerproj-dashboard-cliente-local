@@ -1,7 +1,41 @@
 # ========================================
-# TOTAL DE CHAMADOS POR STATUS
+# API - CHAMADOS
 # ========================================
-# BUSCAR O TOTAL DE CHAMADOS POR STATUS
+
+# RETORNA TODOS OS CHAMADOS, DE UM DETERMINADO PERÍODO E CLIENTE
+GET http://localhost:3000/api/chamados?mes=01&ano=2026&codCliente=156
+###
+
+
+# RETORNA TODOS OS CHAMADOS DE UM DETERMINADO PERÍODO, CLIENTE E RECURSO
+GET http://localhost:3000/api/chamados?mes=01&ano=2026&codCliente=156&codRecursoFilter=84
+###
+
+
+# RETORNA TODOS OS CHAMADOS DE UM DETERMINADO PERÍODO, CLIENTE E STATUS
+GET http://localhost:3000/api/chamados?mes=01&ano=2026&codCliente=156&statusFilter=FINALIZADO
+###
+
+
+# RETORNA TODOS OS CHAMADOS DE UM DETERMINADO PERÍODO, CLIENTE, RECURSO E STATUS
+GET http://localhost:3000/api/chamados?mes=01&ano=2026&codCliente=156&codRecursoFilter=84&statusFilter=FINALIZADO
+###
+
+
+# ========================================
+# API - CHAMADOS/CODCHAMADO/OS
+# ========================================
+
+# RETORNA TODAS AS OS's DE UM DETERMINADO CHAMADO
+GET http://localhost:3000/api/chamados/14077/os?codCliente=156
+###
+
+
+# ========================================
+# API - DASHBOARD/CHAMADOS
+# ========================================
+
+# RETORNA O TOTAL DE CHAMADOS POR STATUS
 GET http://localhost:3000/api/dashboard/total-chamados-os?mes=01&ano=2026&codCliente=156
 ###
 
@@ -66,41 +100,6 @@ GET http://localhost:3000/api/filtros/status?isAdmin=true&mes=11&ano=2025
 
 
 
-# ========================================
-# API - CHAMADOS
-# ========================================
-### Buscar todos os chamados de um determinado PERÍODO - ADMIN
-GET http://localhost:3000/api/chamados?mes=01&ano=2026&isAdmin=true
-
-
-
-### Teste: Não-Admin - Apenas ano (sem mês) - Chamados NÃO FINALIZADOS
-GET http://localhost:3000/api/chamados?isAdmin=false&codCliente=156&ano=2025
-
-
-
-### Teste: Não-Admin - Apenas ano (sem ano) - Chamados NÃO FINALIZADOS
-GET http://localhost:3000/api/chamados?isAdmin=false&codCliente=156&mes=12
-
-
-
-### Buscar todos os chamados de um CLIENTE específico - ADMIN
-GET http://localhost:3000/api/chamados?mes=01&ano=2026&isAdmin=false&codCliente=156
-
-
-
-### Buscar todos os chamados com um RECURSO específico - ADMIN
-GET http://localhost:3000/api/chamados?mes=12&ano=2025&isAdmin=true&codRecursoFilter=84
-
-
-
-### Buscar todos os chamados com um STATUS específico - ADMIN
-GET http://localhost:3000/api/chamados?mes=01&ano=2026&isAdmin=false&codCliente=156&statusFilter=FINALIZADO
-
-
-
-### Buscar todas as OS's vinculadas a um CHAMADO específico - ADMIN
-GET http://localhost:3000/api/chamados/14123/os?isAdmin=true&mes=01&ano=2026
 
 
 
@@ -115,8 +114,17 @@ GET http://localhost:3000/api/chamados/14123/os?isAdmin=true&mes=01&ano=2026
 
 
 
-### Buscar histórico de 6 meses para cliente 123
+# Buscar histórico de 6 meses para cliente 123
 GET http://localhost:3000/api/saldo-horas?codCliente=156&mes=12&ano=2025&isAdmin=true&mesesHistorico=6
+###
+
+
+GET http://localhost:3000/api/dashboard/graficos?isAdmin=true&mes=2&ano=2026
+###
+
+GET http://localhost:3000/api/dashboard/graficos?isAdmin=false&mes=2&ano=2026&codCliente=156
+###
+
 
 
 

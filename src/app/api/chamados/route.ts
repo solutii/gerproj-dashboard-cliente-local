@@ -29,6 +29,9 @@ export interface Chamado {
     OBSAVAL_CHAMADO?: string | null;
     DATA_HISTCHAMADO?: Date | null;
     HORA_HISTCHAMADO?: string | null;
+    // ✅ NOVO: início do atendimento (EM ATENDIMENTO no HISTCHAMADO)
+    DATA_INICIO_ATENDIMENTO?: Date | null;
+    HORA_INICIO_ATENDIMENTO?: string | null;
 
     SLA_STATUS?: string;
     SLA_PERCENTUAL?: number;
@@ -75,20 +78,19 @@ interface ChamadoRaw {
     TOTAL_HORAS_OS_NAO_FATURADAS?: number;
     DATA_HISTCHAMADO?: Date | null;
     HORA_HISTCHAMADO?: string | null;
-    // ✅ NOVO: total geral inline (elimina query COUNT separada)
+    // ✅ NOVO: campos com alias para evitar colisão de nomes
+    DATA_INICIO_ATENDIMENTO?: Date | null;
+    HORA_INICIO_ATENDIMENTO?: string | null;
     TOTAL_RECORDS?: number;
 }
 
 // ==================== CACHE OTIMIZADO ====================
-// Cache unificado e tipado, com suporte a resultados completos
 const nomeClienteCache = new Map<string, { nome: string | null; ts: number }>();
 const nomeRecursoCache = new Map<string, { nome: string | null; ts: number }>();
-
-// ✅ NOVO: Cache de resultados de queries de totais (evita re-execução para mesmos parâmetros)
 const totaisCache = new Map<string, { data: TotaisResult; ts: number }>();
 
-const CACHE_TTL = 300_000; // 5 minutos
-const CACHE_TTL_TOTAIS = 60_000; // 1 minuto para totais (dado mais volátil)
+const CACHE_TTL = 300_000;
+const CACHE_TTL_TOTAIS = 60_000;
 
 interface TotaisResult {
     totalOS: number;
@@ -118,7 +120,6 @@ const setCache = (
     cache.set(key, { nome: value, ts: Date.now() });
 };
 
-// ✅ NOVO: helpers de cache para totais
 const getTotaisCache = (key: string): TotaisResult | undefined => {
     const c = totaisCache.get(key);
     if (!c) return undefined;
@@ -130,7 +131,6 @@ const getTotaisCache = (key: string): TotaisResult | undefined => {
 };
 
 const setTotaisCache = (key: string, data: TotaisResult): void => {
-    // Limita crescimento do cache a 200 entradas
     if (totaisCache.size >= 200) {
         const firstKey = totaisCache.keys().next().value;
         if (firstKey) totaisCache.delete(firstKey);
@@ -139,7 +139,8 @@ const setTotaisCache = (key: string, data: TotaisResult): void => {
 };
 
 // ==================== CONFIGURAÇÃO ====================
-const CAMPOS_CHAMADO_BASE = `CHAMADO.COD_CHAMADO,
+// ✅ SELECT: usa AS nos campos ambíguos de HISTCHAMADO_INICIO
+const CAMPOS_CHAMADO_BASE_SELECT = `CHAMADO.COD_CHAMADO,
     CHAMADO.DATA_CHAMADO,
     CHAMADO.HORA_CHAMADO,
     CHAMADO.SOLICITACAO_CHAMADO,
@@ -155,9 +156,36 @@ const CAMPOS_CHAMADO_BASE = `CHAMADO.COD_CHAMADO,
     RECURSO.NOME_RECURSO,
     CLASSIFICACAO.NOME_CLASSIFICACAO,
     HISTCHAMADO.DATA_HISTCHAMADO,
-    HISTCHAMADO.HORA_HISTCHAMADO`;
+    HISTCHAMADO.HORA_HISTCHAMADO,
+    HISTCHAMADO_INICIO.DATA_HISTCHAMADO AS DATA_INICIO_ATENDIMENTO,
+    HISTCHAMADO_INICIO.HORA_HISTCHAMADO AS HORA_INICIO_ATENDIMENTO`;
 
-const CAMPOS_AVALIACAO = `,
+// ✅ GROUP BY: sem AS (Firebird não aceita aliases no GROUP BY)
+const CAMPOS_CHAMADO_BASE_GROUPBY = `CHAMADO.COD_CHAMADO,
+    CHAMADO.DATA_CHAMADO,
+    CHAMADO.HORA_CHAMADO,
+    CHAMADO.SOLICITACAO_CHAMADO,
+    CHAMADO.CONCLUSAO_CHAMADO,
+    CHAMADO.STATUS_CHAMADO,
+    CHAMADO.DTENVIO_CHAMADO,
+    CHAMADO.DTINI_CHAMADO,
+    CHAMADO.ASSUNTO_CHAMADO,
+    CHAMADO.EMAIL_CHAMADO,
+    CHAMADO.PRIOR_CHAMADO,
+    CHAMADO.COD_CLASSIFICACAO,
+    CLIENTE.NOME_CLIENTE,
+    RECURSO.NOME_RECURSO,
+    CLASSIFICACAO.NOME_CLASSIFICACAO,
+    HISTCHAMADO.DATA_HISTCHAMADO,
+    HISTCHAMADO.HORA_HISTCHAMADO,
+    HISTCHAMADO_INICIO.DATA_HISTCHAMADO,
+    HISTCHAMADO_INICIO.HORA_HISTCHAMADO`;
+
+const CAMPOS_AVALIACAO_SELECT = `,
+    CHAMADO.AVALIA_CHAMADO,
+    CHAMADO.OBSAVAL_CHAMADO`;
+
+const CAMPOS_AVALIACAO_GROUPBY = `,
     CHAMADO.AVALIA_CHAMADO,
     CHAMADO.OBSAVAL_CHAMADO`;
 
@@ -272,11 +300,7 @@ const construirDatas = (
     };
 };
 
-// ==================== CONSTRUÇÃO DO WHERE (reutilizado entre queries) ====================
-/**
- * Centraliza a construção de cláusulas WHERE compartilhadas entre
- * a query principal e a query de totais, eliminando duplicação de lógica.
- */
+// ==================== CONSTRUÇÃO DO WHERE ====================
 const construirWherePrincipal = (
     params: QueryParams,
     dataInicio: string | null,
@@ -286,30 +310,22 @@ const construirWherePrincipal = (
     const whereParams: unknown[] = [];
 
     if (params.isAdmin) {
-        whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
+        // ✅ Filtra por data da OS, não do chamado
+        whereClauses.push(`(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)`);
         whereParams.push(dataInicio, dataFim);
     } else {
         whereClauses.push(`CHAMADO.COD_CLIENTE = ?`);
         whereParams.push(parseInt(params.codCliente!));
 
         if (dataInicio && dataFim) {
-            whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
+            // ✅ Filtra por data da OS, não do chamado
+            whereClauses.push(`(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)`);
             whereParams.push(dataInicio, dataFim);
         }
 
         if (!params.statusFilter) {
             whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
         }
-    }
-
-    if (params.codChamadoFilter) {
-        whereClauses.push(`CHAMADO.COD_CHAMADO = ?`);
-        whereParams.push(parseInt(params.codChamadoFilter));
-    }
-
-    if (params.statusFilter) {
-        whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) LIKE UPPER(?)`);
-        whereParams.push(`%${params.statusFilter}%`);
     }
 
     if (params.codClienteFilter) {
@@ -322,7 +338,16 @@ const construirWherePrincipal = (
         whereParams.push(parseInt(params.codRecursoFilter));
     }
 
-    // Filtros de coluna
+    if (params.codChamadoFilter) {
+        whereClauses.push(`CHAMADO.COD_CHAMADO = ?`);
+        whereParams.push(parseInt(params.codChamadoFilter));
+    }
+
+    if (params.statusFilter) {
+        whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) LIKE UPPER(?)`);
+        whereParams.push(`%${params.statusFilter}%`);
+    }
+
     const cf = params.columnFilters;
     if (cf) {
         if (cf.COD_CHAMADO) {
@@ -406,14 +431,7 @@ const construirWherePrincipal = (
     return { whereClauses, whereParams };
 };
 
-// ==================== QUERY PRINCIPAL (chamados + COUNT inline) ====================
-/**
- * ✅ OTIMIZAÇÃO CHAVE: COUNT embutido na query principal via subquery escalar.
- * Elimina um round-trip ao banco por requisição.
- *
- * ✅ OTIMIZAÇÃO 2: HISTCHAMADO join simplificado — a subquery de MAX agora usa
- * FIRST 1 ... ORDER BY, o que é mais eficiente em Firebird do que GROUP BY + JOIN.
- */
+// ==================== QUERY PRINCIPAL ====================
 const buscarChamados = async (
     dataInicio: string | null,
     dataFim: string | null,
@@ -421,23 +439,33 @@ const buscarChamados = async (
 ): Promise<{ chamados: ChamadoRaw[]; totalChamados: number }> => {
     const incluirAvaliacao =
         !params.statusFilter || params.statusFilter.toUpperCase().includes('FINALIZADO');
-    const camposChamado = incluirAvaliacao
-        ? CAMPOS_CHAMADO_BASE + CAMPOS_AVALIACAO
-        : CAMPOS_CHAMADO_BASE;
+
+    const camposSelect = incluirAvaliacao
+        ? CAMPOS_CHAMADO_BASE_SELECT + CAMPOS_AVALIACAO_SELECT
+        : CAMPOS_CHAMADO_BASE_SELECT;
+
+    const camposGroupBy = incluirAvaliacao
+        ? CAMPOS_CHAMADO_BASE_GROUPBY + CAMPOS_AVALIACAO_GROUPBY
+        : CAMPOS_CHAMADO_BASE_GROUPBY;
 
     const { whereClauses, whereParams } = construirWherePrincipal(params, dataInicio, dataFim);
     const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     const offset = (params.page - 1) * params.limit;
 
-    // ✅ COUNT inline via subquery escalar — evita query separada
-    const sqlChamados = `SELECT ${camposChamado},
+    // ✅ INNER JOIN quando há filtro de data (garante performance)
+    // ✅ LEFT JOIN quando não há filtro (mostra chamados sem OS)
+    const osJoinType = dataInicio && dataFim ? 'INNER' : 'LEFT';
+
+    const sqlChamados = `SELECT ${camposSelect},
     COALESCE(SUM(
-        (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-            CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-            CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-            CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
-        ), 0) AS TOTAL_HORAS_OS,
+        CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
+            (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+                CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+                CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+                CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+        ELSE 0 END
+    ), 0) AS TOTAL_HORAS_OS,
     COALESCE(SUM(
         CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
             (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
@@ -458,8 +486,8 @@ const buscarChamados = async (
     LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
     LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO
     LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO
-    LEFT JOIN OS ON CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) = OS.CHAMADO_OS
-    LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1
+    ${osJoinType} JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
+    ${osJoinType} JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1
     LEFT JOIN (
         SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
         FROM HISTCHAMADO
@@ -467,14 +495,19 @@ const buscarChamados = async (
         GROUP BY COD_CHAMADO
     ) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO
     LEFT JOIN HISTCHAMADO ON HISTCHAMADO.COD_HISTCHAMADO = HIST_MAX.MAX_COD
+    LEFT JOIN (
+        SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
+        FROM HISTCHAMADO
+        WHERE UPPER(DESC_HISTCHAMADO) LIKE 'EM ATENDIMENTO%'
+        GROUP BY COD_CHAMADO
+    ) HIST_INICIO ON CHAMADO.COD_CHAMADO = HIST_INICIO.COD_CHAMADO
+    LEFT JOIN HISTCHAMADO HISTCHAMADO_INICIO ON HISTCHAMADO_INICIO.COD_HISTCHAMADO = HIST_INICIO.MAX_COD
     ${whereClause}
-    GROUP BY ${camposChamado}
+    GROUP BY ${camposGroupBy}
     ORDER BY CHAMADO.DATA_CHAMADO DESC, CHAMADO.HORA_CHAMADO DESC
     ROWS ${offset + 1} TO ${offset + params.limit}`;
 
-    // ✅ Query de COUNT separada mas executada em paralelo com a de totais
-    // (não mais serializada — veja buscarChamadosComTotais)
-    const sqlCount = buildCountQuery(params, whereClause);
+    const sqlCount = buildCountQuery(params, whereClause, osJoinType);
 
     const [chamados, countResult] = await Promise.all([
         firebirdQuery<ChamadoRaw>(sqlChamados, [...whereParams]),
@@ -486,13 +519,10 @@ const buscarChamados = async (
         totalChamados: countResult[0]?.TOTAL || 0,
     };
 };
-
-/**
- * Monta a query de COUNT sem precisar duplicar toda a lógica de JOINs.
- * Usa apenas os JOINs estritamente necessários para o WHERE.
- */
-const buildCountQuery = (params: QueryParams, whereClause: string): string => {
-    let joins = '';
+const buildCountQuery = (params: QueryParams, whereClause: string, osJoinType: string): string => {
+    // ✅ usa o mesmo tipo de JOIN da query principal
+    let joins = `${osJoinType} JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))\n`;
+    joins += `${osJoinType} JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1\n`;
 
     if (params.codClienteFilter || !params.isAdmin) {
         joins += `LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE\n`;
@@ -510,13 +540,12 @@ ${joins}
 ${whereClause}`;
 };
 
-// ==================== QUERY DE TOTAIS (com cache por chave de parâmetros) ====================
+// ==================== QUERY DE TOTAIS ====================
 const buscarTotais = async (
     dataInicio: string | null,
     dataFim: string | null,
     params: QueryParams
 ): Promise<TotaisResult> => {
-    // ✅ Chave de cache determinística baseada nos parâmetros relevantes
     const cacheKey = JSON.stringify({
         isAdmin: params.isAdmin,
         codCliente: params.codCliente,
@@ -542,7 +571,8 @@ const buscarTotais = async (
     const sqlParamsTotais: unknown[] = [];
 
     if (dataInicio && dataFim) {
-        whereTotais.push('(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)');
+        // ✅ Filtra por data da OS, não do chamado
+        whereTotais.push('(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)');
         sqlParamsTotais.push(dataInicio, dataFim);
     }
 
@@ -564,6 +594,10 @@ const buscarTotais = async (
     if (params.statusFilter) {
         whereTotais.push('UPPER(CHAMADO.STATUS_CHAMADO) LIKE UPPER(?)');
         sqlParamsTotais.push(`%${params.statusFilter}%`);
+    } else if (!params.isAdmin) {
+        // ✅ CORREÇÃO: sem filtro de status explícito, excluir FINALIZADO
+        // para refletir os mesmos chamados retornados na listagem
+        whereTotais.push("UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'");
     }
 
     if (params.columnFilters?.STATUS_CHAMADO && !params.statusFilter) {
@@ -582,31 +616,35 @@ const buscarTotais = async (
     let sqlTotais = `SELECT
     COUNT(DISTINCT OS.COD_OS) AS TOTAL_OS,
     SUM(
-        (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-        CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-        CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-        CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+        CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
+            (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+            CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+            CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+            CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+        ELSE 0 END
     ) AS TOTAL_HORAS,
-    SUM(CASE WHEN UPPER(OS.FATURADO_OS) = 'NAO' THEN
-        (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-        CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-        CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-        CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
-    ELSE 0 END) AS TOTAL_HORAS_OS_NAO_FATURADAS,
-    SUM(CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
-        (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-        CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-        CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-        CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
-    ELSE 0 END) AS TOTAL_HORAS_OS_FATURADAS
-FROM OS
-INNER JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
-INNER JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))`;
+    SUM(
+        CASE WHEN UPPER(OS.FATURADO_OS) = 'NAO' THEN
+            (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+            CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+            CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+            CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+        ELSE 0 END) AS TOTAL_HORAS_OS_NAO_FATURADAS,
+    SUM(
+        CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
+            (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+            CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+            CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+            CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+        ELSE 0 END) AS TOTAL_HORAS_OS_FATURADAS
+    FROM OS
+    INNER JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
+    INNER JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))`;
 
     if (needsClient) {
         sqlTotais += `
-INNER JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
-INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE`;
+    INNER JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
+    INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE`;
     }
 
     if (params.codRecursoFilter || params.columnFilters?.NOME_RECURSO) {
@@ -689,12 +727,7 @@ const buscarNomes = async (
 };
 
 // ==================== PROCESSAMENTO (SLA) ====================
-/**
- * ✅ OTIMIZAÇÃO: SLA_CONFIGS lookup pré-resolvido fora do loop.
- * Evita hash lookup repetido para o mesmo valor de prioridade.
- */
 const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado[] => {
-    // Pré-computa configs únicas de SLA para prioridades presentes nos resultados
     const configCache = new Map<number, (typeof SLA_CONFIGS)[number]>();
     const getConfig = (prior: number) => {
         if (!configCache.has(prior)) {
@@ -728,6 +761,9 @@ const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado
             OBSAVAL_CHAMADO: c.OBSAVAL_CHAMADO ?? null,
             DATA_HISTCHAMADO: c.DATA_HISTCHAMADO || null,
             HORA_HISTCHAMADO: c.HORA_HISTCHAMADO || null,
+            // ✅ NOVO: início do atendimento
+            DATA_INICIO_ATENDIMENTO: c.DATA_INICIO_ATENDIMENTO || null,
+            HORA_INICIO_ATENDIMENTO: c.HORA_INICIO_ATENDIMENTO || null,
         };
 
         if (!incluirSLA || c.DTINI_CHAMADO) return chamadoBase;
@@ -774,7 +810,6 @@ export async function GET(request: NextRequest) {
         const codClienteAplicado =
             params.codClienteFilter || (!params.isAdmin ? params.codCliente : undefined);
 
-        // ✅ Todas as queries rodam em paralelo: chamados+count, totais, nomes
         const [{ chamados, totalChamados }, totais, nomes] = await Promise.all([
             buscarChamados(dataInicio, dataFim, params),
             buscarTotais(dataInicio, dataFim, params),
@@ -856,5 +891,5 @@ export async function GET(request: NextRequest) {
 export function limparCacheChamados(): void {
     nomeClienteCache.clear();
     nomeRecursoCache.clear();
-    totaisCache.clear(); // ✅ Limpa também o cache de totais
+    totaisCache.clear();
 }

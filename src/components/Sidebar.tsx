@@ -30,8 +30,17 @@ export function Sidebar() {
     const hasClienteSelecionado = cliente && cliente.trim() !== '';
 
     useEffect(() => {
-        setIsNavigating(false);
-        setTargetRoute(null);
+        if (!isNavigating) return;
+
+        // ✅ Quando pathname muda durante navegação, completa para 100% e reseta
+        setLoadingProgress(100);
+        const timeout = setTimeout(() => {
+            setIsNavigating(false);
+            setTargetRoute(null);
+            setLoadingProgress(0);
+        }, 300);
+
+        return () => clearTimeout(timeout);
     }, [pathname]);
 
     useEffect(() => {
@@ -55,13 +64,13 @@ export function Sidebar() {
         setLoadingProgress(0);
         const interval = setInterval(() => {
             setLoadingProgress((prev) => {
-                if (prev >= 100) {
+                // ✅ Trava em 85% — só chega a 100% quando pathname mudar
+                if (prev >= 85) {
                     clearInterval(interval);
-                    return 100;
+                    return 85;
                 }
-                // Progresso mais realista
-                const increment = prev < 60 ? 2 : prev < 90 ? 1 : 0.5;
-                return Math.min(prev + increment, 100);
+                const increment = prev < 60 ? 2 : prev < 80 ? 1 : 0.3;
+                return Math.min(prev + increment, 85);
             });
         }, 50);
 
