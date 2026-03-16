@@ -15,6 +15,7 @@ import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { TabelaOS } from '@/app/paginas/chamados/tabelas/Tabela_OS';
 import { IsError } from '@/components/IsError';
 import { IsLoading } from '@/components/IsLoading';
+import { useHorasAdicionais } from '@/hooks/useHorasAdicionais';
 import { useHorasPorMes } from '@/hooks/useHorasPorMes'; // ✅ NOVO
 import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
 import { useQuery } from '@tanstack/react-query';
@@ -59,6 +60,8 @@ const INITIAL_COLUMN_WIDTHS = {
     NOME_RECURSO: 180,
     PRIOR_CHAMADO: 100,
     TOTAL_HORAS_OS: 120,
+    HR_ADICIONAL_OS: 120,
+    TOTAL_HRS_OS: 120,
 } as const;
 
 // =====================================================
@@ -334,6 +337,11 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         enabled: idsComOS.length > 0,
     });
 
+    const { getHorasAdicionais, isLoading: isLoadingHorasAdicionais } = useHorasAdicionais({
+        codChamados: idsComOS,
+        enabled: idsComOS.length > 0,
+    });
+
     // =====================================================
     // FILTRAGENS E TRANSFORMAÇÕES DE DADOS
     // =====================================================
@@ -528,7 +536,15 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         setSelectedOS(null);
     }, []);
 
-    const handleSaveValidation = useCallback(() => refetch(), [refetch]);
+    const handleSaveValidation = useCallback((updatedRow: OSRowProps) => {
+        setIsModalOSOpen(false);
+        setSelectedOS(null);
+        setIsModalListaOSOpen(false); // fecha primeiro
+
+        setTimeout(() => {
+            setIsModalListaOSOpen(true); // reabre no próximo tick
+        }, 50);
+    }, []);
 
     const handleOpenSolicitacao = useCallback((chamado: ChamadoRowProps) => {
         setSelectedChamadoSolicitacao(chamado);
@@ -561,8 +577,10 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             getColunasChamados(
                 handleOpenSolicitacao,
                 handleOpenAvaliacao,
-                getHoras, // ✅ NOVO: passa getHoras para as colunas
-                isLoadingHoras // ✅ NOVO: passa estado de loading
+                getHoras,
+                isLoadingHoras,
+                getHorasAdicionais, // ← adicionar
+                isLoadingHorasAdicionais // ← adicionar
             ),
         [
             isAdmin,
@@ -571,6 +589,8 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             handleOpenAvaliacao,
             getHoras,
             isLoadingHoras,
+            getHorasAdicionais, // ← adicionar
+            isLoadingHorasAdicionais, // ← adicionar
         ]
     );
 

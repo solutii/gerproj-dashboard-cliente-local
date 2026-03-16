@@ -1,5 +1,6 @@
 // src/app/paginas/chamados/tabelas/Colunas_Tabela_Chamados.tsx
 
+import type { HorasAdicionaisChamado } from '@/app/api/chamados/horas-adicionais/route';
 import type { HorasMes } from '@/app/api/chamados/horas-por-mes/route';
 import { HorasMesTooltip } from '@/app/paginas/chamados/componentes/Horas_Mes_Tooltip';
 import { SLACell } from '@/app/paginas/chamados/componentes/SLA_Cell';
@@ -219,8 +220,10 @@ const TruncatedCell = React.memo(function TruncatedCell({
 export const getColunasChamados = (
     onOpenSolicitacao?: (chamado: ChamadoRowProps) => void,
     onOpenAvaliacao?: (chamado: ChamadoRowProps) => void,
-    getHoras?: (codChamado: number) => HorasMes[], // ✅ NOVO
-    isLoadingHoras?: boolean // ✅ NOVO
+    getHoras?: (codChamado: number) => HorasMes[],
+    isLoadingHoras?: boolean,
+    getHorasAdicionais?: (codChamado: number) => HorasAdicionaisChamado | null,
+    isLoadingHorasAdicionais?: boolean
 ): ColumnDef<ChamadoRowProps>[] => {
     return [
         // ========== CÓDIGO DO CHAMADO ==========
@@ -464,7 +467,6 @@ export const getColunasChamados = (
                 const { COD_CHAMADO, TEM_OS, TOTAL_HORAS_OS_FATURADAS, STATUS_CHAMADO } =
                     row.original;
 
-                // ✅ Só exibe tooltip se: tem OS + getHoras disponível + não é FINALIZADO
                 const isFinalizado = STATUS_CHAMADO?.toUpperCase() === 'FINALIZADO';
                 const meses = TEM_OS && getHoras && !isFinalizado ? getHoras(COD_CHAMADO) : [];
 
@@ -491,6 +493,67 @@ export const getColunasChamados = (
             },
             enableColumnFilter: false,
         },
-        // =====
+
+        // ========== HR. ADICIONAL ==========
+        {
+            id: 'HR_ADICIONAL_OS',
+            header: () => <CellHeader>HR. ADICIONAL</CellHeader>,
+            cell: ({ row }) => {
+                const { COD_CHAMADO, TEM_OS } = row.original;
+
+                if (!TEM_OS) return <CellText value={EMPTY_VALUE} />;
+
+                if (isLoadingHorasAdicionais) {
+                    return (
+                        <div className="text-center text-base font-extrabold tracking-widest text-black select-none">
+                            <span className="animate-pulse text-gray-400">...</span>
+                        </div>
+                    );
+                }
+
+                const horas = getHorasAdicionais?.(COD_CHAMADO);
+                if (!horas) return <CellText value={EMPTY_VALUE} />;
+
+                return (
+                    <div className="rounded border border-yellow-300 bg-yellow-100 px-2 py-1 text-center text-base font-extrabold tracking-widest text-black select-none">
+                        <span className="font-extrabold tracking-widest text-yellow-700 select-none">
+                            +{formatarHorasTotaisSufixo(horas.horasAdicionalGerado)}
+                        </span>
+                    </div>
+                );
+            },
+            enableColumnFilter: false,
+        },
+
+        // ========== TOTAL HR's ==========
+        {
+            id: 'TOTAL_HRS_OS',
+            header: () => <CellHeader>TOTAL HR's</CellHeader>,
+            cell: ({ row }) => {
+                const { COD_CHAMADO, TEM_OS } = row.original;
+
+                if (!TEM_OS) return <CellText value={EMPTY_VALUE} />;
+
+                if (isLoadingHorasAdicionais) {
+                    return (
+                        <div className="text-center text-base font-extrabold tracking-widest text-black select-none">
+                            <span className="animate-pulse text-gray-400">...</span>
+                        </div>
+                    );
+                }
+
+                const horas = getHorasAdicionais?.(COD_CHAMADO);
+                if (!horas) return <CellText value={EMPTY_VALUE} />;
+
+                return (
+                    <div className="rounded border border-purple-300 bg-purple-100 px-2 py-1 text-center text-base font-extrabold tracking-widest text-black select-none">
+                        <span className="text-sm font-extrabold tracking-widest text-purple-700 select-none">
+                            {formatarHorasTotaisSufixo(horas.totalHorasEquivalente)}
+                        </span>
+                    </div>
+                );
+            },
+            enableColumnFilter: false,
+        },
     ];
 };

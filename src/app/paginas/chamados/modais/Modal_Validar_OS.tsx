@@ -277,7 +277,6 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
             setTimeout(() => {
                 setModalData({ concordaPagar: true, observacao: '' });
                 setValidationError('');
-                onClose();
             }, 1000);
         },
         onError: (error: Error) => {
@@ -602,6 +601,7 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                                     value={modalData.observacao}
                                     onChange={(e) => handleObservacaoChange(e.target.value)}
                                     rows={4}
+                                    maxLength={195}
                                     className={`w-full cursor-pointer rounded-xl px-4 pt-4 font-medium tracking-widest text-black shadow-sm shadow-black transition-all duration-200 select-none placeholder:text-sm placeholder:font-bold placeholder:tracking-widest placeholder:text-slate-500 hover:shadow-lg hover:shadow-black focus:ring focus:outline-none ${
                                         !modalData.concordaPagar
                                             ? 'border-t border-red-200 bg-red-100 focus:border-none focus:shadow-none focus:ring-2 focus:ring-red-500'
@@ -614,6 +614,18 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                                     }
                                     disabled={saveValidationMutation.isPending}
                                 />
+
+                                <div className="mt-1 flex justify-end">
+                                    <span
+                                        className={`text-xs font-bold tracking-widest ${
+                                            modalData.observacao.length > 170
+                                                ? 'text-red-600'
+                                                : 'text-slate-500'
+                                        }`}
+                                    >
+                                        {modalData.observacao.length}/195
+                                    </span>
+                                </div>
                             </div>
                         </div>
                         {/* === */}
