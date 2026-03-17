@@ -495,65 +495,65 @@ export const getColunasChamados = (
         },
 
         // ========== HR. ADICIONAL ==========
-        {
-            id: 'HR_ADICIONAL_OS',
-            header: () => <CellHeader>HR. ADICIONAL</CellHeader>,
-            cell: ({ row }) => {
-                const { COD_CHAMADO, TEM_OS } = row.original;
+        // {
+        //     id: 'HR_ADICIONAL_OS',
+        //     header: () => <CellHeader>HR. ADICIONAL</CellHeader>,
+        //     cell: ({ row }) => {
+        //         const { COD_CHAMADO, TEM_OS } = row.original;
 
-                if (!TEM_OS) return <CellText value={EMPTY_VALUE} />;
+        //         if (!TEM_OS) return <CellText value={EMPTY_VALUE} />;
 
-                if (isLoadingHorasAdicionais) {
-                    return (
-                        <div className="text-center text-base font-extrabold tracking-widest text-black select-none">
-                            <span className="animate-pulse text-gray-400">...</span>
-                        </div>
-                    );
-                }
+        //         if (isLoadingHorasAdicionais) {
+        //             return (
+        //                 <div className="text-center text-base font-extrabold tracking-widest text-black select-none">
+        //                     <span className="animate-pulse text-gray-400">...</span>
+        //                 </div>
+        //             );
+        //         }
 
-                const horas = getHorasAdicionais?.(COD_CHAMADO);
-                if (!horas) return <CellText value={EMPTY_VALUE} />;
+        //         const horas = getHorasAdicionais?.(COD_CHAMADO);
+        //         if (!horas) return <CellText value={EMPTY_VALUE} />;
 
-                return (
-                    <div className="rounded border border-yellow-300 bg-yellow-100 px-2 py-1 text-center text-base font-extrabold tracking-widest text-black select-none">
-                        <span className="font-extrabold tracking-widest text-yellow-700 select-none">
-                            +{formatarHorasTotaisSufixo(horas.horasAdicionalGerado)}
-                        </span>
-                    </div>
-                );
-            },
-            enableColumnFilter: false,
-        },
+        //         return (
+        //             <div className="rounded border border-yellow-300 bg-yellow-100 px-2 py-1 text-center text-base font-extrabold tracking-widest text-black select-none">
+        //                 <span className="font-extrabold tracking-widest text-yellow-700 select-none">
+        //                     +{formatarHorasTotaisSufixo(horas.horasAdicionalGerado)}
+        //                 </span>
+        //             </div>
+        //         );
+        //     },
+        //     enableColumnFilter: false,
+        // },
 
         // ========== TOTAL HR's ==========
-        {
-            id: 'TOTAL_HRS_OS',
-            header: () => <CellHeader>TOTAL HR's</CellHeader>,
-            cell: ({ row }) => {
-                const { COD_CHAMADO, TEM_OS } = row.original;
+        // {
+        //     id: 'TOTAL_HRS_OS',
+        //     header: () => <CellHeader>TOTAL HR's</CellHeader>,
+        //     cell: ({ row }) => {
+        //         const { COD_CHAMADO, TEM_OS } = row.original;
 
-                if (!TEM_OS) return <CellText value={EMPTY_VALUE} />;
+        //         if (!TEM_OS) return <CellText value={EMPTY_VALUE} />;
 
-                if (isLoadingHorasAdicionais) {
-                    return (
-                        <div className="text-center text-base font-extrabold tracking-widest text-black select-none">
-                            <span className="animate-pulse text-gray-400">...</span>
-                        </div>
-                    );
-                }
+        //         if (isLoadingHorasAdicionais) {
+        //             return (
+        //                 <div className="text-center text-base font-extrabold tracking-widest text-black select-none">
+        //                     <span className="animate-pulse text-gray-400">...</span>
+        //                 </div>
+        //             );
+        //         }
 
-                const horas = getHorasAdicionais?.(COD_CHAMADO);
-                if (!horas) return <CellText value={EMPTY_VALUE} />;
+        //         const horas = getHorasAdicionais?.(COD_CHAMADO);
+        //         if (!horas) return <CellText value={EMPTY_VALUE} />;
 
-                return (
-                    <div className="rounded border border-purple-300 bg-purple-100 px-2 py-1 text-center text-base font-extrabold tracking-widest text-black select-none">
-                        <span className="text-sm font-extrabold tracking-widest text-purple-700 select-none">
-                            {formatarHorasTotaisSufixo(horas.totalHorasEquivalente)}
-                        </span>
-                    </div>
-                );
-            },
-            enableColumnFilter: false,
-        },
+        //         return (
+        //             <div className="rounded border border-purple-300 bg-purple-100 px-2 py-1 text-center text-base font-extrabold tracking-widest text-black select-none">
+        //                 <span className="text-sm font-extrabold tracking-widest text-purple-700 select-none">
+        //                     {formatarHorasTotaisSufixo(horas.totalHorasEquivalente)}
+        //                 </span>
+        //             </div>
+        //         );
+        //     },
+        //     enableColumnFilter: false,
+        // },
     ];
 };
