@@ -15,6 +15,7 @@
         "skipLibCheck": true,
         "noEmit": false,
         "types": ["node", "react", "react-dom"],
+        "ignoreDeprecations": "6.0",
         "baseUrl": ".",
         "paths": {
             "@/*": ["./src/*"]
@@ -25,6 +26,16 @@
             }
         ]
     },
-    "include": ["next-env.d.ts", "server.ts", "src/**/*", ".next/types/**/*.ts"],
-    "exclude": ["node_modules", ".next", "dist"]
+    "include": [
+        "next-env.d.ts",
+        "server.ts",
+        "src/**/*",
+        "scripts/**/*",
+        ".next/types/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        ".next",
+        "dist"
+    ]
 }

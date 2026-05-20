@@ -18,7 +18,7 @@ echo  5. 🔍 Verificar integridade do arquivo
 echo  6. 🚪 Sair
 echo.
 echo ═════════════════════════════════════════════
-set /p opcao=Escolha uma opção (1-6): 
+set /p opcao=Escolha uma opção (1-6):
 
 if "%opcao%"=="1" goto ADD
 if "%opcao%"=="2" goto UPDATE
@@ -35,7 +35,7 @@ echo ║        ➕ ADICIONAR NOVO USUÁRIO           ║
 echo ╚═════════════════════════════════════════════╝
 echo.
 
-set /p email=📧 Email: 
+set /p email=📧 Email:
 if "%email%"=="" (
     echo ❌ Email não pode ser vazio!
     timeout /t 2 >nul
@@ -48,9 +48,9 @@ echo    • Mínimo 8 caracteres
 echo    • Pelo menos 1 MAIÚSCULA
 echo    • Pelo menos 1 minúscula
 echo    • Pelo menos 1 número
-echo    • Pelo menos 1 caractere especial (^!@#$%% etc)
+echo    • Pelo menos 1 caractere especial (!@#$%% etc)
 echo.
-set /p senha=🔑 Senha: 
+set /p senha=🔑 Senha:
 if "%senha%"=="" (
     echo ❌ Senha não pode ser vazia!
     timeout /t 2 >nul
@@ -58,21 +58,31 @@ if "%senha%"=="" (
 )
 
 echo.
-set /p codCliente=👤 Código do cliente (ou 'null' para nenhum): 
+set /p codCliente=👤 Código do cliente (ou 'null' para nenhum):
 if "%codCliente%"=="" set codCliente=null
 
 echo.
-set /p isAdmin=👑 É administrador? (true/false): 
-if "%isAdmin%"=="" set isAdmin=false
+echo 👑 É administrador?
+echo    1 - Sim
+echo    2 - Nao
+set /p adminOpcao=Escolha (1-2):
+if "%adminOpcao%"=="1" (
+    set isAdmin=true
+) else (
+    set isAdmin=false
+)
 
 echo.
 echo ⏳ Processando...
 echo.
 
-npx ts-node --project tsconfig.scripts.json scripts/gerenciador_usuario.ts add "%email%" "%senha%" "%codCliente%" "%isAdmin%"
+REM Usando o comando correto sem --esm
+npx ts-node scripts/gerenciador_usuario.ts add "%email%" "%senha%" "%codCliente%" "%isAdmin%"
 
 echo.
-pause
+echo ═════════════════════════════════════════════
+echo Pressione qualquer tecla para voltar ao menu...
+pause >nul
 goto MENU
 
 :UPDATE
@@ -82,7 +92,7 @@ echo ║       🔄 ATUALIZAR SENHA DE USUÁRIO        ║
 echo ╚═════════════════════════════════════════════╝
 echo.
 
-set /p email=📧 Email do usuário: 
+set /p email=📧 Email do usuário:
 if "%email%"=="" (
     echo ❌ Email não pode ser vazio!
     timeout /t 2 >nul
@@ -95,10 +105,10 @@ echo    • Mínimo 8 caracteres
 echo    • Pelo menos 1 MAIÚSCULA
 echo    • Pelo menos 1 minúscula
 echo    • Pelo menos 1 número
-echo    • Pelo menos 1 caractere especial (^!@#$%% etc)
+echo    • Pelo menos 1 caractere especial (!@#$%% etc)
 echo.
-set /p senha=🔑 Nova senha: 
-if "%senha%"=="" (
+set /p novaSenha=🔑 Nova senha:
+if "%novaSenha%"=="" (
     echo ❌ Senha não pode ser vazia!
     timeout /t 2 >nul
     goto UPDATE
@@ -108,10 +118,12 @@ echo.
 echo ⏳ Processando...
 echo.
 
-npx ts-node --project tsconfig.scripts.json scripts/gerenciador_usuario.ts update "%email%" "%senha%"
+npx ts-node scripts/gerenciador_usuario.ts update "%email%" "%novaSenha%"
 
 echo.
-pause
+echo ═════════════════════════════════════════════
+echo Pressione qualquer tecla para voltar ao menu...
+pause >nul
 goto MENU
 
 :DELETE
@@ -123,7 +135,13 @@ echo.
 echo ⚠️  ATENÇÃO: Esta ação não pode ser desfeita!
 echo.
 
-set /p email=📧 Email do usuário a deletar: 
+REM Mostrar lista de usuários antes de deletar
+echo 📋 Usuários cadastrados:
+echo.
+npx ts-node scripts/gerenciador_usuario.ts list
+echo.
+
+set /p email=📧 Email do usuário a deletar:
 if "%email%"=="" (
     echo ❌ Email não pode ser vazio!
     timeout /t 2 >nul
@@ -131,9 +149,9 @@ if "%email%"=="" (
 )
 
 echo.
-set /p confirma=⚠️  Tem certeza? Digite 'SIM' para confirmar: 
+set /p confirma=⚠️  Tem certeza? Digite 'SIM' para confirmar:
 if /i not "%confirma%"=="SIM" (
-    echo ❌ Operação cancelada
+    echo ❌ Operacao cancelada
     timeout /t 2 >nul
     goto MENU
 )
@@ -142,10 +160,12 @@ echo.
 echo ⏳ Processando...
 echo.
 
-npx ts-node --project tsconfig.scripts.json scripts/gerenciador_usuario.ts delete "%email%"
+npx ts-node scripts/gerenciador_usuario.ts delete "%email%"
 
 echo.
-pause
+echo ═════════════════════════════════════════════
+echo Pressione qualquer tecla para voltar ao menu...
+pause >nul
 goto MENU
 
 :LIST
@@ -155,10 +175,12 @@ echo ║       📋 LISTAR TODOS OS USUÁRIOS          ║
 echo ╚═════════════════════════════════════════════╝
 echo.
 
-npx ts-node --project tsconfig.scripts.json scripts/gerenciador_usuario.ts list
+npx ts-node scripts/gerenciador_usuario.ts list
 
 echo.
-pause
+echo ═════════════════════════════════════════════
+echo Pressione qualquer tecla para voltar ao menu...
+pause >nul
 goto MENU
 
 :CHECK
@@ -168,19 +190,22 @@ echo ║     🔍 VERIFICAR INTEGRIDADE DO ARQUIVO    ║
 echo ╚═════════════════════════════════════════════╝
 echo.
 
-npx ts-node --project tsconfig.scripts.json scripts/gerenciador_usuario.ts check
+npx ts-node scripts/gerenciador_usuario.ts check
 
 echo.
-pause
+echo ═════════════════════════════════════════════
+echo Pressione qualquer tecla para voltar ao menu...
+pause >nul
 goto MENU
 
 :END
 cls
 echo.
-echo 👋 Saindo do sistema...
+echo ╔═════════════════════════════════════════════╗
+echo ║          👋 SAINDO DO SISTEMA...           ║
+echo ╚═════════════════════════════════════════════╝
 echo.
-timeout /t 1 >nul
+timeout /t 2 >nul
 exit /b 0
 
-rem ========== INSTRUÇÕES DE USO ==========
-rem Rode o comando "scripts\gerenciador_usuario.bat", para iniciar o gerenciador de usuários.
+rem scripts\gerenciador_usuario.bat

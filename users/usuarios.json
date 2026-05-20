@@ -18,8 +18,8 @@
         "isAdmin": false
     },
     {
-        "email": "william.souza@tocfrio.com.br",
-        "password": "$2b$10$997MIJ32uWJVfkCw2twMy.G1hvh/PIQayA0Os88YSaHzEFtieEwL6",
+        "email": "ti@tocfrio.com.br",
+        "password": "$2b$10$OXmSjHej7W9ZQekzoow2d./.hlR/OWTyienVikYw3mXIA362968QG",
         "cod_cliente": "149",
         "isAdmin": false
     },
@@ -39,12 +39,6 @@
         "email": "brener@gvpneus.com.br",
         "password": "$2b$10$997MIJ32uWJVfkCw2twMy.G1hvh/PIQayA0Os88YSaHzEFtieEwL6",
         "cod_cliente": "56",
-        "isAdmin": false
-    },
-    {
-        "email": "ruan@rodriguescolchoes.com.br",
-        "password": "$2b$10$.cko9BuDnKEGBT9RmoxXR..cYAvmWd7312ctYTqPSI6B9V7ytpYvO",
-        "cod_cliente": "158",
         "isAdmin": false
     },
     {
@@ -78,33 +72,9 @@
         "isAdmin": false
     },
     {
-        "email": "rafael.aguiar@transaguiar.com.br",
-        "password": "$2b$10$Z6QZNplE7VvSQPPajfF/gOGZmif21lbj.X8R.NhVz3/y8R.BWDnrG",
-        "cod_cliente": "159",
-        "isAdmin": false
-    },
-    {
-        "email": "trzservice@trzservice.com.br",
-        "password": "$2b$10$gIV3Ef3XGcIfKXVhQNuuyeAdOfwPqmJCYy2vZnE7skHYWVzLXNvF2",
-        "cod_cliente": "164",
-        "isAdmin": false
-    },
-    {
         "email": "fiscal@montepetro.com.br ",
         "password": "$2b$10$2mqpI882n7fukbvloLmoouaE0FLdbMWD1Gow0Khx8U1VysM3S.yAG",
         "cod_cliente": "168",
-        "isAdmin": false
-    },
-    {
-        "email": "luiz@lemi.com.br",
-        "password": "$2b$10$StBABj/iGeLYMNrD5GrxO.BWjXUlmHaFopu0i.GIkAabW0w6VeweW",
-        "cod_cliente": "169",
-        "isAdmin": false
-    },
-    {
-        "email": "miriane.rodrigues@lemi.com.br",
-        "password": "$2b$10$wDtDWsf/BITOj2n4CBnrouDnYmPcXKJ54zDvyH/Js4SxxRU/NpGj.",
-        "cod_cliente": "169",
         "isAdmin": false
     },
     {
@@ -123,6 +93,12 @@
         "email": "desenvolvimento@metalfort.com.br",
         "password": "$2b$10$eempH7X5GoLULGa/eZ.1Uew06aXGE7HSRNOZp0CQWmaL4rfT5qGr.",
         "cod_cliente": "162",
+        "isAdmin": false
+    },
+    {
+        "email": "ti@doxbrasil.com.br",
+        "password": "$2b$10$V09172Ed9QZ4FDmeZoVGq.wCooAY2Ej1/qJddKHFb1kznHR/wASnS",
+        "cod_cliente": "170",
         "isAdmin": false
     }
 ]

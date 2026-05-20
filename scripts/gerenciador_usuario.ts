@@ -2,14 +2,29 @@
 import bcrypt from 'bcryptjs';
 import fs from 'fs';
 import path from 'path';
+import { fileURLToPath } from 'url';
 
 // ==================== CONFIGURAÇÕES ====================
+// Detectar se está em ESM ou CommonJS
+let __filename: string;
+let __dirname: string;
+
+try {
+    // Tentar usar import.meta.url (ESM)
+    __filename = fileURLToPath(import.meta.url);
+    __dirname = path.dirname(__filename);
+} catch (e) {
+    // Fallback para CommonJS
+    __filename = process.argv[1];
+    __dirname = path.dirname(process.argv[1]);
+}
+
 const CONFIG = {
     filePath: path.join(process.cwd(), 'users', 'usuarios.json'),
     backupDir: path.join(process.cwd(), 'users', 'backups'),
     logDir: path.join(process.cwd(), 'scripts', 'logs'),
-    maxBackups: 30, // Manter apenas últimos 30 backups
-    lockTimeout: 5000, // 5 segundos timeout para lock
+    maxBackups: 30,
+    lockTimeout: 5000,
 };
 
 // ==================== TIPOS ====================
@@ -29,23 +44,19 @@ interface ValidationResult {
 function validarEmail(email: string): ValidationResult {
     const errors: string[] = [];
 
-    // Regex robusta para email
     const regex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
     if (!regex.test(email)) {
         errors.push('Formato de email inválido');
     }
 
-    // Validações adicionais
     if (email.includes('..')) errors.push('Email não pode ter pontos consecutivos');
     if (email.startsWith('.')) errors.push('Email não pode começar com ponto');
     if (email.endsWith('.')) errors.push('Email não pode terminar com ponto');
     if (email.split('@').length !== 2) errors.push('Email deve ter apenas um @');
 
-    // Verificar tamanho
     if (email.length > 254) errors.push('Email muito longo (máx 254 caracteres)');
 
-    // Verificar domínio
     const domain = email.split('@')[1];
     if (domain && domain.split('.').some((part) => part.length === 0)) {
         errors.push('Domínio inválido');
@@ -83,7 +94,6 @@ function criarBackup(): void {
         return;
     }
 
-    // Criar pasta de backup se não existir
     if (!fs.existsSync(CONFIG.backupDir)) {
         fs.mkdirSync(CONFIG.backupDir, { recursive: true });
     }
@@ -94,7 +104,6 @@ function criarBackup(): void {
     fs.copyFileSync(CONFIG.filePath, backupPath);
     console.log(`💾 Backup criado: ${path.basename(backupPath)}`);
 
-    // Limpar backups antigos
     limparBackupsAntigos();
 }
 
@@ -111,7 +120,6 @@ function limparBackupsAntigos(): void {
         }))
         .sort((a, b) => b.time - a.time);
 
-    // Manter apenas os mais recentes
     if (backups.length > CONFIG.maxBackups) {
         backups.slice(CONFIG.maxBackups).forEach((backup) => {
             fs.unlinkSync(backup.path);
@@ -168,7 +176,6 @@ function log(mensagem: string, tipo: 'INFO' | 'ERROR' | 'WARNING' = 'INFO'): voi
 
     fs.appendFileSync(logPath, linha, 'utf8');
 
-    // Também exibir no console
     if (tipo === 'ERROR') {
         console.error(linha.trim());
     } else if (tipo === 'WARNING') {
@@ -208,16 +215,13 @@ async function adicionarUsuario(
     email: string,
     senha: string,
     cod_cliente: string | null,
-    codrec_os: string | null,
     isAdmin: boolean
 ): Promise<void> {
-    // Validar email
     const emailValidation = validarEmail(email);
     if (!emailValidation.valid) {
         throw new Error(`Email inválido:\n${emailValidation.errors.join('\n')}`);
     }
 
-    // Validar senha
     const senhaValidation = validarSenha(senha);
     if (!senhaValidation.valid) {
         throw new Error(`Senha fraca:\n${senhaValidation.errors.join('\n')}`);
@@ -225,15 +229,12 @@ async function adicionarUsuario(
 
     const usuarios = lerUsuarios();
 
-    // Verificar duplicata
     if (usuarios.some((u) => u.email.toLowerCase() === email.toLowerCase())) {
         throw new Error('Já existe um usuário com este email');
     }
 
-    // Criar hash da senha
     const password = await bcrypt.hash(senha, 10);
 
-    // Adicionar usuário
     usuarios.push({
         email: email.trim(),
         password,
@@ -243,15 +244,11 @@ async function adicionarUsuario(
 
     salvarUsuarios(usuarios);
 
-    log(
-        `Usuario adicionado: ${email} (admin: ${isAdmin}, cod_cliente: ${cod_cliente}, codrec_os: ${codrec_os})`,
-        'INFO'
-    );
+    log(`Usuario adicionado: ${email} (admin: ${isAdmin}, cod_cliente: ${cod_cliente})`, 'INFO');
     console.log('✅ Usuário adicionado com sucesso!');
 }
 
 async function atualizarSenha(email: string, novaSenha: string): Promise<void> {
-    // Validar nova senha
     const senhaValidation = validarSenha(novaSenha);
     if (!senhaValidation.valid) {
         throw new Error(`Senha fraca:\n${senhaValidation.errors.join('\n')}`);
@@ -264,7 +261,6 @@ async function atualizarSenha(email: string, novaSenha: string): Promise<void> {
         throw new Error('Usuário não encontrado');
     }
 
-    // Atualizar senha
     usuarios[index].password = await bcrypt.hash(novaSenha, 10);
 
     salvarUsuarios(usuarios);
@@ -281,7 +277,6 @@ async function deletarUsuario(email: string): Promise<void> {
         throw new Error('Usuário não encontrado');
     }
 
-    // Confirmar exclusão de admin
     if (usuario.isAdmin) {
         console.warn('⚠️  ATENÇÃO: Você está deletando um usuário ADMINISTRADOR!');
     }
@@ -360,8 +355,8 @@ async function main() {
 📖 USO:
 
   ➕ Adicionar usuário:
-     npx ts-node scripts/gerenciador_usuario.ts add <email> <senha> <cod_cliente> <codrec_os> <isAdmin>
-     Exemplo: npx ts-node scripts/gerenciador_usuario.ts add joao@empresa.com Senha@123 142 null false
+     npx ts-node scripts/gerenciador_usuario.ts add <email> <senha> <cod_cliente> <isAdmin>
+     Exemplo: npx ts-node scripts/gerenciador_usuario.ts add joao@empresa.com Senha@123 142 false
 
   🔄 Atualizar senha:
      npx ts-node scripts/gerenciador_usuario.ts update <email> <novaSenha>
@@ -383,7 +378,6 @@ async function main() {
     const lock = new FileLock(CONFIG.filePath);
 
     try {
-        // Comandos que não modificam arquivo (sem lock e backup)
         if (action === 'list') {
             await listarUsuarios();
             return;
@@ -394,7 +388,6 @@ async function main() {
             return;
         }
 
-        // Comandos que modificam (com lock e backup)
         await lock.acquire();
         console.log('🔒 Lock obtido\n');
 
@@ -404,14 +397,13 @@ async function main() {
             const email = args[1];
             const senha = args[2];
             const cod_cliente = args[3] === 'null' ? null : args[3];
-            const codrec_os = args[4] === 'null' ? null : args[4];
-            const isAdmin = args[5] === 'true';
+            const isAdmin = args[4] === 'true';
 
             if (!email || !senha) {
                 throw new Error('Email e senha são obrigatórios');
             }
 
-            await adicionarUsuario(email, senha, cod_cliente, codrec_os, isAdmin);
+            await adicionarUsuario(email, senha, cod_cliente, isAdmin);
         } else if (action === 'update') {
             const email = args[1];
             const novaSenha = args[2];
