@@ -26,8 +26,8 @@
         "next-env.d.ts",
         "server.ts",
         "src/**/*",
-        ".next/types/**/*.ts"
-        // ❌ REMOVI scripts/**/* — se não usar, o tsserver analisa desnecessariamente
+        ".next/types/**/*.ts",
+        "scripts/**/*"
     ],
     "exclude": ["node_modules", ".next", "dist"]
 }

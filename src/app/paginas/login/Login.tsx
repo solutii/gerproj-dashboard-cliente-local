@@ -52,10 +52,8 @@ export function Login() {
                     // Consultores sempre vão para a página de chamados
                     await router.push('/paginas/gerproj/chamados');
                 } else {
-                    // Cliente - lógica existente
-                    if (userData.isAdmin) {
-                        await router.push('/paginas/dashboard');
-                    } else if (userData.codCliente) {
+                    // Cliente
+                    if (userData.codCliente) {
                         await router.push('/paginas/dashboard');
                     } else if (userData.codRecurso) {
                         await router.push('/paginas/tabela-chamados-abertos');

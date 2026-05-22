@@ -3,11 +3,9 @@ import { NextResponse } from 'next/server';
 
 // ==================== TIPOS ====================
 interface QueryParams {
-    isAdmin: boolean;
     codCliente?: string;
-    cliente?: string;
-    mes?: number; // ✅ OPCIONAL
-    ano?: number; // ✅ OPCIONAL
+    mes?: number;
+    ano?: number;
 }
 
 interface Recurso {
@@ -17,18 +15,14 @@ interface Recurso {
 
 // ==================== VALIDAÇÕES ====================
 function validarParametros(searchParams: URLSearchParams): QueryParams | NextResponse {
-    const isAdmin = searchParams.get('isAdmin') === 'true';
     const codCliente = searchParams.get('codCliente')?.trim();
-    const cliente = searchParams.get('cliente')?.trim();
 
-    // ✅ Parâmetros opcionais
     const mesParam = searchParams.get('mes');
     const anoParam = searchParams.get('ano');
 
     let mes: number | undefined;
     let ano: number | undefined;
 
-    // Validar mes se fornecido
     if (mesParam) {
         mes = Number(mesParam);
         if (mes < 1 || mes > 12) {
@@ -39,7 +33,6 @@ function validarParametros(searchParams: URLSearchParams): QueryParams | NextRes
         }
     }
 
-    // Validar ano se fornecido
     if (anoParam) {
         ano = Number(anoParam);
         if (ano < 2000 || ano > 3000) {
@@ -50,14 +43,14 @@ function validarParametros(searchParams: URLSearchParams): QueryParams | NextRes
         }
     }
 
-    if (!isAdmin && !codCliente) {
+    if (!codCliente) {
         return NextResponse.json(
-            { error: "Parâmetro 'codCliente' é obrigatório para usuários não admin" },
+            { error: "Parâmetro 'codCliente' é obrigatório" },
             { status: 400 }
         );
     }
 
-    return { isAdmin, codCliente, cliente, mes, ano };
+    return { codCliente, mes, ano };
 }
 
 // ==================== CONSTRUÇÃO DE DATAS ====================
@@ -106,16 +99,9 @@ function construirSQL(
         sqlParams.push(dataInicio, dataFim);
     }
 
-    // Filtro obrigatório para não-admin
-    if (!params.isAdmin && params.codCliente) {
+    if (params.codCliente) {
         sql += ` AND CLIENTE.COD_CLIENTE = ?`;
         sqlParams.push(parseInt(params.codCliente));
-    }
-
-    // Filtro opcional por código de cliente (para admin)
-    if (params.isAdmin && params.cliente) {
-        sql += ` AND CLIENTE.COD_CLIENTE = ?`;
-        sqlParams.push(parseInt(params.cliente));
     }
 
     // Ordenação alfabética

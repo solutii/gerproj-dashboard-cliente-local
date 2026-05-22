@@ -9,7 +9,6 @@ import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-h
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { removerAcentos } from '@/formatters/remover-acentuacao';
-import { useAuthStore } from '@/store/useAuthStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 // =====================================================
 import { memo, useCallback, useEffect, useState } from 'react';
@@ -242,7 +241,6 @@ const saveValidationApi = async ({
 
 // ==================== COMPONENTE PRINCIPAL ====================
 export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalValidacaoOSProps) {
-    const { isAdmin } = useAuthStore();
     const queryClient = useQueryClient();
 
     // Estados locais
@@ -424,7 +422,7 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                             value={formatarNumeros(selectedRow.NUM_OS ?? '---------------')}
                         />
 
-                        {isAdmin && selectedRow.NOME_CLIENTE && (
+                        {selectedRow.NOME_CLIENTE && (
                             <InfoCard
                                 icon={FaUser}
                                 label="Cliente"

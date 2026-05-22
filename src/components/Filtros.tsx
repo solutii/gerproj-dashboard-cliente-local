@@ -39,20 +39,17 @@ function processarNome(nome: string, maxPalavras: number = 2): string {
 const fetchClientes = async ({
     mes,
     ano,
-    isAdmin,
     codCliente,
 }: {
     mes: number;
     ano: number;
-    isAdmin: boolean;
     codCliente: string | null;
 }): Promise<Cliente[]> => {
     const params = new URLSearchParams();
     params.append('mes', mes.toString());
     params.append('ano', ano.toString());
-    params.append('isAdmin', isAdmin.toString());
 
-    if (!isAdmin && codCliente) {
+    if (codCliente) {
         params.append('codCliente', codCliente);
     }
 
@@ -68,27 +65,18 @@ const fetchClientes = async ({
 const fetchRecursos = async ({
     mes,
     ano,
-    isAdmin,
     codCliente,
-    clienteSelecionado,
 }: {
     mes: number;
     ano: number;
-    isAdmin: boolean;
     codCliente: string | null;
-    clienteSelecionado: string;
 }): Promise<Recurso[]> => {
     const params = new URLSearchParams();
     params.append('mes', mes.toString());
     params.append('ano', ano.toString());
-    params.append('isAdmin', isAdmin.toString());
 
-    if (!isAdmin && codCliente) {
+    if (codCliente) {
         params.append('codCliente', codCliente);
-    }
-
-    if (isAdmin && clienteSelecionado) {
-        params.append('cliente', clienteSelecionado);
     }
 
     const response = await fetch(`/api/filtros/recursos?${params.toString()}`);
@@ -103,29 +91,20 @@ const fetchRecursos = async ({
 const fetchStatus = async ({
     mes,
     ano,
-    isAdmin,
     codCliente,
-    clienteSelecionado,
     recursoSelecionado,
 }: {
     mes: number;
     ano: number;
-    isAdmin: boolean;
     codCliente: string | null;
-    clienteSelecionado: string;
     recursoSelecionado: string;
 }): Promise<string[]> => {
     const params = new URLSearchParams();
     params.append('mes', mes.toString());
     params.append('ano', ano.toString());
-    params.append('isAdmin', isAdmin.toString());
 
-    if (!isAdmin && codCliente) {
+    if (codCliente) {
         params.append('codCliente', codCliente);
-    }
-
-    if (isAdmin && clienteSelecionado) {
-        params.append('cliente', clienteSelecionado);
     }
 
     if (recursoSelecionado) {
@@ -152,7 +131,7 @@ export function Filtros() {
     const filters = useFiltersStore((state) => state.filters);
     const setFilters = useFiltersStore((state) => state.setFilters);
 
-    const { isAdmin, codCliente } = useAuthStore();
+    const { codCliente } = useAuthStore();
 
     const [ano, setAno] = useState(filters.ano);
     const [mes, setMes] = useState(filters.mes);
@@ -176,48 +155,31 @@ export function Filtros() {
     const [debouncedStatusSelecionado] = useDebounce(statusSelecionado, 300);
 
     const { data: clientesData = [], isLoading: clientesLoading } = useQuery({
-        queryKey: ['clientes', mes, ano, isAdmin, codCliente],
-        queryFn: () => fetchClientes({ mes, ano, isAdmin, codCliente }),
-        enabled: !!(mes && ano && isInitialized),
+        queryKey: ['clientes', mes, ano, codCliente],
+        queryFn: () => fetchClientes({ mes, ano, codCliente }),
+        enabled: !!(mes && ano && codCliente && isInitialized),
         staleTime: 1000 * 60 * 5,
         retry: 2,
     });
 
     const { data: recursosData = [], isLoading: recursosLoading } = useQuery({
-        queryKey: ['recursos', mes, ano, isAdmin, codCliente, debouncedClienteSelecionado],
-        queryFn: () =>
-            fetchRecursos({
-                mes,
-                ano,
-                isAdmin,
-                codCliente,
-                clienteSelecionado: debouncedClienteSelecionado,
-            }),
-        enabled: !!(mes && ano && (isAdmin || codCliente) && isInitialized),
+        queryKey: ['recursos', mes, ano, codCliente],
+        queryFn: () => fetchRecursos({ mes, ano, codCliente }),
+        enabled: !!(mes && ano && codCliente && isInitialized),
         staleTime: 1000 * 60 * 5,
         retry: 2,
     });
 
     const { data: statusData = [], isLoading: statusLoading } = useQuery({
-        queryKey: [
-            'status',
-            mes,
-            ano,
-            isAdmin,
-            codCliente,
-            debouncedClienteSelecionado,
-            debouncedRecursoSelecionado,
-        ],
+        queryKey: ['status', mes, ano, codCliente, debouncedRecursoSelecionado],
         queryFn: () =>
             fetchStatus({
                 mes,
                 ano,
-                isAdmin,
                 codCliente,
-                clienteSelecionado: debouncedClienteSelecionado,
                 recursoSelecionado: debouncedRecursoSelecionado,
             }),
-        enabled: !!(mes && ano && isInitialized && (isAdmin || codCliente)),
+        enabled: !!(mes && ano && codCliente && isInitialized),
         staleTime: 1000 * 60 * 5,
         retry: 2,
     });
@@ -256,10 +218,10 @@ export function Filtros() {
 
     useEffect(() => {
         if (!isInitialized) return;
-        if (!isAdmin && codCliente && clientesData.length > 0) {
+        if (codCliente && clientesData.length > 0) {
             setClienteSelecionado(codCliente);
         }
-    }, [isAdmin, codCliente, clientesData, isInitialized]);
+    }, [codCliente, clientesData, isInitialized]);
 
     useEffect(() => {
         if (!isInitialized) return;

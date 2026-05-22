@@ -8,7 +8,6 @@ import { IoClose } from 'react-icons/io5';
 import { PiTimerFill } from 'react-icons/pi';
 import { SaldoRowProps } from '../../components/saldo-horas/Colunas_Tabela_Saldo';
 import { TabelaSaldoHoras } from '../../components/saldo-horas/Tabela_Saldo_Horas';
-import { useFiltersStore } from '../../store/useFiltersStore';
 import { IsError } from '../IsError';
 import { IsLoading } from '../IsLoading';
 
@@ -37,11 +36,10 @@ interface ModalSaldoHorasProps {
 }
 
 export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
-    const { isAdmin, codCliente } = useAuthStore();
+    const { codCliente } = useAuthStore();
 
     const mesAtual = new Date().getMonth() + 1;
     const anoAtual = new Date().getFullYear();
-    const cliente = useFiltersStore((state) => state.filters.cliente);
 
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
@@ -65,7 +63,7 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
     }, [isOpen]);
 
     const fetchData = async (): Promise<ApiResponse> => {
-        const clienteParam = !isAdmin && codCliente ? codCliente : cliente;
+        const clienteParam = codCliente;
 
         if (!clienteParam) {
             throw new Error('Cliente não selecionado');
@@ -73,9 +71,8 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
 
         const params = new URLSearchParams({
             codCliente: clienteParam,
-            mes: mesAtual.toString(), // ✅ sempre o mês atual real
-            ano: anoAtual.toString(), // ✅ sempre o ano atual real
-            isAdmin: isAdmin.toString(),
+            mes: mesAtual.toString(),
+            ano: anoAtual.toString(),
             mesesHistorico: '6',
         });
 
@@ -85,9 +82,9 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
     };
 
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['saldoHoras', mesAtual, anoAtual, cliente, isAdmin, codCliente],
+        queryKey: ['saldoHoras', mesAtual, anoAtual, codCliente],
         queryFn: fetchData,
-        enabled: isOpen && ((isAdmin && !!cliente) || (!isAdmin && !!codCliente)),
+        enabled: isOpen && !!codCliente,
     });
 
     if (isLoading) {
@@ -121,12 +118,6 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
                         <PiTimerFill className="flex-shrink-0 text-white" size={60} />
                         <div className="flex flex-col gap-1 tracking-widest text-white select-none">
                             <h1 className="text-3xl font-extrabold">SALDO DE HORAS</h1>
-                            {isAdmin && data && (
-                                <p className="text-lg font-semibold">
-                                    {data.nomeCliente} • {data.mesAtual.toString().padStart(2, '0')}
-                                    /{data.anoAtual}
-                                </p>
-                            )}
                         </div>
                     </div>
 

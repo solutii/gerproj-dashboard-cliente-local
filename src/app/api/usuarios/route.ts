@@ -7,7 +7,6 @@ import path from 'path';
 interface Usuario {
     email: string;
     password: string;
-    isAdmin?: boolean;
     cod_cliente?: string | null;
     codrec_os?: string | null;
     nome?: string | null;
@@ -15,7 +14,6 @@ interface Usuario {
 
 interface UsuarioSeguro {
     email: string;
-    isAdmin: boolean;
     cod_cliente: string | null;
     codrec_os: string | null;
     nome: string | null;
@@ -104,7 +102,6 @@ async function carregarESanitizarUsuarios(): Promise<UsuarioSeguro[]> {
             // Sanitiza removendo senha
             usuariosSeguro.push({
                 email: u.email,
-                isAdmin: u.isAdmin ?? false,
                 cod_cliente: u.cod_cliente ?? null,
                 codrec_os: u.codrec_os ?? null,
                 nome: u.nome ?? null,

@@ -22,7 +22,7 @@ export function useIsCliente() {
  * Hook para obter os dados do consultor (null se não for consultor)
  */
 export function useConsultorData() {
-    const { loginType, codUsuario, nomeUsuario, idUsuario, tipoUsuario, permissoes, isAdmin } =
+    const { loginType, codUsuario, nomeUsuario, idUsuario, tipoUsuario, permissoes } =
         useAuthStore();
 
     if (loginType !== 'consultor') {
@@ -35,7 +35,6 @@ export function useConsultorData() {
         idUsuario: idUsuario!,
         tipoUsuario: tipoUsuario!,
         permissoes: permissoes!,
-        isAdmin,
     };
 }
 
@@ -43,7 +42,7 @@ export function useConsultorData() {
  * Hook para obter os dados do cliente (null se não for cliente)
  */
 export function useClienteData() {
-    const { loginType, codCliente, codRecurso, nomeRecurso, isAdmin } = useAuthStore();
+    const { loginType, codCliente, codRecurso, nomeRecurso } = useAuthStore();
 
     if (loginType !== 'cliente') {
         return null;
@@ -53,7 +52,6 @@ export function useClienteData() {
         codCliente,
         codRecurso,
         nomeRecurso,
-        isAdmin,
     };
 }
 

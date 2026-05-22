@@ -4,7 +4,6 @@ import { firebirdQuery } from '../../../../lib/firebird/firebird-client';
 
 // ==================== TIPOS ====================
 interface QueryParams {
-    isAdmin: boolean;
     codCliente?: string;
     mes: number;
     ano: number;
@@ -28,7 +27,6 @@ interface OSData {
 
 // ==================== VALIDAÇÕES ====================
 function validarParametros(searchParams: URLSearchParams): QueryParams | NextResponse {
-    const isAdmin = searchParams.get('isAdmin') === 'true';
     const codCliente = searchParams.get('codCliente')?.trim() || undefined;
     const mes = Number(searchParams.get('mes'));
     const ano = Number(searchParams.get('ano'));
@@ -47,15 +45,14 @@ function validarParametros(searchParams: URLSearchParams): QueryParams | NextRes
         );
     }
 
-    if (!isAdmin && !codCliente) {
+    if (!codCliente) {
         return NextResponse.json(
-            { error: "Parâmetro 'codCliente' é obrigatório para usuários não admin" },
+            { error: "Parâmetro 'codCliente' é obrigatório" },
             { status: 400 }
         );
     }
 
     return {
-        isAdmin,
         codCliente,
         mes,
         ano,
@@ -111,7 +108,7 @@ function aplicarFiltros(
 ): { sql: string; params: any[] } {
     let sql = sqlBase;
 
-    if (!params.isAdmin && params.codCliente) {
+    if (params.codCliente) {
         sql += ` AND CLIENTE.COD_CLIENTE = ?`;
         paramsArray.push(parseInt(params.codCliente));
     }
@@ -167,10 +164,9 @@ function extrairDia(dtini: string | Date): number {
 }
 
 // ==================== PROCESSAMENTO UNIFICADO ====================
-function processarDadosUnificados(dados: OSData[], mes: number, ano: number, isAdmin: boolean) {
+function processarDadosUnificados(dados: OSData[], mes: number, ano: number) {
     const diasNoMes = new Date(ano, mes, 0).getDate();
 
-    // Inicializar estruturas
     const horasPorDia = new Map<number, number>();
     for (let dia = 1; dia <= diasNoMes; dia++) {
         horasPorDia.set(dia, 0);
@@ -182,35 +178,23 @@ function processarDadosUnificados(dados: OSData[], mes: number, ano: number, isA
         string,
         { codRecurso: number; horas: number; quantidadeOS: number }
     >();
-    const horasPorCliente = new Map<
-        string,
-        {
-            codCliente: number;
-            horas: number;
-            quantidadeOS: number;
-            chamados: Set<string>;
-        }
-    >();
 
     let totalOS = 0;
     let totalHoras = 0;
     const chamadosUnicos = new Set<string>();
     const recursosUnicos = new Set<number>();
 
-    // Processar tudo em uma única passada
     dados.forEach((os) => {
         const horas = calcularHorasTrabalhadas(os.HRINI_OS, os.HRFIM_OS);
         totalOS++;
         totalHoras += horas;
 
-        // 1. Horas por dia
         const diaNum = extrairDia(os.DTINI_OS);
         if (diaNum > 0 && diaNum <= diasNoMes) {
             const horasAtuais = horasPorDia.get(diaNum) || 0;
             horasPorDia.set(diaNum, horasAtuais + horas);
         }
 
-        // 2. Top chamados
         if (os.CHAMADO_OS) {
             chamadosUnicos.add(os.CHAMADO_OS);
             const atual = horasPorChamado.get(os.CHAMADO_OS) || {
@@ -224,14 +208,11 @@ function processarDadosUnificados(dados: OSData[], mes: number, ano: number, isA
             });
         }
 
-        // 3. Horas por status
         const status = os.STATUS_CHAMADO || 'Tarefa';
         const horasStatus = horasPorStatus.get(status) || 0;
         horasPorStatus.set(status, horasStatus + horas);
 
-        // 4. Horas por recurso
         if (os.COD_RECURSO !== null && os.COD_RECURSO !== undefined) {
-            // ✅ 0 passa agora
             const recurso = os.NOME_RECURSO || 'Sem Recurso';
 
             if (os.COD_RECURSO !== 0) recursosUnicos.add(os.COD_RECURSO);
@@ -245,28 +226,6 @@ function processarDadosUnificados(dados: OSData[], mes: number, ano: number, isA
                 codRecurso: atualRecurso.codRecurso,
                 horas: atualRecurso.horas + horas,
                 quantidadeOS: atualRecurso.quantidadeOS + 1,
-            });
-        }
-
-        // 5. Horas por cliente (apenas admin)
-        if (isAdmin && os.COD_CLIENTE) {
-            const cliente = os.NOME_CLIENTE || 'Sem cliente';
-            const atualCliente = horasPorCliente.get(cliente) || {
-                codCliente: os.COD_CLIENTE,
-                horas: 0,
-                quantidadeOS: 0,
-                chamados: new Set<string>(),
-            };
-
-            if (os.CHAMADO_OS) {
-                atualCliente.chamados.add(os.CHAMADO_OS);
-            }
-
-            horasPorCliente.set(cliente, {
-                codCliente: atualCliente.codCliente,
-                horas: atualCliente.horas + horas,
-                quantidadeOS: atualCliente.quantidadeOS + 1,
-                chamados: atualCliente.chamados,
             });
         }
     });
@@ -319,18 +278,6 @@ function processarDadosUnificados(dados: OSData[], mes: number, ano: number, isA
                 mediaHorasPorOS: parseFloat((dados.horas / dados.quantidadeOS).toFixed(2)),
             }))
             .sort((a, b) => b.horas - a.horas),
-        horasPorCliente: isAdmin
-            ? Array.from(horasPorCliente.entries())
-                  .map(([cliente, dados]) => ({
-                      cliente,
-                      codCliente: dados.codCliente,
-                      horas: parseFloat(dados.horas.toFixed(2)),
-                      quantidadeOS: dados.quantidadeOS,
-                      quantidadeChamados: dados.chamados.size,
-                      mediaHorasPorOS: parseFloat((dados.horas / dados.quantidadeOS).toFixed(2)),
-                  }))
-                  .sort((a, b) => b.horas - a.horas)
-            : undefined,
     };
 }
 
@@ -423,12 +370,7 @@ export async function GET(request: Request) {
         ]);
 
         // Processar todos os gráficos de uma vez
-        const resultados = processarDadosUnificados(
-            dadosMes,
-            params.mes,
-            params.ano,
-            params.isAdmin
-        );
+        const resultados = processarDadosUnificados(dadosMes, params.mes, params.ano);
 
         return NextResponse.json({
             totalizadores: resultados.totalizadores,
@@ -437,7 +379,6 @@ export async function GET(request: Request) {
                 topChamados: resultados.topChamados,
                 horasPorStatus: resultados.horasPorStatus,
                 horasPorRecurso: resultados.horasPorRecurso,
-                horasPorCliente: resultados.horasPorCliente,
                 horasPorMes,
             },
         });

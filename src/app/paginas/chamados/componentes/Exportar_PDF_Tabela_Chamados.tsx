@@ -28,7 +28,6 @@ interface FiltrosRelatorio {
 interface ExportarPDFTabelaChamadosButtonProps {
     data: ChamadoRowProps[];
     filtros?: FiltrosRelatorio;
-    isAdmin: boolean;
     codCliente?: string | null;
     className?: string;
     disabled?: boolean;
@@ -274,13 +273,12 @@ function calcularSLA(
  */
 async function fetchOSByChamado(
     codChamado: number,
-    isAdmin: boolean,
     codCliente?: string | null
 ): Promise<OSRowProps[]> {
     try {
-        const params = new URLSearchParams({ isAdmin: String(isAdmin) });
+        const params = new URLSearchParams();
 
-        if (!isAdmin && codCliente) {
+        if (codCliente) {
             params.append('codCliente', codCliente);
         }
 
@@ -307,7 +305,6 @@ async function fetchOSByChamado(
  */
 async function fetchAllOS(
     chamados: ChamadoRowProps[],
-    isAdmin: boolean,
     codCliente?: string | null,
     onProgress?: (current: number, total: number) => void
 ): Promise<Map<number, OSRowProps[]>> {
@@ -327,7 +324,7 @@ async function fetchAllOS(
 
     for (const batch of batches) {
         const promises = batch.map((chamado) =>
-            fetchOSByChamado(chamado.COD_CHAMADO, isAdmin, codCliente).then((osList) => ({
+            fetchOSByChamado(chamado.COD_CHAMADO, codCliente).then((osList) => ({
                 codChamado: chamado.COD_CHAMADO,
                 osList,
             }))
@@ -769,7 +766,6 @@ function gerarPaginaOS(
 export function ExportarPDFTabelaChamados({
     data,
     filtros,
-    isAdmin,
     codCliente,
     className = '',
     disabled = false,
@@ -787,7 +783,7 @@ export function ExportarPDFTabelaChamados({
             console.log('🔍 Iniciando busca de OS para PDF...');
             const startTime = performance.now();
 
-            const osData = await fetchAllOS(data, isAdmin, codCliente, (current, total) => {
+            const osData = await fetchAllOS(data, codCliente, (current, total) => {
                 setProgress({ current, total });
             });
 

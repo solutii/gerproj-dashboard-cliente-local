@@ -71,7 +71,6 @@ interface ModalOSProps {
 
 interface FetchOSParams {
     codChamado: number;
-    isAdmin: boolean;
     codCliente: string | null;
     mes: number;
     ano: number;
@@ -83,7 +82,6 @@ interface FetchOSParams {
 const createAuthHeaders = () => ({
     'Content-Type': 'application/json',
     'x-is-logged-in': localStorage.getItem('isLoggedIn') || 'false',
-    'x-is-admin': localStorage.getItem('isAdmin') || 'false',
     'x-user-email': localStorage.getItem('userEmail') || '',
     'x-cod-cliente': localStorage.getItem('codCliente') || '',
 });
@@ -130,24 +128,21 @@ const extrairMesAnoDeData = (
 
 const fetchOSByChamado = async ({
     codChamado,
-    isAdmin,
     codCliente,
     mes,
     ano,
 }: FetchOSParams): Promise<ApiResponseOS> => {
     const params = new URLSearchParams({
-        isAdmin: String(isAdmin),
         mes: String(mes),
         ano: String(ano),
     });
 
-    if (!isAdmin && codCliente) {
+    if (codCliente) {
         params.append('codCliente', codCliente);
     }
 
     console.log('🔍 Fetchando OS:', {
         codChamado,
-        isAdmin,
         codCliente,
         mes,
         ano,
@@ -173,7 +168,7 @@ const fetchOSByChamado = async ({
 // COMPONENTE PRINCIPAL
 // =====================================================
 export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado }: ModalOSProps) {
-    const { isAdmin, codCliente } = useAuthStore();
+    const { codCliente } = useAuthStore();
     const mesFiltro = useFiltersStore((state) => state.filters.mes);
     const anoFiltro = useFiltersStore((state) => state.filters.ano);
 
@@ -207,23 +202,21 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
                 isOpen,
                 codChamado,
                 dataChamado,
-                isAdmin,
                 codCliente,
                 mes: mesExtraido,
                 ano: anoExtraido,
             });
         }
-    }, [isOpen, codChamado, dataChamado, isAdmin, codCliente, mesExtraido, anoExtraido]);
+    }, [isOpen, codChamado, dataChamado, codCliente, mesExtraido, anoExtraido]);
 
     // =====================================================
     // REACT QUERY
     // =====================================================
     const { data, isLoading, error } = useQuery({
-        queryKey: ['modal-os-lista', codChamado, isAdmin, codCliente, mesExtraido, anoExtraido],
+        queryKey: ['modal-os-lista', codChamado, codCliente, mesExtraido, anoExtraido],
         queryFn: () =>
             fetchOSByChamado({
                 codChamado: codChamado!,
-                isAdmin,
                 codCliente,
                 mes: mesExtraido,
                 ano: anoExtraido,

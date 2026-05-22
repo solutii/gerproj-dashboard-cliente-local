@@ -234,7 +234,6 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const isAdmin = searchParams.get('isAdmin') === 'true';
         const codCliente = searchParams.get('codCliente')?.trim();
         const mesAtual = Number(searchParams.get('mes'));
         const anoAtual = Number(searchParams.get('ano'));

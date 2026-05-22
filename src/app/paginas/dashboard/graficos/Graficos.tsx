@@ -209,16 +209,14 @@ const SkeletonLoadingCard = ({ variant = 'primary' }: { variant?: string }) => {
 // ==================== Funções de Fetch ====================
 const fetchOrdensServico = async (
     filters: FilterProps['filters'],
-    isAdmin: boolean,
     codCliente: string | null
 ) => {
     const params = new URLSearchParams({
-        isAdmin: isAdmin.toString(),
         mes: filters.mes.toString(),
         ano: filters.ano.toString(),
     });
 
-    if (!isAdmin && codCliente) {
+    if (codCliente) {
         params.append('codCliente', codCliente);
     }
     if (filters.cliente) {
@@ -244,15 +242,13 @@ const fetchOrdensServico = async (
 const fetchSaldoHistorico = async (
     codCliente: string,
     mes: number,
-    ano: number,
-    isAdmin: boolean
+    ano: number
 ) => {
     const params = new URLSearchParams({
         codCliente: codCliente,
         mes: mes.toString(),
         ano: ano.toString(),
         mesesHistorico: '6',
-        isAdmin: isAdmin.toString(),
     });
 
     const response = await fetch(`/api/saldo-horas?${params.toString()}`);
@@ -268,7 +264,7 @@ const fetchSaldoHistorico = async (
 // COMPONENTE PRINCIPAL
 // ================================================================================
 export function Graficos({ filters }: FilterProps) {
-    const { isAdmin, codCliente } = useAuthStore();
+    const { codCliente } = useAuthStore();
 
     const {
         data: dados,
@@ -277,19 +273,19 @@ export function Graficos({ filters }: FilterProps) {
         error,
         refetch,
     } = useQuery({
-        queryKey: ['graficos', filters, isAdmin, codCliente],
-        queryFn: () => fetchOrdensServico(filters, isAdmin, codCliente),
+        queryKey: ['graficos', filters, codCliente],
+        queryFn: () => fetchOrdensServico(filters, codCliente),
         staleTime: 1000 * 60 * 5,
         retry: 1,
     });
 
     // Query para buscar dados do saldo histórico
     const { data: dadosSaldo } = useQuery({
-        queryKey: ['saldo-horas', filters.cliente, filters.mes, filters.ano, isAdmin],
+        queryKey: ['saldo-horas', filters.cliente, filters.mes, filters.ano],
         queryFn: () => {
             const clienteId = filters.cliente || codCliente;
             if (!clienteId) return Promise.resolve(null);
-            return fetchSaldoHistorico(clienteId, filters.mes, filters.ano, isAdmin);
+            return fetchSaldoHistorico(clienteId, filters.mes, filters.ano);
         },
         enabled: !!(filters.cliente || codCliente),
         staleTime: 1000 * 60 * 5,
@@ -328,7 +324,7 @@ export function Graficos({ filters }: FilterProps) {
         );
     }
 
-    const { horasPorDia, horasPorRecurso, horasPorCliente, horasPorMes } = dados.graficos;
+    const { horasPorDia, horasPorRecurso, horasPorMes } = dados.graficos;
     const { totalizadores } = dados;
 
     // ================================================================================
@@ -693,84 +689,6 @@ export function Graficos({ filters }: FilterProps) {
                             </p>
                         </div>
                     </div>
-                </ChartCard>
-            )}
-
-            {/* Gráfico: Horas por Cliente */}
-            {isAdmin && !filters.cliente && horasPorCliente && horasPorCliente.length > 0 && (
-                <ChartCard
-                    title={`Horas por Cliente - ${filters.mes}/${filters.ano}`}
-                    variant="tertiary"
-                >
-                    <ResponsiveContainer
-                        width="100%"
-                        height={300}
-                        className="sm:h-[320px] lg:h-[350px]"
-                    >
-                        <BarChart
-                            data={horasPorCliente.slice(0, 10)}
-                            margin={{ top: 20, right: 10, left: 10, bottom: 20 }}
-                        >
-                            <XAxis
-                                dataKey="cliente"
-                                stroke="#000000"
-                                tickLine={false}
-                                axisLine={{ stroke: '#000000', strokeWidth: 1 }}
-                                tick={{
-                                    fill: '#000000',
-                                    fontSize: 12,
-                                    fontWeight: 800,
-                                    letterSpacing: '0.2em',
-                                }}
-                                tickFormatter={renderizarPrimeiroNome}
-                                angle={-35}
-                                textAnchor="end"
-                                interval={0}
-                                height={100}
-                            />
-                            <YAxis
-                                stroke="#000000"
-                                tickLine={false}
-                                axisLine={{ stroke: '#000000', strokeWidth: 1 }}
-                                tick={{
-                                    fill: '#000000',
-                                    fontSize: 12,
-                                    fontWeight: 800,
-                                    letterSpacing: '0.2em',
-                                }}
-                            />
-                            <Tooltip
-                                content={
-                                    <CustomTooltip
-                                        valueFormatter={(value) =>
-                                            `${formatarHorasTotaisSufixo(value)}`
-                                        }
-                                    />
-                                }
-                            />
-                            <Legend
-                                wrapperStyle={{
-                                    fontSize: '14px',
-                                    letterSpacing: '0.2em',
-                                    fontWeight: 800,
-                                }}
-                            />
-                            <Bar
-                                dataKey="horas"
-                                fill={COLORS.info}
-                                radius={[8, 8, 0, 0]}
-                                name="Horas"
-                                label={{
-                                    position: 'top',
-                                    fill: '#000000',
-                                    fontSize: 12,
-                                    fontWeight: 800,
-                                    letterSpacing: '0.2em',
-                                    formatter: (value: number) => formatarHorasArredondadas(value),
-                                }}
-                            />
-                        </BarChart>
-                    </ResponsiveContainer>
                 </ChartCard>
             )}
 

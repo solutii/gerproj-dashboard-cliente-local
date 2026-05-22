@@ -31,7 +31,6 @@ interface FiltrosRelatorio {
 interface ExportarExcelTabelaChamadosButtonProps {
     data: ChamadoRowProps[];
     filtros?: FiltrosRelatorio;
-    isAdmin: boolean;
     codCliente?: string | null;
     className?: string;
     disabled?: boolean;
@@ -283,14 +282,13 @@ function calcularSLA(
  */
 async function fetchOSByChamado(
     codChamado: number,
-    isAdmin: boolean,
     codCliente?: string | null,
     dataChamado?: string
 ): Promise<OSRowProps[]> {
     try {
-        const params = new URLSearchParams({ isAdmin: String(isAdmin) });
+        const params = new URLSearchParams();
 
-        if (!isAdmin && codCliente) {
+        if (codCliente) {
             params.append('codCliente', codCliente);
         }
 
@@ -317,7 +315,6 @@ async function fetchOSByChamado(
  */
 async function fetchAllOS(
     chamados: ChamadoRowProps[],
-    isAdmin: boolean,
     codCliente?: string | null,
     onProgress?: (current: number, total: number) => void
 ): Promise<Map<number, OSRowProps[]>> {
@@ -339,7 +336,6 @@ async function fetchAllOS(
         const promises = batch.map((chamado) =>
             fetchOSByChamado(
                 chamado.COD_CHAMADO,
-                isAdmin,
                 codCliente,
                 chamado.DATA_CHAMADO?.toString()
             ).then((osList) => ({
@@ -886,7 +882,6 @@ function gerarAbaOS(
 export function ExportarExcelTabelaChamados({
     data,
     filtros,
-    isAdmin,
     codCliente,
     className = '',
     disabled = false,
@@ -904,7 +899,7 @@ export function ExportarExcelTabelaChamados({
             console.log('🔍 Iniciando busca de OS para Excel...');
             const startTime = performance.now();
 
-            const osData = await fetchAllOS(data, isAdmin, codCliente, (current, total) => {
+            const osData = await fetchAllOS(data, codCliente, (current, total) => {
                 setProgress({ current, total });
             });
 

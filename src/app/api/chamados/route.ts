@@ -41,7 +41,6 @@ export interface Chamado {
 }
 
 interface QueryParams {
-    isAdmin: boolean;
     codCliente?: string;
     mes?: number;
     ano?: number;
@@ -206,61 +205,49 @@ const CAMPOS_AVALIACAO_GROUPBY = `,
 
 // ==================== VALIDAÇÕES ====================
 const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
-    const isAdmin = sp.get('isAdmin') === 'true';
     const codCliente = sp.get('codCliente')?.trim() || undefined;
     const statusFilter = sp.get('statusFilter')?.trim() || undefined;
 
     let mes: number | undefined;
     let ano: number | undefined;
 
-    if (isAdmin) {
-        mes = Number(sp.get('mes'));
-        ano = Number(sp.get('ano'));
+    const mesParam = sp.get('mes');
+    const anoParam = sp.get('ano');
+
+    const statusUpper = statusFilter?.toUpperCase();
+    if (statusUpper === 'FINALIZADO' || statusUpper === 'TODOS') {
+        mes = Number(mesParam);
+        ano = Number(anoParam);
 
         if (!mes || mes < 1 || mes > 12)
-            return NextResponse.json({ error: "Parâmetro 'mes' inválido" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Parâmetro 'mes' é obrigatório quando status = FINALIZADO" },
+                { status: 400 }
+            );
 
         if (!ano || ano < 2000 || ano > 3000)
-            return NextResponse.json({ error: "Parâmetro 'ano' inválido" }, { status: 400 });
+            return NextResponse.json(
+                { error: "Parâmetro 'ano' é obrigatório quando status = FINALIZADO" },
+                { status: 400 }
+            );
     } else {
-        const mesParam = sp.get('mes');
-        const anoParam = sp.get('ano');
+        ano = anoParam ? Number(anoParam) : undefined;
+        mes = mesParam ? Number(mesParam) : undefined;
 
-        const statusUpper = statusFilter?.toUpperCase();
-        if (statusUpper === 'FINALIZADO' || statusUpper === 'TODOS') {
-            mes = Number(mesParam);
-            ano = Number(anoParam);
+        if (ano && (ano < 2000 || ano > 3000))
+            return NextResponse.json({ error: "Parâmetro 'ano' inválido" }, { status: 400 });
 
-            if (!mes || mes < 1 || mes > 12)
-                return NextResponse.json(
-                    { error: "Parâmetro 'mes' é obrigatório quando status = FINALIZADO" },
-                    { status: 400 }
-                );
+        if (mes && (mes < 1 || mes > 12))
+            return NextResponse.json({ error: "Parâmetro 'mes' inválido" }, { status: 400 });
 
-            if (!ano || ano < 2000 || ano > 3000)
-                return NextResponse.json(
-                    { error: "Parâmetro 'ano' é obrigatório quando status = FINALIZADO" },
-                    { status: 400 }
-                );
-        } else {
-            ano = anoParam ? Number(anoParam) : undefined;
-            mes = mesParam ? Number(mesParam) : undefined;
-
-            if (ano && (ano < 2000 || ano > 3000))
-                return NextResponse.json({ error: "Parâmetro 'ano' inválido" }, { status: 400 });
-
-            if (mes && (mes < 1 || mes > 12))
-                return NextResponse.json({ error: "Parâmetro 'mes' inválido" }, { status: 400 });
-
-            if (mes && !ano)
-                return NextResponse.json(
-                    { error: "Se informar 'mes', deve informar 'ano' também" },
-                    { status: 400 }
-                );
-        }
+        if (mes && !ano)
+            return NextResponse.json(
+                { error: "Se informar 'mes', deve informar 'ano' também" },
+                { status: 400 }
+            );
     }
 
-    if (!isAdmin && !codCliente)
+    if (!codCliente)
         return NextResponse.json({ error: "Parâmetro 'codCliente' obrigatório" }, { status: 400 });
 
     const page = Number(sp.get('page')) || 1;
@@ -283,7 +270,6 @@ const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
     }
 
     return {
-        isAdmin,
         codCliente,
         mes,
         ano,
@@ -317,15 +303,6 @@ const construirDatas = (
 };
 
 // ==================== CONSTRUÇÃO DO WHERE ====================
-// ✅ CORREÇÃO 4: bug de params duplicados no bloco isAdmin/isTodos
-//
-// Antes: o `whereParams.push(dataInicio, dataFim)` final ficava FORA
-// do else, executando sempre — no caso isTodos, isso empurrava 6
-// parâmetros para 4 placeholders, corrompendo a query silenciosamente.
-//
-// Agora: cada branch empurra seus próprios params de forma isolada,
-// sem push extra após o if/else.
-
 const construirWherePrincipal = (
     params: QueryParams,
     dataInicio: string | null,
@@ -338,52 +315,29 @@ const construirWherePrincipal = (
     const statusUpper = params.statusFilter?.toUpperCase();
     const isTodos = statusUpper === 'TODOS';
 
-    if (params.isAdmin) {
+    whereClauses.push(`CHAMADO.COD_CLIENTE = ?`);
+    whereParams.push(parseInt(params.codCliente!));
+
+    if (dataInicio && dataFim) {
         if (isTodos) {
             if (modo === 'finalizados') {
                 whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) = 'FINALIZADO'`);
-                if (dataInicio && dataFim) {
-                    whereClauses.push(
-                        `(HISTCHAMADO.DATA_HISTCHAMADO >= ? AND HISTCHAMADO.DATA_HISTCHAMADO < ?)`
-                    );
-                    whereParams.push(dataInicio, dataFim);
-                }
+                whereClauses.push(
+                    `(HISTCHAMADO.DATA_HISTCHAMADO >= ? AND HISTCHAMADO.DATA_HISTCHAMADO < ?)`
+                );
             } else {
                 whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
-                if (dataInicio && dataFim) {
-                    whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
-                    whereParams.push(dataInicio, dataFim);
-                }
+                whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
             }
+            whereParams.push(dataInicio, dataFim);
         } else {
             whereClauses.push(`(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)`);
             whereParams.push(dataInicio, dataFim);
         }
-    } else {
-        whereClauses.push(`CHAMADO.COD_CLIENTE = ?`);
-        whereParams.push(parseInt(params.codCliente!));
+    }
 
-        if (dataInicio && dataFim) {
-            if (isTodos) {
-                if (modo === 'finalizados') {
-                    whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) = 'FINALIZADO'`);
-                    whereClauses.push(
-                        `(HISTCHAMADO.DATA_HISTCHAMADO >= ? AND HISTCHAMADO.DATA_HISTCHAMADO < ?)`
-                    );
-                } else {
-                    whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
-                    whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
-                }
-                whereParams.push(dataInicio, dataFim);
-            } else {
-                whereClauses.push(`(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)`);
-                whereParams.push(dataInicio, dataFim);
-            }
-        }
-
-        if (!params.statusFilter) {
-            whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
-        }
+    if (!params.statusFilter) {
+        whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
     }
 
     if (params.codClienteFilter) {
@@ -500,10 +454,8 @@ const buscarChamadosTodos = async (
         const clauses: string[] = [];
         const p: unknown[] = [];
 
-        if (!params.isAdmin) {
-            clauses.push(`CHAMADO.COD_CLIENTE = ?`);
-            p.push(parseInt(params.codCliente!));
-        }
+        clauses.push(`CHAMADO.COD_CLIENTE = ?`);
+        p.push(parseInt(params.codCliente!));
 
         if (params.codClienteFilter) {
             clauses.push(`CHAMADO.COD_CLIENTE = ?`);
@@ -783,9 +735,7 @@ const buildCountQuery = (params: QueryParams, whereClause: string, osJoinType: s
     let joins = `${osJoinType} JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))\n`;
     joins += `${osJoinType} JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1\n`;
 
-    if (params.codClienteFilter || !params.isAdmin) {
-        joins += `LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE\n`;
-    }
+    joins += `LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE\n`;
     if (params.codRecursoFilter || params.columnFilters?.NOME_RECURSO) {
         joins += `LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO\n`;
     }
@@ -806,7 +756,6 @@ const buscarTotais = async (
     params: QueryParams
 ): Promise<TotaisResult> => {
     const cacheKey = JSON.stringify({
-        isAdmin: params.isAdmin,
         codCliente: params.codCliente,
         codClienteFilter: params.codClienteFilter,
         codRecursoFilter: params.codRecursoFilter,
@@ -821,7 +770,7 @@ const buscarTotais = async (
     const cached = getCachedTotais(cacheKey);
     if (cached) return cached;
 
-    const needsClient = !params.isAdmin || !!params.codClienteFilter;
+    const needsClient = true;
 
     const whereTotais: string[] = [
         'TAREFA.EXIBECHAM_TAREFA = 1',
@@ -835,7 +784,7 @@ const buscarTotais = async (
         sqlParamsTotais.push(dataInicio, dataFim);
     }
 
-    if (!params.isAdmin && params.codCliente) {
+    if (params.codCliente) {
         whereTotais.push('CLIENTE.COD_CLIENTE = ?');
         sqlParamsTotais.push(parseInt(params.codCliente));
     }
@@ -853,7 +802,7 @@ const buscarTotais = async (
     if (params.statusFilter && params.statusFilter.toUpperCase() !== 'TODOS') {
         whereTotais.push('UPPER(CHAMADO.STATUS_CHAMADO) LIKE UPPER(?)');
         sqlParamsTotais.push(`%${params.statusFilter}%`);
-    } else if (!params.statusFilter && !params.isAdmin) {
+    } else if (!params.statusFilter) {
         whereTotais.push("UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'");
     }
 
@@ -1049,8 +998,7 @@ export async function GET(request: NextRequest) {
 
         const { dataInicio, dataFim } = construirDatas(params.mes, params.ano);
 
-        const codClienteAplicado =
-            params.codClienteFilter || (!params.isAdmin ? params.codCliente : undefined);
+        const codClienteAplicado = params.codClienteFilter || params.codCliente;
 
         const [{ chamados, totalChamados }, totais, nomes] = await Promise.all([
             buscarChamados(dataInicio, dataFim, params),

@@ -32,7 +32,6 @@ interface Usuario {
     email: string;
     password: string;
     cod_cliente: string | null;
-    isAdmin: boolean;
 }
 
 interface ValidationResult {
@@ -214,8 +213,7 @@ function salvarUsuarios(usuarios: Usuario[]): void {
 async function adicionarUsuario(
     email: string,
     senha: string,
-    cod_cliente: string | null,
-    isAdmin: boolean
+    cod_cliente: string | null
 ): Promise<void> {
     const emailValidation = validarEmail(email);
     if (!emailValidation.valid) {
@@ -239,12 +237,11 @@ async function adicionarUsuario(
         email: email.trim(),
         password,
         cod_cliente,
-        isAdmin,
     });
 
     salvarUsuarios(usuarios);
 
-    log(`Usuario adicionado: ${email} (admin: ${isAdmin}, cod_cliente: ${cod_cliente})`, 'INFO');
+    log(`Usuario adicionado: ${email} (cod_cliente: ${cod_cliente})`, 'INFO');
     console.log('✅ Usuário adicionado com sucesso!');
 }
 
@@ -277,10 +274,6 @@ async function deletarUsuario(email: string): Promise<void> {
         throw new Error('Usuário não encontrado');
     }
 
-    if (usuario.isAdmin) {
-        console.warn('⚠️  ATENÇÃO: Você está deletando um usuário ADMINISTRADOR!');
-    }
-
     const novaLista = usuarios.filter((u) => u.email.toLowerCase() !== email.toLowerCase());
 
     salvarUsuarios(novaLista);
@@ -302,7 +295,6 @@ async function listarUsuarios(): Promise<void> {
 
     usuarios.forEach((user, index) => {
         console.log(`${index + 1}. ${user.email}`);
-        console.log(`   └─ Admin: ${user.isAdmin ? '✅ Sim' : '❌ Não'}`);
         console.log(`   └─ Cod Cliente: ${user.cod_cliente || 'N/A'}`);
         console.log('');
     });
@@ -322,7 +314,6 @@ async function verificarIntegridade(): Promise<void> {
             if (!user.email) problemas.push('Email vazio');
             if (!user.password) problemas.push('Password vazio');
             if (!user.password?.startsWith('$2b$')) problemas.push('Hash bcrypt inválido');
-            if (typeof user.isAdmin !== 'boolean') problemas.push('isAdmin não é boolean');
 
             if (problemas.length > 0) {
                 erros++;
@@ -355,8 +346,8 @@ async function main() {
 📖 USO:
 
   ➕ Adicionar usuário:
-     npx ts-node scripts/gerenciador_usuario.ts add <email> <senha> <cod_cliente> <isAdmin>
-     Exemplo: npx ts-node scripts/gerenciador_usuario.ts add joao@empresa.com Senha@123 142 false
+     npx ts-node scripts/gerenciador_usuario.ts add <email> <senha> <cod_cliente>
+     Exemplo: npx ts-node scripts/gerenciador_usuario.ts add joao@empresa.com Senha@123 142
 
   🔄 Atualizar senha:
      npx ts-node scripts/gerenciador_usuario.ts update <email> <novaSenha>
@@ -397,13 +388,12 @@ async function main() {
             const email = args[1];
             const senha = args[2];
             const cod_cliente = args[3] === 'null' ? null : args[3];
-            const isAdmin = args[4] === 'true';
 
             if (!email || !senha) {
                 throw new Error('Email e senha são obrigatórios');
             }
 
-            await adicionarUsuario(email, senha, cod_cliente, isAdmin);
+            await adicionarUsuario(email, senha, cod_cliente);
         } else if (action === 'update') {
             const email = args[1];
             const novaSenha = args[2];

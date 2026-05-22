@@ -4,7 +4,6 @@ import { firebirdQuery } from '../../../../lib/firebird/firebird-client';
 
 // ==================== TIPOS ====================
 interface QueryParams {
-    isAdmin: boolean;
     codCliente?: string;
     mes: number;
     ano: number;
@@ -22,7 +21,6 @@ interface ResultadoMedias {
 
 // ==================== VALIDAÇÕES ====================
 function validarParametros(searchParams: URLSearchParams): QueryParams | NextResponse {
-    const isAdmin = searchParams.get('isAdmin') === 'true';
     const codCliente = searchParams.get('codCliente')?.trim() || undefined;
     const mes = Number(searchParams.get('mes'));
     const ano = Number(searchParams.get('ano'));
@@ -41,15 +39,14 @@ function validarParametros(searchParams: URLSearchParams): QueryParams | NextRes
         );
     }
 
-    if (!isAdmin && !codCliente) {
+    if (!codCliente) {
         return NextResponse.json(
-            { error: "Parâmetro 'codCliente' é obrigatório para usuários não admin" },
+            { error: "Parâmetro 'codCliente' é obrigatório" },
             { status: 400 }
         );
     }
 
     return {
-        isAdmin,
         codCliente,
         mes,
         ano,
@@ -99,7 +96,7 @@ function aplicarFiltros(
 ): { sql: string; params: any[] } {
     let sql = sqlBase;
 
-    if (!params.isAdmin && params.codCliente) {
+    if (params.codCliente) {
         sql += ` AND CLIENTE.COD_CLIENTE = ?`;
         paramsArray.push(parseInt(params.codCliente));
     }

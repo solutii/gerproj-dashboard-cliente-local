@@ -179,19 +179,16 @@ function formatarData(data: string | Date | number | null | undefined): string |
 const fetchClientes = async ({
     mes,
     ano,
-    isAdmin,
     codCliente,
 }: {
     mes?: number;
     ano?: number;
-    isAdmin: boolean;
     codCliente: string | null;
 }): Promise<Cliente[]> => {
     const params = new URLSearchParams();
     if (mes) params.append('mes', mes.toString());
     if (ano) params.append('ano', ano.toString());
-    params.append('isAdmin', isAdmin.toString());
-    if (!isAdmin && codCliente) params.append('codCliente', codCliente);
+    if (codCliente) params.append('codCliente', codCliente);
     const response = await fetch(`/api/filtros/clientes?${params.toString()}`);
     if (!response.ok) throw new Error('Erro ao carregar clientes');
     return response.json();
@@ -200,22 +197,18 @@ const fetchClientes = async ({
 const fetchRecursos = async ({
     mes,
     ano,
-    isAdmin,
     codCliente,
     clienteSelecionado,
 }: {
     mes?: number;
     ano?: number;
-    isAdmin: boolean;
     codCliente: string | null;
     clienteSelecionado: string;
 }): Promise<Recurso[]> => {
     const params = new URLSearchParams();
     if (mes) params.append('mes', mes.toString());
     if (ano) params.append('ano', ano.toString());
-    params.append('isAdmin', isAdmin.toString());
-    if (!isAdmin && codCliente) params.append('codCliente', codCliente);
-    if (isAdmin && clienteSelecionado) params.append('cliente', clienteSelecionado);
+    if (codCliente) params.append('codCliente', codCliente);
     const response = await fetch(`/api/filtros/recursos?${params.toString()}`);
     if (!response.ok) throw new Error('Erro ao carregar recursos');
     return response.json();
@@ -224,14 +217,11 @@ const fetchRecursos = async ({
 const fetchStatus = async ({
     mes,
     ano,
-    isAdmin,
     codCliente,
-    clienteSelecionado,
     recursoSelecionado,
 }: {
     mes?: number;
     ano?: number;
-    isAdmin: boolean;
     codCliente: string | null;
     clienteSelecionado: string;
     recursoSelecionado: string;
@@ -239,9 +229,7 @@ const fetchStatus = async ({
     const params = new URLSearchParams();
     if (mes) params.append('mes', mes.toString());
     if (ano) params.append('ano', ano.toString());
-    params.append('isAdmin', isAdmin.toString());
-    if (!isAdmin && codCliente) params.append('codCliente', codCliente);
-    if (isAdmin && clienteSelecionado) params.append('cliente', clienteSelecionado);
+    if (codCliente) params.append('codCliente', codCliente);
     if (recursoSelecionado) params.append('recurso', recursoSelecionado);
     const response = await fetch(`/api/filtros/status?${params.toString()}`);
     if (!response.ok) throw new Error('Erro ao carregar status');
@@ -484,14 +472,14 @@ function SelectWithClear({
 
 // ==================== COMPONENTE PRINCIPAL ====================
 export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosChamadoProps) {
-    const { isAdmin, codCliente } = useAuthStore();
+    const { codCliente } = useAuthStore();
     const { hoje, anoAtual, mesAtual } = useDataAtual();
 
     const [dropdownAberto, setDropdownAberto] = useState(false);
 
     // Estados temporários (antes de aplicar)
-    const [anoTemp, setAnoTemp] = useState<number | undefined>(isAdmin ? anoAtual : undefined);
-    const [mesTemp, setMesTemp] = useState<number | undefined>(isAdmin ? mesAtual : undefined);
+    const [anoTemp, setAnoTemp] = useState<number | undefined>(undefined);
+    const [mesTemp, setMesTemp] = useState<number | undefined>(undefined);
     const [clienteTemp, setClienteTemp] = useState('');
     const [recursoTemp, setRecursoTemp] = useState('');
     const [statusTemp, setStatusTemp] = useState('');
@@ -504,8 +492,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const [inicioTemp, setInicioTemp] = useState('');
 
     // Estados aplicados
-    const [ano, setAno] = useState<number | undefined>(isAdmin ? anoAtual : undefined);
-    const [mes, setMes] = useState<number | undefined>(isAdmin ? mesAtual : undefined);
+    const [ano, setAno] = useState<number | undefined>(undefined);
+    const [mes, setMes] = useState<number | undefined>(undefined);
     const [clienteSelecionado, setClienteSelecionado] = useState('');
     const [recursoSelecionado, setRecursoSelecionado] = useState('');
     const [statusSelecionado, setStatusSelecionado] = useState('');
@@ -544,8 +532,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const iniciosLocais = useIniciosLocais(dadosMemo);
 
     const valoresPadrao = useMemo(
-        () => ({ ano: isAdmin ? anoAtual : undefined, mes: isAdmin ? mesAtual : undefined }),
-        [isAdmin, anoAtual, mesAtual]
+        () => ({ ano: undefined, mes: undefined }),
+        [anoAtual, mesAtual]
     );
 
     const usarAnosConfigurados = useMemo(() => {
@@ -604,19 +592,19 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const recursoDesabilitado =
         recursoDesabilitadoPorStatus || isLoadingRecursos || !recursosLocais.length;
 
-    const { data: clientesData = [], isLoading: clientesLoading } = useQuery({
-        queryKey: ['clientes', mes, ano, isAdmin, codCliente],
-        queryFn: () => fetchClientes({ mes, ano, isAdmin, codCliente }),
+    const { data: clientesData = [] } = useQuery({
+        queryKey: ['clientes', mes, ano, codCliente],
+        queryFn: () => fetchClientes({ mes, ano, codCliente }),
         enabled: !!isInitialized,
         staleTime: 1000 * 60 * 5,
         retry: 2,
     });
 
     const { data: statusData = [], isLoading: statusLoading } = useQuery({
-        queryKey: ['status', mes, ano, isAdmin, codCliente, clienteSelecionado, recursoSelecionado],
+        queryKey: ['status', mes, ano, codCliente, clienteSelecionado, recursoSelecionado],
         queryFn: () =>
-            fetchStatus({ mes, ano, isAdmin, codCliente, clienteSelecionado, recursoSelecionado }),
-        enabled: !!(isInitialized && (isAdmin || codCliente)),
+            fetchStatus({ mes, ano, codCliente, clienteSelecionado, recursoSelecionado }),
+        enabled: !!(isInitialized && codCliente),
         staleTime: 1000 * 60 * 5,
         retry: 2,
     });
@@ -664,23 +652,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
 
     const filtrosAtivos = useMemo(() => {
         const tags: Array<{ campo: string; valor: string | number; label: string }> = [];
-        if (isAdmin) {
-            if (ano !== valoresPadrao.ano)
-                tags.push({ campo: 'ano', valor: ano!, label: obterLabelFiltro('ano', ano) });
-            if (mes !== valoresPadrao.mes)
-                tags.push({ campo: 'mes', valor: mes!, label: obterLabelFiltro('mes', mes) });
-        } else {
-            if (ano !== undefined)
-                tags.push({ campo: 'ano', valor: ano, label: obterLabelFiltro('ano', ano) });
-            if (mes !== undefined)
-                tags.push({ campo: 'mes', valor: mes, label: obterLabelFiltro('mes', mes) });
-        }
-        if (isAdmin && clienteSelecionado)
-            tags.push({
-                campo: 'cliente',
-                valor: clienteSelecionado,
-                label: obterLabelFiltro('cliente', clienteSelecionado),
-            });
+        if (ano !== undefined)
+            tags.push({ campo: 'ano', valor: ano, label: obterLabelFiltro('ano', ano) });
+        if (mes !== undefined)
+            tags.push({ campo: 'mes', valor: mes, label: obterLabelFiltro('mes', mes) });
         if (recursoSelecionado)
             tags.push({
                 campo: 'recurso',
@@ -750,7 +725,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         classificacaoSelecionada,
         finalizacaoSelecionada,
         valoresPadrao,
-        isAdmin,
         obterLabelFiltro,
     ]);
 
@@ -758,7 +732,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         return [
             anoTemp !== ano,
             mesTemp !== mes,
-            ...(isAdmin ? [clienteTemp !== clienteSelecionado] : []),
+            clienteTemp !== clienteSelecionado,
             recursoTemp !== recursoSelecionado,
             statusTemp !== statusSelecionado,
             chamadoTemp !== chamadoSelecionado,
@@ -794,7 +768,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         finalizacaoSelecionada,
         inicioTemp,
         inicioSelecionado,
-        isAdmin,
     ]);
 
     const temMudancas = mudancasCount > 0;
@@ -846,22 +819,15 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     ]);
 
     const limparAnoMes = useCallback(() => {
-        if (isAdmin) {
-            setAnoTemp(valoresPadrao.ano);
-            setMesTemp(valoresPadrao.mes);
-            setAno(valoresPadrao.ano);
-            setMes(valoresPadrao.mes);
-        } else {
-            setAnoTemp(undefined);
-            setMesTemp(undefined);
-            setAno(undefined);
-            setMes(undefined);
-        }
+        setAnoTemp(undefined);
+        setMesTemp(undefined);
+        setAno(undefined);
+        setMes(undefined);
         if (statusSelecionado === 'FINALIZADO') {
             setStatusTemp('');
             setStatusSelecionado('');
         }
-    }, [isAdmin, valoresPadrao, statusSelecionado]);
+    }, [valoresPadrao, statusSelecionado]);
 
     const limparFiltroIndividual = useCallback(
         (
@@ -900,12 +866,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                     }
                     setStatusTemp('');
                     setStatusSelecionado('');
-                    if (!isAdmin) {
-                        setAnoTemp(undefined);
-                        setMesTemp(undefined);
-                        setAno(undefined);
-                        setMes(undefined);
-                    }
+                    setAnoTemp(undefined);
+                    setMesTemp(undefined);
+                    setAno(undefined);
+                    setMes(undefined);
                     break;
                 }
                 case 'chamado':
@@ -939,10 +903,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             }
 
             const verificarFiltrosRestantes = () => {
-                const temAnoMes =
-                    (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
-                    (!isAdmin && (ano !== undefined || mes !== undefined));
-                if (campo === 'status') return temAnoMes || (isAdmin && !!clienteSelecionado);
+                const temAnoMes = ano !== undefined || mes !== undefined;
+                if (campo === 'status') return temAnoMes;
                 if (campo === 'cliente')
                     return (
                         temAnoMes ||
@@ -959,7 +921,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                 if (campo === 'recurso')
                     return (
                         temAnoMes ||
-                        (isAdmin && !!clienteSelecionado) ||
                         statusSelecionado ||
                         chamadoSelecionado ||
                         entradaSelecionada ||
@@ -971,7 +932,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                     );
                 if (campo === 'ano' || campo === 'mes')
                     return (
-                        (isAdmin && !!clienteSelecionado) ||
                         recursoSelecionado ||
                         statusSelecionado ||
                         chamadoSelecionado ||
@@ -989,7 +949,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         },
         [
             limparAnoMes,
-            isAdmin,
             ano,
             mes,
             valoresPadrao,
@@ -1007,12 +966,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     );
 
     const limparFiltros = useCallback(() => {
-        setAnoTemp(valoresPadrao.ano);
-        setMesTemp(valoresPadrao.mes);
-        if (isAdmin) {
-            setClienteTemp('');
-            setClienteSelecionado('');
-        }
+        setAnoTemp(undefined);
+        setMesTemp(undefined);
+        setClienteTemp('');
+        setClienteSelecionado('');
         setRecursoTemp('');
         setStatusTemp('');
         setChamadoTemp('');
@@ -1022,9 +979,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         setAtribuicaoTemp('');
         setFinalizacaoTemp('');
         setInicioTemp('');
-        setAno(valoresPadrao.ano);
-        setMes(valoresPadrao.mes);
-        if (isAdmin) setClienteSelecionado('');
+        setAno(undefined);
+        setMes(undefined);
         setRecursoSelecionado('');
         setStatusSelecionado('');
         setChamadoSelecionado('');
@@ -1035,7 +991,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         setFinalizacaoSelecionada('');
         setInicioSelecionado('');
         setFiltrosForamAlterados(false);
-    }, [valoresPadrao, isAdmin]);
+    }, [valoresPadrao]);
 
     // ✅ CORREÇÃO 2: array vazio — inicializa apenas uma vez na montagem
     useEffect(() => {
@@ -1044,11 +1000,11 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
 
     useEffect(() => {
         const upper = statusTemp?.trim().toUpperCase();
-        if (!isAdmin && (upper === 'FINALIZADO' || upper === 'TODOS')) {
+        if (upper === 'FINALIZADO' || upper === 'TODOS') {
             if (!anoTemp) setAnoTemp(anoAtual);
             if (!mesTemp) setMesTemp(mesAtual);
         }
-    }, [statusTemp, isAdmin, anoTemp, mesTemp, anoAtual, mesAtual]);
+    }, [statusTemp, anoTemp, mesTemp, anoAtual, mesAtual]);
 
     useEffect(() => {
         if (mesTemp && anoTemp && mesesDisponiveis.length > 0) {
@@ -1058,10 +1014,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     }, [anoTemp, mesesDisponiveis, mesTemp]);
 
     useEffect(() => {
-        if (!isInitialized || !codCliente || isAdmin || clientesData.length === 0) return;
+        if (!isInitialized || !codCliente || clientesData.length === 0) return;
         setClienteTemp(codCliente);
         setClienteSelecionado(codCliente);
-    }, [isAdmin, codCliente, clientesData, isInitialized]);
+    }, [codCliente, clientesData, isInitialized]);
 
     useEffect(() => {
         if (!recursoTemp) return;
@@ -1227,35 +1183,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             className={selectClassName}
                                         />
                                     </div>
-                                    {isAdmin && (
-                                        <div className="flex flex-col gap-1">
-                                            <label className="text-sm font-semibold tracking-widest select-none">
-                                                Cliente
-                                            </label>
-                                            <SelectWithClear
-                                                value={clienteTemp}
-                                                valorAplicado={clienteSelecionado}
-                                                onChange={setClienteTemp}
-                                                onClearImmediate={() =>
-                                                    limparFiltroIndividual('cliente')
-                                                }
-                                                disabled={
-                                                    !clientesData.length ||
-                                                    !!codCliente ||
-                                                    clientesLoading
-                                                }
-                                                options={clientesData.map((c) => ({
-                                                    value: c.cod,
-                                                    label: c.nome,
-                                                }))}
-                                                placeholder={
-                                                    clientesLoading ? 'Carregando...' : 'Cliente'
-                                                }
-                                                showClearButton={!codCliente}
-                                                className={selectClassName}
-                                            />
-                                        </div>
-                                    )}
                                     <div className="flex flex-col gap-1">
                                         <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                             Consultor

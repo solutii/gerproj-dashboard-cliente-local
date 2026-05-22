@@ -33,7 +33,6 @@ interface RouteParams {
 }
 
 interface QueryParams {
-    isAdmin: boolean;
     codCliente?: number;
     mes?: number;
     ano?: number;
@@ -73,14 +72,13 @@ function validarAutorizacao(
     searchParams: URLSearchParams,
     codChamado: number
 ): QueryParams | NextResponse {
-    const isAdmin = searchParams.get('isAdmin') === 'true';
     const codCliente = searchParams.get('codCliente')?.trim();
     const mes = searchParams.get('mes');
     const ano = searchParams.get('ano');
 
-    if (!isAdmin && !codCliente) {
+    if (!codCliente) {
         return NextResponse.json(
-            { error: "Parâmetro 'codCliente' é obrigatório para usuários não admin" },
+            { error: "Parâmetro 'codCliente' é obrigatório" },
             { status: 400 }
         );
     }
@@ -108,7 +106,6 @@ function validarAutorizacao(
     }
 
     return {
-        isAdmin,
         codCliente: codCliente ? parseInt(codCliente) : undefined,
         mes: mesNum,
         ano: anoNum,
@@ -214,7 +211,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const auth = validarAutorizacao(searchParams, codChamadoValidado);
         if (auth instanceof NextResponse) return auth;
 
-        if (!auth.isAdmin && auth.codCliente) {
+        if (auth.codCliente) {
             const temPermissao = await verificarPermissaoChamado(
                 codChamadoValidado,
                 auth.codCliente

@@ -86,7 +86,6 @@ interface TabelaChamadosProps {
 interface FetchChamadosParams {
     ano?: string;
     mes?: string;
-    isAdmin: boolean;
     codCliente: string | null;
     cliente?: string;
     status?: string;
@@ -107,7 +106,6 @@ declare module '@tanstack/react-table' {
 const createAuthHeaders = () => ({
     'Content-Type': 'application/json',
     'x-is-logged-in': localStorage.getItem('isLoggedIn') || 'false',
-    'x-is-admin': localStorage.getItem('isAdmin') || 'false',
     'x-user-email': localStorage.getItem('userEmail') || '',
     'x-cod-cliente': localStorage.getItem('codCliente') || '',
 });
@@ -177,7 +175,6 @@ const formatarDataParaComparacao = (
 const fetchChamados = async ({
     ano,
     mes,
-    isAdmin,
     codCliente,
     cliente,
     status,
@@ -186,7 +183,6 @@ const fetchChamados = async ({
     columnFilters,
 }: FetchChamadosParams): Promise<ApiResponseChamados> => {
     const params = new URLSearchParams({
-        isAdmin: String(isAdmin),
         page: String(page),
         limit: String(limit),
         incluirSLA: 'true',
@@ -198,10 +194,7 @@ const fetchChamados = async ({
     if (statusUpper === 'FINALIZADO') params.append('statusFilter', status!);
     if (statusUpper === 'TODOS') params.append('statusFilter', 'TODOS');
 
-    if (isAdmin) {
-        params.append('ano', ano || String(new Date().getFullYear()));
-        params.append('mes', mes || String(new Date().getMonth() + 1));
-    } else if (codCliente) {
+    if (codCliente) {
         params.append('codCliente', codCliente);
         if (ano) params.append('ano', ano);
         if (mes) params.append('mes', mes);
@@ -229,7 +222,7 @@ const fetchChamados = async ({
 // COMPONENTE PRINCIPAL
 // =====================================================
 export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
-    const { isAdmin, codCliente, isLoggedIn } = useAuthStore();
+    const { codCliente, isLoggedIn } = useAuthStore();
     const filtros = useFiltrosChamado();
     const {
         ano,
@@ -272,8 +265,8 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const columnFiltersKey = useMemo(() => serializeColumnFilters(columnFilters), [columnFilters]);
 
     const queryEnabled = useMemo(() => {
-        return isLoggedIn && (isAdmin ? !!ano && !!mes : true);
-    }, [isLoggedIn, isAdmin, ano, mes]);
+        return isLoggedIn;
+    }, [isLoggedIn]);
 
     // =====================================================
     // REACT QUERY
@@ -290,7 +283,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             mes,
             cliente ?? '',
             status ?? '',
-            isAdmin,
             codCliente ?? '',
             page,
             PAGINATION_LIMIT,
@@ -300,7 +292,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             fetchChamados({
                 ano: ano !== undefined ? String(ano) : undefined,
                 mes: mes !== undefined ? String(mes) : undefined,
-                isAdmin,
                 codCliente,
                 cliente: cliente ?? '',
                 status: status ?? '',
@@ -442,14 +433,8 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
 
     // ✅ OT2: loop simples em vez de .filter().length — evita criar array intermediário
     const totalChamadosNaoFinalizados = useMemo(() => {
-        const chamados = apiData?.data ?? [];
-        if (!isAdmin || status) return chamados.length;
-        let count = 0;
-        for (const c of chamados) {
-            if (c.STATUS_CHAMADO?.toUpperCase() !== 'FINALIZADO') count++;
-        }
-        return count;
-    }, [apiData?.data, isAdmin, status]);
+        return apiData?.data?.length ?? 0;
+    }, [apiData?.data]);
 
     const paginacaoServidor = useMemo(() => {
         if (!apiData?.pagination) {
@@ -630,7 +615,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         <>
             <div className="relative flex h-full w-full flex-col overflow-hidden bg-white">
                 <Header
-                    isAdmin={isAdmin}
                     totalChamadosFiltrados={apiData?.totalChamados || 0}
                     totalOSFiltrados={apiData?.totalOS || 0}
                     totalHorasFiltradas={apiData?.totalHorasOS || 0}
@@ -874,7 +858,6 @@ const PaginationControls = React.memo(function PaginationControls({
 });
 
 interface HeaderProps {
-    isAdmin: boolean;
     totalChamadosFiltrados: number;
     totalOSFiltrados: number;
     totalHorasFiltradas: number;
@@ -890,7 +873,6 @@ interface HeaderProps {
 }
 
 const Header = React.memo(function Header({
-    isAdmin,
     totalChamadosFiltrados,
     totalOSFiltrados,
     totalHorasFiltradas,
@@ -908,7 +890,6 @@ const Header = React.memo(function Header({
         const statusUpper = status?.trim().toUpperCase();
         const filtrandoPorFinalizado = statusUpper === 'FINALIZADO';
         const filtrandoPorTodos = statusUpper === 'TODOS';
-        const semFiltroStatus = !status || status.trim() === '';
 
         let contagem: number;
         let label: string;
@@ -919,16 +900,13 @@ const Header = React.memo(function Header({
         } else if (filtrandoPorTodos) {
             contagem = totalGeralChamadosAPI;
             label = 'ATIVOS E FINALIZADOS';
-        } else if (isAdmin && semFiltroStatus) {
-            contagem = totalGeralChamadosAPI;
-            label = 'TOTAL GERAL';
         } else {
             contagem = totalChamadosNaoFinalizados;
             label = 'ATIVOS';
         }
 
         return { contagemExibida: contagem, labelContagem: label };
-    }, [status, isAdmin, totalGeralChamadosAPI, totalChamadosNaoFinalizados]);
+    }, [status, totalGeralChamadosAPI, totalChamadosNaoFinalizados]);
 
     return (
         <header className="flex items-center justify-between gap-4 rounded-tl-4xl rounded-tr-4xl bg-purple-900 p-6">
@@ -962,7 +940,6 @@ const Header = React.memo(function Header({
 
                 <ExportarExcelTabelaChamados
                     data={filteredData}
-                    isAdmin={isAdmin}
                     codCliente={codCliente}
                     filtros={{ ano, mes, status: '' }}
                     disabled={filteredData.length === 0}
@@ -970,20 +947,10 @@ const Header = React.memo(function Header({
 
                 <ExportarPDFTabelaChamados
                     data={filteredData}
-                    isAdmin={isAdmin}
                     codCliente={codCliente}
                     filtros={{ ano, mes, status: '' }}
                     disabled={filteredData.length === 0}
                 />
-
-                {isAdmin && (
-                    <div className="flex flex-shrink-0 items-center gap-2 rounded-full bg-purple-900 px-3 py-1 ring-2 ring-emerald-600 lg:gap-3 lg:px-4 lg:py-1.5">
-                        <div className="h-2 w-2 animate-pulse rounded-full bg-emerald-600"></div>
-                        <span className="text-base font-bold tracking-widest whitespace-nowrap text-emerald-300 select-none">
-                            Administrador
-                        </span>
-                    </div>
-                )}
             </div>
         </header>
     );

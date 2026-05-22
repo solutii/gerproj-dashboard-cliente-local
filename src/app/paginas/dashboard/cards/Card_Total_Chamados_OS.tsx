@@ -201,15 +201,14 @@ const SkeletonLoadingCard = () => (
 // COMPONENTE PRINCIPAL
 // ================================================================================
 export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
-    const { isAdmin, codCliente } = useAuthStore();
+    const { codCliente } = useAuthStore();
 
     const fetchData = async (): Promise<TotalizadoresAPIResponse> => {
         const params = new URLSearchParams();
         params.append('mes', filters.mes.toString());
         params.append('ano', filters.ano.toString());
-        params.append('isAdmin', isAdmin.toString());
 
-        if (!isAdmin && codCliente) {
+        if (codCliente) {
             params.append('codCliente', codCliente);
         }
 
@@ -234,9 +233,9 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
     };
 
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['totalizadoresChamados', filters, isAdmin, codCliente],
+        queryKey: ['totalizadoresChamados', filters, codCliente],
         queryFn: fetchData,
-        enabled: !!filters && (isAdmin || codCliente !== null),
+        enabled: !!filters && codCliente !== null,
         staleTime: 1000 * 60 * 5, // 5 minutos
         refetchOnWindowFocus: false,
     });

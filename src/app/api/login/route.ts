@@ -15,7 +15,6 @@ interface LoginRequest {
 interface Usuario {
     email: string;
     password: string;
-    isAdmin?: boolean;
     cod_cliente?: string | null;
     codrec_os?: string | null;
     nome?: string | null;
@@ -37,7 +36,6 @@ interface LoginResponse {
     success: boolean;
     message?: string;
     loginType: 'cliente' | 'consultor';
-    isAdmin?: boolean;
     codCliente?: string | null;
     codRecOS?: string | null;
     nomeRecurso?: string | null;
@@ -181,7 +179,6 @@ function construirRespostaConsultor(consultor: UsuarioConsultor): LoginResponse 
     return {
         success: true,
         loginType: 'consultor',
-        isAdmin: consultor.TIPO_USUARIO === 'ADM',
         codUsuario: consultor.COD_USUARIO,
         nomeUsuario: consultor.NOME_USUARIO,
         idUsuario: consultor.ID_USUARIO,
@@ -216,7 +213,6 @@ function construirRespostaCliente(usuario: Usuario): LoginResponse {
     return {
         success: true,
         loginType: 'cliente',
-        isAdmin: usuario.isAdmin ?? false,
         codCliente: usuario.cod_cliente ?? null,
         codRecOS: usuario.codrec_os ?? null,
         nomeRecurso: usuario.nome ?? null,
