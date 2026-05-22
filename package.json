@@ -3,9 +3,9 @@
     "version": "0.1.0",
     "private": true,
     "scripts": {
-        "dev": "next dev",
-        "build": "next build",
-        "start": "next start -p 3001 -H 0.0.0.0",
+        "dev": "cross-env NODE_OPTIONS=--max-old-space-size=3072 next dev",
+        "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
+        "start": "next start",
         "lint": "next lint",
         "format": "prettier --write ."
     },
@@ -37,6 +37,7 @@
         "next-auth": "^4.24.11",
         "node-firebird": "^1.1.9",
         "nodemailer": "^6.10.1",
+        "p-limit": "^7.3.0",
         "pg": "^8.16.2",
         "prisma": "^6.8.2",
         "react": "^19.0.0",
@@ -69,6 +70,7 @@
         "@typescript-eslint/eslint-plugin": "^8.34.0",
         "@typescript-eslint/parser": "^8.34.0",
         "autoprefixer": "^10.4.21",
+        "cross-env": "^10.1.0",
         "eslint": "^9.29.0",
         "eslint-config-next": "15.3.3",
         "eslint-config-prettier": "^10.1.5",

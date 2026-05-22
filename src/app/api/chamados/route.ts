@@ -29,7 +29,6 @@ export interface Chamado {
     OBSAVAL_CHAMADO?: string | null;
     DATA_HISTCHAMADO?: Date | null;
     HORA_HISTCHAMADO?: string | null;
-    // ✅ NOVO: início do atendimento (EM ATENDIMENTO no HISTCHAMADO)
     DATA_INICIO_ATENDIMENTO?: Date | null;
     HORA_INICIO_ATENDIMENTO?: string | null;
 
@@ -78,19 +77,31 @@ interface ChamadoRaw {
     TOTAL_HORAS_OS_NAO_FATURADAS?: number;
     DATA_HISTCHAMADO?: Date | null;
     HORA_HISTCHAMADO?: string | null;
-    // ✅ NOVO: campos com alias para evitar colisão de nomes
     DATA_INICIO_ATENDIMENTO?: Date | null;
     HORA_INICIO_ATENDIMENTO?: string | null;
     TOTAL_RECORDS?: number;
 }
 
-// ==================== CACHE OTIMIZADO ====================
-const nomeClienteCache = new Map<string, { nome: string | null; ts: number }>();
-const nomeRecursoCache = new Map<string, { nome: string | null; ts: number }>();
-const totaisCache = new Map<string, { data: TotaisResult; ts: number }>();
+// ==================== CORREÇÃO 1: CACHE DE PROMISES ====================
+//
+// Substitui o cache de valores simples por cache de Promises.
+//
+// Problema anterior: com múltiplas requisições simultâneas, todas
+// encontravam o cache vazio antes de qualquer uma terminar a query,
+// disparando N queries idênticas ao banco para a mesma chave.
+//
+// Agora: a primeira requisição registra a Promise no cache; todas as
+// seguintes reutilizam essa mesma Promise — 1 query por chave, sempre.
 
-const CACHE_TTL = 300_000;
-const CACHE_TTL_TOTAIS = 60_000;
+const nomeClienteCache = new Map<string, Promise<string | null>>();
+const nomeRecursoCache = new Map<string, Promise<string | null>>();
+const totaisCache = new Map<string, Promise<TotaisResult>>();
+
+// TTL não se aplica a Promises em andamento, apenas a resultados já
+// resolvidos. Para invalidação por tempo, usamos um wrapper que registra
+// o timestamp junto com a Promise resolvida.
+const CACHE_TTL = 300_000; // 5 min — nomes de cliente/recurso
+const CACHE_TTL_TOTAIS = 60_000; // 1 min — totais (mudam com frequência)
 
 interface TotaisResult {
     totalOS: number;
@@ -99,47 +110,52 @@ interface TotaisResult {
     totalHorasFaturadas: number;
 }
 
-const getCached = (
-    cache: Map<string, { nome: string | null; ts: number }>,
+// Cache com TTL para nomes — retorna Promise<string|null>
+function getCachedNome(
+    cache: Map<string, Promise<string | null>>,
     key: string
-): string | null | undefined => {
-    const c = cache.get(key);
-    if (!c) return undefined;
-    if (Date.now() - c.ts >= CACHE_TTL) {
-        cache.delete(key);
-        return undefined;
-    }
-    return c.nome;
-};
+): Promise<string | null> | undefined {
+    return cache.get(key);
+}
 
-const setCache = (
-    cache: Map<string, { nome: string | null; ts: number }>,
+function setCachedNome(
+    cache: Map<string, Promise<string | null>>,
     key: string,
-    value: string | null
-): void => {
-    cache.set(key, { nome: value, ts: Date.now() });
-};
+    promise: Promise<string | null>
+): void {
+    cache.set(key, promise);
+    // Invalida após TTL para evitar nomes obsoletos
+    promise
+        .then(() => {
+            setTimeout(() => cache.delete(key), CACHE_TTL);
+        })
+        .catch(() => {
+            cache.delete(key); // remove imediatamente em caso de erro
+        });
+}
 
-const getTotaisCache = (key: string): TotaisResult | undefined => {
-    const c = totaisCache.get(key);
-    if (!c) return undefined;
-    if (Date.now() - c.ts >= CACHE_TTL_TOTAIS) {
-        totaisCache.delete(key);
-        return undefined;
-    }
-    return c.data;
-};
+// Cache com TTL para totais — retorna Promise<TotaisResult>
+function getCachedTotais(key: string): Promise<TotaisResult> | undefined {
+    return totaisCache.get(key);
+}
 
-const setTotaisCache = (key: string, data: TotaisResult): void => {
-    if (totaisCache.size >= 200) {
+function setCachedTotais(key: string, promise: Promise<TotaisResult>): void {
+    totaisCache.set(key, promise);
+    promise
+        .then(() => {
+            setTimeout(() => totaisCache.delete(key), CACHE_TTL_TOTAIS);
+        })
+        .catch(() => {
+            totaisCache.delete(key);
+        });
+    // Limita tamanho do cache
+    if (totaisCache.size > 200) {
         const firstKey = totaisCache.keys().next().value;
         if (firstKey) totaisCache.delete(firstKey);
     }
-    totaisCache.set(key, { data, ts: Date.now() });
-};
+}
 
 // ==================== CONFIGURAÇÃO ====================
-// ✅ SELECT: usa AS nos campos ambíguos de HISTCHAMADO_INICIO
 const CAMPOS_CHAMADO_BASE_SELECT = `CHAMADO.COD_CHAMADO,
     CHAMADO.DATA_CHAMADO,
     CHAMADO.HORA_CHAMADO,
@@ -160,7 +176,6 @@ const CAMPOS_CHAMADO_BASE_SELECT = `CHAMADO.COD_CHAMADO,
     HISTCHAMADO_INICIO.DATA_HISTCHAMADO AS DATA_INICIO_ATENDIMENTO,
     HISTCHAMADO_INICIO.HORA_HISTCHAMADO AS HORA_INICIO_ATENDIMENTO`;
 
-// ✅ GROUP BY: sem AS (Firebird não aceita aliases no GROUP BY)
 const CAMPOS_CHAMADO_BASE_GROUPBY = `CHAMADO.COD_CHAMADO,
     CHAMADO.DATA_CHAMADO,
     CHAMADO.HORA_CHAMADO,
@@ -211,7 +226,8 @@ const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
         const mesParam = sp.get('mes');
         const anoParam = sp.get('ano');
 
-        if (statusFilter?.toUpperCase() === 'FINALIZADO') {
+        const statusUpper = statusFilter?.toUpperCase();
+        if (statusUpper === 'FINALIZADO' || statusUpper === 'TODOS') {
             mes = Number(mesParam);
             ano = Number(anoParam);
 
@@ -301,26 +317,68 @@ const construirDatas = (
 };
 
 // ==================== CONSTRUÇÃO DO WHERE ====================
+// ✅ CORREÇÃO 4: bug de params duplicados no bloco isAdmin/isTodos
+//
+// Antes: o `whereParams.push(dataInicio, dataFim)` final ficava FORA
+// do else, executando sempre — no caso isTodos, isso empurrava 6
+// parâmetros para 4 placeholders, corrompendo a query silenciosamente.
+//
+// Agora: cada branch empurra seus próprios params de forma isolada,
+// sem push extra após o if/else.
+
 const construirWherePrincipal = (
     params: QueryParams,
     dataInicio: string | null,
-    dataFim: string | null
+    dataFim: string | null,
+    modo?: 'finalizados' | 'nao_finalizados'
 ): { whereClauses: string[]; whereParams: unknown[] } => {
     const whereClauses: string[] = [];
     const whereParams: unknown[] = [];
 
+    const statusUpper = params.statusFilter?.toUpperCase();
+    const isTodos = statusUpper === 'TODOS';
+
     if (params.isAdmin) {
-        // ✅ Filtra por data da OS, não do chamado
-        whereClauses.push(`(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)`);
-        whereParams.push(dataInicio, dataFim);
+        if (isTodos) {
+            if (modo === 'finalizados') {
+                whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) = 'FINALIZADO'`);
+                if (dataInicio && dataFim) {
+                    whereClauses.push(
+                        `(HISTCHAMADO.DATA_HISTCHAMADO >= ? AND HISTCHAMADO.DATA_HISTCHAMADO < ?)`
+                    );
+                    whereParams.push(dataInicio, dataFim);
+                }
+            } else {
+                whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
+                if (dataInicio && dataFim) {
+                    whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
+                    whereParams.push(dataInicio, dataFim);
+                }
+            }
+        } else {
+            whereClauses.push(`(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)`);
+            whereParams.push(dataInicio, dataFim);
+        }
     } else {
         whereClauses.push(`CHAMADO.COD_CLIENTE = ?`);
         whereParams.push(parseInt(params.codCliente!));
 
         if (dataInicio && dataFim) {
-            // ✅ Filtra por data da OS, não do chamado
-            whereClauses.push(`(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)`);
-            whereParams.push(dataInicio, dataFim);
+            if (isTodos) {
+                if (modo === 'finalizados') {
+                    whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) = 'FINALIZADO'`);
+                    whereClauses.push(
+                        `(HISTCHAMADO.DATA_HISTCHAMADO >= ? AND HISTCHAMADO.DATA_HISTCHAMADO < ?)`
+                    );
+                } else {
+                    whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
+                    whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
+                }
+                whereParams.push(dataInicio, dataFim);
+            } else {
+                whereClauses.push(`(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)`);
+                whereParams.push(dataInicio, dataFim);
+            }
         }
 
         if (!params.statusFilter) {
@@ -343,7 +401,7 @@ const construirWherePrincipal = (
         whereParams.push(parseInt(params.codChamadoFilter));
     }
 
-    if (params.statusFilter) {
+    if (params.statusFilter && params.statusFilter.toUpperCase() !== 'TODOS') {
         whereClauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) LIKE UPPER(?)`);
         whereParams.push(`%${params.statusFilter}%`);
     }
@@ -431,14 +489,217 @@ const construirWherePrincipal = (
     return { whereClauses, whereParams };
 };
 
+const buscarChamadosTodos = async (
+    dataInicio: string | null,
+    dataFim: string | null,
+    params: QueryParams
+): Promise<{ chamados: ChamadoRaw[]; totalChamados: number }> => {
+    // ── PASSO 1: queries leves, só IDs ──────────────────────────────────
+
+    const buildIdParams = (modo: 'finalizados' | 'nao_finalizados') => {
+        const clauses: string[] = [];
+        const p: unknown[] = [];
+
+        if (!params.isAdmin) {
+            clauses.push(`CHAMADO.COD_CLIENTE = ?`);
+            p.push(parseInt(params.codCliente!));
+        }
+
+        if (params.codClienteFilter) {
+            clauses.push(`CHAMADO.COD_CLIENTE = ?`);
+            p.push(parseInt(params.codClienteFilter));
+        }
+
+        if (params.codRecursoFilter) {
+            clauses.push(`CHAMADO.COD_RECURSO = ?`);
+            p.push(parseInt(params.codRecursoFilter));
+        }
+
+        if (modo === 'finalizados') {
+            clauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) = 'FINALIZADO'`);
+            if (dataInicio && dataFim) {
+                clauses.push(
+                    `HIST_MAX_JOIN.DATA_HISTCHAMADO >= ? AND HIST_MAX_JOIN.DATA_HISTCHAMADO < ?`
+                );
+                p.push(dataInicio, dataFim);
+            }
+        } else {
+            clauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
+            if (dataInicio && dataFim) {
+                clauses.push(`CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?`);
+                p.push(dataInicio, dataFim);
+            }
+        }
+
+        // filtros de coluna que precisam de join simples
+        if (params.columnFilters?.COD_CHAMADO) {
+            const v = params.columnFilters.COD_CHAMADO.replace(/\D/g, '');
+            if (v) {
+                clauses.push(`CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?`);
+                p.push(`%${v}%`);
+            }
+        }
+
+        if (params.codChamadoFilter) {
+            clauses.push(`CHAMADO.COD_CHAMADO = ?`);
+            p.push(parseInt(params.codChamadoFilter));
+        }
+
+        const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+
+        // Para finalizados precisamos do join com HISTCHAMADO para filtrar por data de finalização
+        const histJoin =
+            modo === 'finalizados'
+                ? `
+            LEFT JOIN (
+                SELECT H.COD_CHAMADO, H.DATA_HISTCHAMADO
+                FROM HISTCHAMADO H
+                INNER JOIN (
+                    SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
+                    FROM HISTCHAMADO
+                    WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
+                    GROUP BY COD_CHAMADO
+                ) HM ON H.COD_HISTCHAMADO = HM.MAX_COD
+            ) HIST_MAX_JOIN ON CHAMADO.COD_CHAMADO = HIST_MAX_JOIN.COD_CHAMADO
+        `
+                : '';
+
+        const sql = `
+            SELECT CHAMADO.COD_CHAMADO, CHAMADO.DATA_CHAMADO, CHAMADO.HORA_CHAMADO
+            FROM CHAMADO
+            ${histJoin}
+            ${where}
+        `;
+
+        return { sql, p };
+    };
+
+    // Roda as duas queries de IDs em paralelo
+    const [{ sql: sqlFin, p: pFin }, { sql: sqlNaoFin, p: pNaoFin }] = [
+        buildIdParams('finalizados'),
+        buildIdParams('nao_finalizados'),
+    ];
+
+    const [idsFin, idsNaoFin] = await Promise.all([
+        firebirdQuery<{ COD_CHAMADO: number; DATA_CHAMADO: Date; HORA_CHAMADO: string }>(
+            sqlFin,
+            pFin
+        ),
+        firebirdQuery<{ COD_CHAMADO: number; DATA_CHAMADO: Date; HORA_CHAMADO: string }>(
+            sqlNaoFin,
+            pNaoFin
+        ),
+    ]);
+
+    // ── PASSO 2: merge, dedup, ordena e pagina em memória ───────────────
+    // (só IDs/datas, custo desprezível mesmo com 2.000 registros)
+
+    const vistos = new Set<number>();
+    const merged: { COD_CHAMADO: number; DATA_CHAMADO: Date; HORA_CHAMADO: string }[] = [];
+
+    for (const c of [...idsFin, ...idsNaoFin]) {
+        if (!vistos.has(c.COD_CHAMADO)) {
+            vistos.add(c.COD_CHAMADO);
+            merged.push(c);
+        }
+    }
+
+    merged.sort((a, b) => {
+        const diff = new Date(b.DATA_CHAMADO).getTime() - new Date(a.DATA_CHAMADO).getTime();
+        if (diff !== 0) return diff;
+        return (b.HORA_CHAMADO ?? '').localeCompare(a.HORA_CHAMADO ?? '');
+    });
+
+    const totalChamados = merged.length;
+    const offset = (params.page - 1) * params.limit;
+    const paginaIds = merged.slice(offset, offset + params.limit).map((c) => c.COD_CHAMADO);
+
+    if (paginaIds.length === 0) {
+        return { chamados: [], totalChamados };
+    }
+
+    // ── PASSO 3: query completa só para os IDs da página ────────────────
+    // Máximo params.limit registros (geralmente 50) — sempre rápida
+
+    const placeholders = paginaIds.map(() => '?').join(', ');
+
+    const sqlCompleta = `
+        SELECT ${CAMPOS_CHAMADO_BASE_SELECT}${CAMPOS_AVALIACAO_SELECT},
+        COALESCE(SUM(
+            CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
+                (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+                    CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+                    CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+                    CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+            ELSE 0 END
+        ), 0) AS TOTAL_HORAS_OS,
+        COALESCE(SUM(
+            CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
+                (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+                    CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+                    CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+                    CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+            ELSE 0 END
+        ), 0) AS TOTAL_HORAS_OS_FATURADAS,
+        COALESCE(SUM(
+            CASE WHEN UPPER(OS.FATURADO_OS) = 'NAO' THEN
+                (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
+                    CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
+                    CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
+                    CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
+            ELSE 0 END
+        ), 0) AS TOTAL_HORAS_OS_NAO_FATURADAS
+        FROM CHAMADO
+        LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
+        LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO
+        LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO
+        LEFT JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
+        LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1
+        LEFT JOIN (
+            SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
+            FROM HISTCHAMADO
+            WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
+            GROUP BY COD_CHAMADO
+        ) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO
+        LEFT JOIN HISTCHAMADO ON HISTCHAMADO.COD_HISTCHAMADO = HIST_MAX.MAX_COD
+        LEFT JOIN (
+            SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
+            FROM HISTCHAMADO
+            WHERE UPPER(DESC_HISTCHAMADO) LIKE 'EM ATENDIMENTO%'
+            GROUP BY COD_CHAMADO
+        ) HIST_INICIO ON CHAMADO.COD_CHAMADO = HIST_INICIO.COD_CHAMADO
+        LEFT JOIN HISTCHAMADO HISTCHAMADO_INICIO ON HISTCHAMADO_INICIO.COD_HISTCHAMADO = HIST_INICIO.MAX_COD
+        WHERE CHAMADO.COD_CHAMADO IN (${placeholders})
+        GROUP BY ${CAMPOS_CHAMADO_BASE_GROUPBY}${CAMPOS_AVALIACAO_GROUPBY}
+    `;
+
+    const chamadosRaw = await firebirdQuery<ChamadoRaw>(sqlCompleta, paginaIds);
+
+    // Reordena o resultado para bater com a ordem da página
+    const ordemMap = new Map(paginaIds.map((id, i) => [id, i]));
+    chamadosRaw.sort(
+        (a, b) => (ordemMap.get(a.COD_CHAMADO) ?? 0) - (ordemMap.get(b.COD_CHAMADO) ?? 0)
+    );
+
+    return { chamados: chamadosRaw, totalChamados };
+};
+
 // ==================== QUERY PRINCIPAL ====================
 const buscarChamados = async (
     dataInicio: string | null,
     dataFim: string | null,
     params: QueryParams
 ): Promise<{ chamados: ChamadoRaw[]; totalChamados: number }> => {
+    const isTodos = params.statusFilter?.toUpperCase() === 'TODOS';
+
+    if (isTodos) {
+        return buscarChamadosTodos(dataInicio, dataFim, params);
+    }
+
     const incluirAvaliacao =
-        !params.statusFilter || params.statusFilter.toUpperCase().includes('FINALIZADO');
+        !params.statusFilter ||
+        params.statusFilter.toUpperCase().includes('FINALIZADO') ||
+        params.statusFilter.toUpperCase() === 'TODOS';
 
     const camposSelect = incluirAvaliacao
         ? CAMPOS_CHAMADO_BASE_SELECT + CAMPOS_AVALIACAO_SELECT
@@ -453,8 +714,6 @@ const buscarChamados = async (
 
     const offset = (params.page - 1) * params.limit;
 
-    // ✅ INNER JOIN quando há filtro de data (garante performance)
-    // ✅ LEFT JOIN quando não há filtro (mostra chamados sem OS)
     const osJoinType = dataInicio && dataFim ? 'INNER' : 'LEFT';
 
     const sqlChamados = `SELECT ${camposSelect},
@@ -519,8 +778,8 @@ const buscarChamados = async (
         totalChamados: countResult[0]?.TOTAL || 0,
     };
 };
+
 const buildCountQuery = (params: QueryParams, whereClause: string, osJoinType: string): string => {
-    // ✅ usa o mesmo tipo de JOIN da query principal
     let joins = `${osJoinType} JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))\n`;
     joins += `${osJoinType} JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1\n`;
 
@@ -558,7 +817,8 @@ const buscarTotais = async (
         dataFim,
     });
 
-    const cached = getTotaisCache(cacheKey);
+    // ✅ CORREÇÃO 1 aplicada: reutiliza Promise em andamento
+    const cached = getCachedTotais(cacheKey);
     if (cached) return cached;
 
     const needsClient = !params.isAdmin || !!params.codClienteFilter;
@@ -571,7 +831,6 @@ const buscarTotais = async (
     const sqlParamsTotais: unknown[] = [];
 
     if (dataInicio && dataFim) {
-        // ✅ Filtra por data da OS, não do chamado
         whereTotais.push('(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)');
         sqlParamsTotais.push(dataInicio, dataFim);
     }
@@ -591,12 +850,10 @@ const buscarTotais = async (
         sqlParamsTotais.push(parseInt(params.codRecursoFilter));
     }
 
-    if (params.statusFilter) {
+    if (params.statusFilter && params.statusFilter.toUpperCase() !== 'TODOS') {
         whereTotais.push('UPPER(CHAMADO.STATUS_CHAMADO) LIKE UPPER(?)');
         sqlParamsTotais.push(`%${params.statusFilter}%`);
-    } else if (!params.isAdmin) {
-        // ✅ CORREÇÃO: sem filtro de status explícito, excluir FINALIZADO
-        // para refletir os mesmos chamados retornados na listagem
+    } else if (!params.statusFilter && !params.isAdmin) {
         whereTotais.push("UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'");
     }
 
@@ -653,25 +910,23 @@ const buscarTotais = async (
 
     sqlTotais += ` WHERE ${whereTotais.join(' AND ')}`;
 
-    const totaisResult = await firebirdQuery<{
+    const promise = firebirdQuery<{
         TOTAL_OS: number;
         TOTAL_HORAS: number | null;
         TOTAL_HORAS_OS_NAO_FATURADAS: number;
         TOTAL_HORAS_OS_FATURADAS: number;
-    }>(sqlTotais, sqlParamsTotais);
-
-    const result: TotaisResult = {
+    }>(sqlTotais, sqlParamsTotais).then((totaisResult) => ({
         totalOS: totaisResult[0]?.TOTAL_OS || 0,
         totalHoras: totaisResult[0]?.TOTAL_HORAS || 0,
         totalHorasNaoFaturadas: totaisResult[0]?.TOTAL_HORAS_OS_NAO_FATURADAS || 0,
         totalHorasFaturadas: totaisResult[0]?.TOTAL_HORAS_OS_FATURADAS || 0,
-    };
+    }));
 
-    setTotaisCache(cacheKey, result);
-    return result;
+    setCachedTotais(cacheKey, promise);
+    return promise;
 };
 
-// ==================== BUSCAR NOMES (COM CACHE) ====================
+// ==================== BUSCAR NOMES (CORREÇÃO 1 APLICADA) ====================
 const buscarNomes = async (
     codCliente?: string,
     codRecurso?: string
@@ -679,45 +934,33 @@ const buscarNomes = async (
     const promises: Promise<string | null>[] = [];
 
     if (codCliente) {
-        const cached = getCached(nomeClienteCache, codCliente);
-        if (cached !== undefined) {
-            promises.push(Promise.resolve(cached));
-        } else {
-            promises.push(
-                firebirdQuery<{ NOME_CLIENTE: string }>(
-                    'SELECT NOME_CLIENTE FROM CLIENTE WHERE COD_CLIENTE = ?',
-                    [parseInt(codCliente)]
-                )
-                    .then((r) => {
-                        const nome = r[0]?.NOME_CLIENTE || null;
-                        setCache(nomeClienteCache, codCliente, nome);
-                        return nome;
-                    })
-                    .catch(() => null)
-            );
+        let clientePromise = getCachedNome(nomeClienteCache, codCliente);
+        if (!clientePromise) {
+            clientePromise = firebirdQuery<{ NOME_CLIENTE: string }>(
+                'SELECT NOME_CLIENTE FROM CLIENTE WHERE COD_CLIENTE = ?',
+                [parseInt(codCliente)]
+            )
+                .then((r) => r[0]?.NOME_CLIENTE || null)
+                .catch(() => null);
+            setCachedNome(nomeClienteCache, codCliente, clientePromise);
         }
+        promises.push(clientePromise);
     } else {
         promises.push(Promise.resolve(null));
     }
 
     if (codRecurso) {
-        const cached = getCached(nomeRecursoCache, codRecurso);
-        if (cached !== undefined) {
-            promises.push(Promise.resolve(cached));
-        } else {
-            promises.push(
-                firebirdQuery<{ NOME_RECURSO: string }>(
-                    'SELECT NOME_RECURSO FROM RECURSO WHERE COD_RECURSO = ?',
-                    [parseInt(codRecurso)]
-                )
-                    .then((r) => {
-                        const nome = r[0]?.NOME_RECURSO || null;
-                        setCache(nomeRecursoCache, codRecurso, nome);
-                        return nome;
-                    })
-                    .catch(() => null)
-            );
+        let recursoPromise = getCachedNome(nomeRecursoCache, codRecurso);
+        if (!recursoPromise) {
+            recursoPromise = firebirdQuery<{ NOME_RECURSO: string }>(
+                'SELECT NOME_RECURSO FROM RECURSO WHERE COD_RECURSO = ?',
+                [parseInt(codRecurso)]
+            )
+                .then((r) => r[0]?.NOME_RECURSO || null)
+                .catch(() => null);
+            setCachedNome(nomeRecursoCache, codRecurso, recursoPromise);
         }
+        promises.push(recursoPromise);
     } else {
         promises.push(Promise.resolve(null));
     }
@@ -761,7 +1004,6 @@ const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado
             OBSAVAL_CHAMADO: c.OBSAVAL_CHAMADO ?? null,
             DATA_HISTCHAMADO: c.DATA_HISTCHAMADO || null,
             HORA_HISTCHAMADO: c.HORA_HISTCHAMADO || null,
-            // ✅ NOVO: início do atendimento
             DATA_INICIO_ATENDIMENTO: c.DATA_INICIO_ATENDIMENTO || null,
             HORA_INICIO_ATENDIMENTO: c.HORA_INICIO_ATENDIMENTO || null,
         };

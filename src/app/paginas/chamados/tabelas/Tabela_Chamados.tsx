@@ -1,6 +1,4 @@
 // src/app/paginas/chamados/tabelas/Tabela_Chamados.tsx
-// ✅ NOVO: importar o hook de horas por mês
-// Único arquivo que muda: adicionar o hook e passar getHoras para getColunasChamados
 
 'use client';
 
@@ -16,18 +14,17 @@ import { TabelaOS } from '@/app/paginas/chamados/tabelas/Tabela_OS';
 import { IsError } from '@/components/IsError';
 import { IsLoading } from '@/components/IsLoading';
 import { useHorasAdicionais } from '@/hooks/useHorasAdicionais';
-import { useHorasPorMes } from '@/hooks/useHorasPorMes'; // ✅ NOVO
+import { useHorasPorMes } from '@/hooks/useHorasPorMes';
 import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
-import { useQuery } from '@tanstack/react-query';
-// =====================================================
 import { useAuthStore } from '@/store/useAuthStore';
+import { useQuery } from '@tanstack/react-query';
 import {
     ColumnFiltersState,
     flexRender,
     getCoreRowModel,
     useReactTable,
 } from '@tanstack/react-table';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BsEraserFill } from 'react-icons/bs';
 import { FaEraser } from 'react-icons/fa';
 import { IoCall } from 'react-icons/io5';
@@ -44,7 +41,7 @@ const HEADER_HEIGHT = 293;
 const BASE_MIN_HEIGHT = 400;
 const MAX_HEIGHT = `calc(${ZOOM_COMPENSATION}vh - ${HEADER_HEIGHT}px)`;
 const MIN_HEIGHT = `${(BASE_MIN_HEIGHT * ZOOM_COMPENSATION) / 100}px`;
-const PAGINATION_LIMIT = 300;
+const PAGINATION_LIMIT = 30;
 
 const INITIAL_COLUMN_WIDTHS = {
     COD_CHAMADO: 110,
@@ -199,6 +196,7 @@ const fetchChamados = async ({
 
     const statusUpper = status?.trim().toUpperCase();
     if (statusUpper === 'FINALIZADO') params.append('statusFilter', status!);
+    if (statusUpper === 'TODOS') params.append('statusFilter', 'TODOS');
 
     if (isAdmin) {
         params.append('ano', ano || String(new Date().getFullYear()));
@@ -271,11 +269,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // =====================================================
     // MEMOIZAÇÕES E DERIVAÇÕES DE ESTADO
     // =====================================================
-    const statusParaQuery = useMemo(() => {
-        const statusUpper = status?.trim().toUpperCase();
-        return statusUpper === 'FINALIZADO' ? status : '';
-    }, [status]);
-
     const columnFiltersKey = useMemo(() => serializeColumnFilters(columnFilters), [columnFilters]);
 
     const queryEnabled = useMemo(() => {
@@ -296,7 +289,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             ano,
             mes,
             cliente ?? '',
-            statusParaQuery,
+            status ?? '',
             isAdmin,
             codCliente ?? '',
             page,
@@ -324,12 +317,23 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     });
 
     // =====================================================
-    // ✅ NOVO: IDs com OS + hook de horas por mês
-    // Filtra apenas chamados com OS para não buscar desnecessariamente
+    // ✅ OT1: IDs com OS — chave estável para evitar recriação de array
+    // Mesmo padrão do useDadosMemoizados no Filtros: gera string com join
+    // e só recria o array quando a string muda de fato.
     // =====================================================
-    const idsComOS = useMemo(
-        () => (apiData?.data ?? []).filter((c) => c.TEM_OS).map((c) => c.COD_CHAMADO),
+    const idsComOSKey = useMemo(
+        () =>
+            (apiData?.data ?? [])
+                .filter((c) => c.TEM_OS)
+                .map((c) => c.COD_CHAMADO)
+                .join(','),
         [apiData?.data]
+    );
+
+    const idsComOS = useMemo(
+        () => (idsComOSKey ? idsComOSKey.split(',').map(Number) : []),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [idsComOSKey]
     );
 
     const { getHoras, isLoading: isLoadingHoras } = useHorasPorMes({
@@ -350,7 +354,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         if (!status || status.trim() === '') return chamados;
 
         const statusUpper = status.trim().toUpperCase();
-        if (statusUpper === 'FINALIZADO') return chamados;
+        if (statusUpper === 'FINALIZADO' || statusUpper === 'TODOS') return chamados;
 
         return chamados.filter((chamado) =>
             chamado.STATUS_CHAMADO?.toUpperCase().includes(statusUpper)
@@ -405,17 +409,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
 
     const dadosFiltradosPorInicio = useMemo(() => {
         if (!inicio) return dadosFiltradosPorAtribuicao;
-
-        const amostra = dadosFiltradosPorAtribuicao.find((c) => c.DTINI_CHAMADO);
-        if (amostra) {
-            console.log('🔍 DTINI_CHAMADO na tabela:', JSON.stringify(amostra.DTINI_CHAMADO));
-            console.log(
-                '🔍 formatarDataParaComparacao result:',
-                formatarDataParaComparacao(amostra.DTINI_CHAMADO)
-            );
-            console.log('🔍 inicio selecionado:', inicio);
-        }
-
         return dadosFiltradosPorAtribuicao.filter((chamadoItem) => {
             const dataFormatada = formatarDataParaComparacao(chamadoItem.DTINI_CHAMADO);
             return dataFormatada === inicio;
@@ -446,14 +439,16 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // =====================================================
     // TOTALIZADORES
     // =====================================================
+
+    // ✅ OT2: loop simples em vez de .filter().length — evita criar array intermediário
     const totalChamadosNaoFinalizados = useMemo(() => {
         const chamados = apiData?.data ?? [];
-        if (isAdmin && !status) {
-            return chamados.filter(
-                (chamado) => chamado.STATUS_CHAMADO?.toUpperCase() !== 'FINALIZADO'
-            ).length;
+        if (!isAdmin || status) return chamados.length;
+        let count = 0;
+        for (const c of chamados) {
+            if (c.STATUS_CHAMADO?.toUpperCase() !== 'FINALIZADO') count++;
         }
-        return chamados.length;
+        return count;
     }, [apiData?.data, isAdmin, status]);
 
     const paginacaoServidor = useMemo(() => {
@@ -479,9 +474,16 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // =====================================================
     // EFFECTS
     // =====================================================
+
+    // ✅ OT3: ref para onDataChange — evita loop quando o pai não memoiza a função
+    const onDataChangeRef = useRef(onDataChange);
     useEffect(() => {
-        if (onDataChange) onDataChange(dadosFiltradosPorFinalizacao);
-    }, [dadosFiltradosPorFinalizacao, onDataChange]);
+        onDataChangeRef.current = onDataChange;
+    });
+
+    useEffect(() => {
+        if (onDataChangeRef.current) onDataChangeRef.current(dadosFiltradosPorFinalizacao);
+    }, [dadosFiltradosPorFinalizacao]);
 
     useEffect(() => {
         setPage(1);
@@ -536,14 +538,17 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         setSelectedOS(null);
     }, []);
 
-    const handleSaveValidation = useCallback((updatedRow: OSRowProps) => {
+    // ✅ OT4: cleanup do setTimeout para evitar vazamento se componente desmontar
+    const handleSaveValidation = useCallback((_updatedRow: OSRowProps) => {
         setIsModalOSOpen(false);
         setSelectedOS(null);
-        setIsModalListaOSOpen(false); // fecha primeiro
+        setIsModalListaOSOpen(false);
 
-        setTimeout(() => {
-            setIsModalListaOSOpen(true); // reabre no próximo tick
+        const timer = setTimeout(() => {
+            setIsModalListaOSOpen(true);
         }, 50);
+
+        return () => clearTimeout(timer);
     }, []);
 
     const handleOpenSolicitacao = useCallback((chamado: ChamadoRowProps) => {
@@ -572,6 +577,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // =====================================================
     // COLUNAS E TABELA
     // =====================================================
+
+    // ✅ OT5: removidos isAdmin e columnWidths das dependências — não são usados
+    // dentro de getColunasChamados, causavam recriação desnecessária das colunas
     const columns = useMemo(
         () =>
             getColunasChamados(
@@ -579,18 +587,16 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 handleOpenAvaliacao,
                 getHoras,
                 isLoadingHoras,
-                getHorasAdicionais, // ← adicionar
-                isLoadingHorasAdicionais // ← adicionar
+                getHorasAdicionais,
+                isLoadingHorasAdicionais
             ),
         [
-            isAdmin,
-            columnWidths,
             handleOpenSolicitacao,
             handleOpenAvaliacao,
             getHoras,
             isLoadingHoras,
-            getHorasAdicionais, // ← adicionar
-            isLoadingHorasAdicionais, // ← adicionar
+            getHorasAdicionais,
+            isLoadingHorasAdicionais,
         ]
     );
 
@@ -718,7 +724,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
 }
 
 // ============================================================
-// SUB-COMPONENTES (inalterados)
+// SUB-COMPONENTES
 // ============================================================
 
 interface PaginationControlsProps {
@@ -901,6 +907,7 @@ const Header = React.memo(function Header({
     const { contagemExibida, labelContagem } = useMemo(() => {
         const statusUpper = status?.trim().toUpperCase();
         const filtrandoPorFinalizado = statusUpper === 'FINALIZADO';
+        const filtrandoPorTodos = statusUpper === 'TODOS';
         const semFiltroStatus = !status || status.trim() === '';
 
         let contagem: number;
@@ -909,6 +916,9 @@ const Header = React.memo(function Header({
         if (filtrandoPorFinalizado) {
             contagem = totalGeralChamadosAPI;
             label = 'FINALIZADOS';
+        } else if (filtrandoPorTodos) {
+            contagem = totalGeralChamadosAPI;
+            label = 'ATIVOS E FINALIZADOS';
         } else if (isAdmin && semFiltroStatus) {
             contagem = totalGeralChamadosAPI;
             label = 'TOTAL GERAL';
@@ -1053,7 +1063,7 @@ const TableBody = React.memo(function TableBody({
 
     return (
         <tbody className="relative">
-            {rows.map((row: any, rowIndex: number) => (
+            {rows.map((row: any) => (
                 <tr
                     key={row.id}
                     data-chamado-id={row.original.COD_CHAMADO}

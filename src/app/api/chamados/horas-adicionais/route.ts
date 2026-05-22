@@ -3,8 +3,10 @@
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import {
     agregarHorasAdicionais,
-    calcularHorasComAdicionalAsync,
+    calcularHorasComAdicional,
+    CONFIG_PADRAO_ADICIONAL,
 } from '@/lib/os/calcular-horas-adicionais';
+import { buscarFeriados } from '@/lib/os/feriados-service';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ==================== TIPOS ====================
@@ -92,7 +94,26 @@ export async function GET(request: NextRequest) {
 
         const osRows = await buscarOSPorChamados(params.ids);
 
-        // Agrupa OS por chamado
+        // ── Passo 1: busca feriados por ano antes de qualquer cálculo ──────────
+        //
+        // Coleta os anos únicos presentes nas OSs e busca os feriados uma única
+        // vez por ano. O cache de Promises do feriados-service garante que anos
+        // repetidos (ou requisições concorrentes) não disparem fetches extras.
+        //
+        // Resultado: no máximo N fetches HTTP, onde N = anos distintos nas OSs
+        // (normalmente 1 ou 2), independente de quantos chamados/OSs existam.
+
+        const anosUnicos = [...new Set(osRows.map((os) => new Date(os.DTINI_OS).getFullYear()))];
+
+        const feriadosPorAno = new Map<number, string[]>();
+        await Promise.all(
+            anosUnicos.map(async (year) => {
+                feriadosPorAno.set(year, await buscarFeriados({ year }));
+            })
+        );
+
+        // ── Passo 2: agrupa OSs por chamado ────────────────────────────────────
+
         const osPorChamado = new Map<number, OSRaw[]>();
         for (const os of osRows) {
             const lista = osPorChamado.get(os.COD_CHAMADO) ?? [];
@@ -100,26 +121,33 @@ export async function GET(request: NextRequest) {
             osPorChamado.set(os.COD_CHAMADO, lista);
         }
 
-        // Calcula horas adicionais para cada OS e agrega por chamado
+        // ── Passo 3: calcula horas usando a versão síncrona ────────────────────
+        //
+        // Com os feriados já em memória, usa calcularHorasComAdicional (síncrona)
+        // em vez de calcularHorasComAdicionalAsync. Elimina todos os fetches
+        // dentro do loop e torna o cálculo puramente em memória.
+
         const map: HorasAdicionaisMap = {};
 
-        await Promise.all(
-            Array.from(osPorChamado.entries()).map(async ([codChamado, osList]) => {
-                const resultados = await Promise.all(
-                    osList.map((os) =>
-                        calcularHorasComAdicionalAsync(os.DTINI_OS, os.HRINI_OS, os.HRFIM_OS)
-                    )
-                );
+        for (const [codChamado, osList] of osPorChamado.entries()) {
+            const resultados = osList.map((os) => {
+                const year = new Date(os.DTINI_OS).getFullYear();
+                const feriados = feriadosPorAno.get(year) ?? [];
 
-                const agregado = agregarHorasAdicionais(resultados);
+                return calcularHorasComAdicional(os.DTINI_OS, os.HRINI_OS, os.HRFIM_OS, {
+                    ...CONFIG_PADRAO_ADICIONAL,
+                    feriados,
+                });
+            });
 
-                map[codChamado] = {
-                    horasAdicionalGerado: agregado.horasAdicionalGerado,
-                    totalHorasEquivalente: agregado.totalHorasEquivalente,
-                    totalHorasBruto: agregado.totalHorasBruto,
-                };
-            })
-        );
+            const agregado = agregarHorasAdicionais(resultados);
+
+            map[codChamado] = {
+                horasAdicionalGerado: agregado.horasAdicionalGerado,
+                totalHorasEquivalente: agregado.totalHorasEquivalente,
+                totalHorasBruto: agregado.totalHorasBruto,
+            };
+        }
 
         return NextResponse.json({ success: true, data: map }, { status: 200 });
     } catch (error) {

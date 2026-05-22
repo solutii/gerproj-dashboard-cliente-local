@@ -3,39 +3,31 @@
         "target": "ES2021",
         "lib": ["ES2021", "DOM", "DOM.Iterable"],
         "module": "ESNext",
-        "outDir": "dist",
         "moduleResolution": "bundler",
         "esModuleInterop": true,
         "resolveJsonModule": true,
         "strict": true,
         "allowJs": true,
         "isolatedModules": true,
-        "incremental": true,
+        "incremental": true, // ✅ manter — cacheia compilações
+        "tsBuildInfoFile": ".next/cache/tsconfig.tsbuildinfo", // ✅ NOVO: cache no .next
         "jsx": "preserve",
-        "skipLibCheck": true,
-        "noEmit": false,
+        "skipLibCheck": true, // ✅ manter — não recompila @types
+        "noEmit": true, // ✅ CORRIGIR: Next não precisa emitir arquivos
         "types": ["node", "react", "react-dom"],
-        "ignoreDeprecations": "6.0",
         "baseUrl": ".",
+        "ignoreDeprecations": "6.0", // ✅ silencia o aviso do baseUrl
         "paths": {
             "@/*": ["./src/*"]
         },
-        "plugins": [
-            {
-                "name": "next"
-            }
-        ]
+        "plugins": [{ "name": "next" }]
     },
     "include": [
         "next-env.d.ts",
         "server.ts",
         "src/**/*",
-        "scripts/**/*",
         ".next/types/**/*.ts"
+        // ❌ REMOVI scripts/**/* — se não usar, o tsserver analisa desnecessariamente
     ],
-    "exclude": [
-        "node_modules",
-        ".next",
-        "dist"
-    ]
+    "exclude": ["node_modules", ".next", "dist"]
 }

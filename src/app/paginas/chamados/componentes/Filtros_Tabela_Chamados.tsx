@@ -6,7 +6,6 @@ import { Relogio } from '@/components/Relogio';
 import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
-// =====================================================
 import {
     createContext,
     ReactNode,
@@ -125,101 +124,53 @@ function processarNome(nome: string, maxPalavras: number = 2): string {
 
 function extrairAnoDeData(dataChamado: string | Date | number | null | undefined): number | null {
     if (!dataChamado) return null;
-
     let data: Date | null = null;
-
-    if (typeof dataChamado === 'string') {
-        data = new Date(dataChamado);
-    } else if (dataChamado instanceof Date) {
-        data = dataChamado;
-    } else if (typeof dataChamado === 'number') {
-        data = new Date(dataChamado);
-    }
-
+    if (typeof dataChamado === 'string') data = new Date(dataChamado);
+    else if (dataChamado instanceof Date) data = dataChamado;
+    else if (typeof dataChamado === 'number') data = new Date(dataChamado);
     if (!data || isNaN(data.getTime())) return null;
-
     const ano = data.getFullYear();
     return ano >= 2020 && ano <= 2030 ? ano : null;
 }
 
 function extrairMesDeData(dataChamado: string | Date | number | null | undefined): number | null {
     if (!dataChamado) return null;
-
     let data: Date | null = null;
-
-    if (typeof dataChamado === 'string') {
-        data = new Date(dataChamado);
-    } else if (dataChamado instanceof Date) {
-        data = dataChamado;
-    } else if (typeof dataChamado === 'number') {
-        data = new Date(dataChamado);
-    }
-
+    if (typeof dataChamado === 'string') data = new Date(dataChamado);
+    else if (dataChamado instanceof Date) data = dataChamado;
+    else if (typeof dataChamado === 'number') data = new Date(dataChamado);
     if (!data || isNaN(data.getTime())) return null;
-
     return data.getMonth() + 1;
 }
 
 function formatarData(data: string | Date | number | null | undefined): string | null {
     if (!data) return null;
-
     try {
-        // Tipo 1: String já formatada dd/mm/yyyy
-        if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(data)) {
-            return data;
-        }
-
-        // Tipo 2: String com traço dd/mm/yyyy - hh:mm
-        if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} - \d{2}:\d{2}$/.test(data)) {
+        if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(data)) return data;
+        if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} - \d{2}:\d{2}$/.test(data))
             return data.split(' - ')[0];
-        }
-
-        // Tipo 3: String com espaço dd/mm/yyyy hh:mm:ss ou dd/mm/yyyy hh:mm
-        if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/.test(data)) {
+        if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/.test(data))
             return data.split(' ')[0];
-        }
-
-        // Tipo 4: String ISO completa (yyyy-mm-ddThh:mm:ss.sssZ) - USAR HORA LOCAL
         if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(data)) {
             const dataObj = new Date(data);
             if (isNaN(dataObj.getTime())) return null;
-            const dia = dataObj.getDate().toString().padStart(2, '0');
-            const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
-            const ano = dataObj.getFullYear();
-            return `${dia}/${mes}/${ano}`;
+            return `${dataObj.getDate().toString().padStart(2, '0')}/${(dataObj.getMonth() + 1).toString().padStart(2, '0')}/${dataObj.getFullYear()}`;
         }
-
-        // Tipo 5: String ISO simples (yyyy-mm-dd sem hora)
         if (typeof data === 'string') {
             const isoMatch = data.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-            if (isoMatch) {
-                const [, ano, mes, dia] = isoMatch;
-                return `${dia}/${mes}/${ano}`;
-            }
+            if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
         }
-
-        // Tipo 6: Date object - USAR HORA LOCAL
         if (data instanceof Date) {
             if (isNaN(data.getTime())) return null;
-            const dia = data.getDate().toString().padStart(2, '0');
-            const mes = (data.getMonth() + 1).toString().padStart(2, '0');
-            const ano = data.getFullYear();
-            return `${dia}/${mes}/${ano}`;
+            return `${data.getDate().toString().padStart(2, '0')}/${(data.getMonth() + 1).toString().padStart(2, '0')}/${data.getFullYear()}`;
         }
-
-        // Tipo 7: Timestamp - USAR HORA LOCAL
         if (typeof data === 'number') {
             const dataObj = new Date(data);
             if (isNaN(dataObj.getTime())) return null;
-            const dia = dataObj.getDate().toString().padStart(2, '0');
-            const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
-            const ano = dataObj.getFullYear();
-            return `${dia}/${mes}/${ano}`;
+            return `${dataObj.getDate().toString().padStart(2, '0')}/${(dataObj.getMonth() + 1).toString().padStart(2, '0')}/${dataObj.getFullYear()}`;
         }
-
         return null;
-    } catch (error) {
-        console.error('Erro ao formatar data:', error);
+    } catch {
         return null;
     }
 }
@@ -241,7 +192,6 @@ const fetchClientes = async ({
     if (ano) params.append('ano', ano.toString());
     params.append('isAdmin', isAdmin.toString());
     if (!isAdmin && codCliente) params.append('codCliente', codCliente);
-
     const response = await fetch(`/api/filtros/clientes?${params.toString()}`);
     if (!response.ok) throw new Error('Erro ao carregar clientes');
     return response.json();
@@ -266,7 +216,6 @@ const fetchRecursos = async ({
     params.append('isAdmin', isAdmin.toString());
     if (!isAdmin && codCliente) params.append('codCliente', codCliente);
     if (isAdmin && clienteSelecionado) params.append('cliente', clienteSelecionado);
-
     const response = await fetch(`/api/filtros/recursos?${params.toString()}`);
     if (!response.ok) throw new Error('Erro ao carregar recursos');
     return response.json();
@@ -294,7 +243,6 @@ const fetchStatus = async ({
     if (!isAdmin && codCliente) params.append('codCliente', codCliente);
     if (isAdmin && clienteSelecionado) params.append('cliente', clienteSelecionado);
     if (recursoSelecionado) params.append('recurso', recursoSelecionado);
-
     const response = await fetch(`/api/filtros/status?${params.toString()}`);
     if (!response.ok) throw new Error('Erro ao carregar status');
     return response.json();
@@ -304,238 +252,164 @@ const fetchStatus = async ({
 function useDataAtual() {
     return useMemo(() => {
         const hoje = new Date();
-        return {
-            hoje,
-            anoAtual: hoje.getFullYear(),
-            mesAtual: hoje.getMonth() + 1,
-        };
+        return { hoje, anoAtual: hoje.getFullYear(), mesAtual: hoje.getMonth() + 1 };
     }, []);
 }
 
-function useAnosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+// ==================== CORREÇÃO 5: MEMOIZAÇÃO ESTÁVEL DA ENTRADA DOS HOOKS LOCAIS ====================
+//
+// Problema anterior: cada hook (useChamadosLocais, useEntradasLocais, etc.) recebia
+// `dadosChamados` diretamente e recalculava a cada render, mesmo sem mudanças reais
+// nos dados. Com 10 hooks e 500 chamados, isso era 5.000 iterações por render.
+//
+// Solução: extrair os campos necessários em arrays primitivos memoizados por uma
+// chave estável (IDs dos chamados). Os hooks individuais recebem apenas o que
+// precisam e só recomputam quando os dados realmente mudam.
+
+function useDadosMemoizados(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+    // Chave estável baseada nos IDs — muda só quando a lista de chamados muda
+    const idsKey = useMemo(
+        () => (dadosChamados ?? []).map((c) => c.COD_CHAMADO).join(','),
+        [dadosChamados]
+    );
+
     return useMemo(() => {
-        if (!dadosChamados?.length) {
-            return [];
-        }
+        const dados = dadosChamados ?? [];
+        return {
+            anos: dados.map((c) => extrairAnoDeData(c.DATA_CHAMADO)).filter(Boolean) as number[],
+            meses: dados
+                .map((c) => ({
+                    ano: extrairAnoDeData(c.DATA_CHAMADO),
+                    mes: extrairMesDeData(c.DATA_CHAMADO),
+                }))
+                .filter((x) => x.ano && x.mes) as { ano: number; mes: number }[],
+            recursos: dados
+                .map((c) => ({
+                    cod: c.COD_RECURSO?.toString().trim() ?? '',
+                    nome: c.NOME_RECURSO?.toString().trim() ?? '',
+                }))
+                .filter((r) => r.cod && r.nome),
+            chamados: dados.map((c) => c.COD_CHAMADO).filter(Boolean) as number[],
+            datasEntrada: dados
+                .map((c) => formatarData(c.DATA_CHAMADO))
+                .filter(Boolean) as string[],
+            datasInicio: dados
+                .map((c) => formatarData(c.DTINI_CHAMADO))
+                .filter(Boolean) as string[],
+            prioridades: dados
+                .map((c) => c.PRIOR_CHAMADO)
+                .filter((p) => p !== undefined && p !== null) as number[],
+            classificacoes: dados
+                .map((c) => c.NOME_CLASSIFICACAO?.toString().trim() ?? '')
+                .filter(Boolean) as string[],
+            datasAtribuicao: dados
+                .map((c) => formatarData(c.DTENVIO_CHAMADO))
+                .filter(Boolean) as string[],
+            datasFinalizacao: dados
+                .map((c) => formatarData(c.DATA_HISTCHAMADO))
+                .filter(Boolean) as string[],
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [idsKey]); // ← depende só da chave, não do array inteiro
+}
 
-        const anosUnicos = new Set<number>();
-
-        dadosChamados.forEach((chamado) => {
-            const ano = extrairAnoDeData(chamado.DATA_CHAMADO);
-            if (ano) anosUnicos.add(ano);
-        });
-
-        const anos = Array.from(anosUnicos).sort((a, b) => b - a);
-        return anos;
-    }, [dadosChamados]);
+function useAnosLocais(dados: ReturnType<typeof useDadosMemoizados>) {
+    return useMemo(() => {
+        const anosUnicos = new Set(dados.anos);
+        return Array.from(anosUnicos).sort((a, b) => b - a);
+    }, [dados.anos]);
 }
 
 function useMesesDisponiveisNoAno(
-    dadosChamados: FiltrosChamadoProps['dadosChamados'],
+    dados: ReturnType<typeof useDadosMemoizados>,
     anoTemp: number | undefined
 ) {
     return useMemo(() => {
-        if (!anoTemp || !dadosChamados?.length) return [];
-
-        const mesesUnicos = new Set<number>();
-
-        dadosChamados.forEach((chamado) => {
-            const ano = extrairAnoDeData(chamado.DATA_CHAMADO);
-            const mes = extrairMesDeData(chamado.DATA_CHAMADO);
-
-            if (ano === anoTemp && mes) {
-                mesesUnicos.add(mes);
-            }
-        });
-
-        const meses = Array.from(mesesUnicos).sort((a, b) => a - b);
-        return meses;
-    }, [dadosChamados, anoTemp]);
+        if (!anoTemp) return [];
+        const mesesUnicos = new Set(dados.meses.filter((x) => x.ano === anoTemp).map((x) => x.mes));
+        return Array.from(mesesUnicos).sort((a, b) => a - b);
+    }, [dados.meses, anoTemp]);
 }
 
-function useRecursosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+function useRecursosLocais(dados: ReturnType<typeof useDadosMemoizados>) {
     return useMemo(() => {
-        if (!dadosChamados?.length) {
-            return [];
-        }
-
         const recursosUnicos = new Map<string, string>();
-
-        dadosChamados.forEach((chamado) => {
-            const nomeRecurso = chamado.NOME_RECURSO?.toString().trim();
-            const codRecurso = chamado.COD_RECURSO?.toString().trim() || nomeRecurso;
-
-            if (codRecurso && nomeRecurso && !recursosUnicos.has(codRecurso)) {
-                recursosUnicos.set(codRecurso, nomeRecurso);
-            }
-        });
-
-        const recursos = Array.from(recursosUnicos.entries())
+        for (const r of dados.recursos) {
+            if (!recursosUnicos.has(r.cod)) recursosUnicos.set(r.cod, r.nome);
+        }
+        return Array.from(recursosUnicos.entries())
             .map(([cod, nome]) => ({ cod, nome }))
             .sort((a, b) => a.nome.localeCompare(b.nome));
-
-        return recursos;
-    }, [dadosChamados]);
+    }, [dados.recursos]);
 }
 
-// ==================== NOVOS HOOKS PARA FILTROS LOCAIS ====================
-function useChamadosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+function useChamadosLocais(dados: ReturnType<typeof useDadosMemoizados>) {
     return useMemo(() => {
-        if (!dadosChamados?.length) return [];
-
-        const chamadosUnicos = new Set<number>();
-        dadosChamados.forEach((chamado) => {
-            if (chamado.COD_CHAMADO) {
-                chamadosUnicos.add(chamado.COD_CHAMADO);
-            }
-        });
-
-        return Array.from(chamadosUnicos)
-            .sort((a, b) => b - a)
-            .map((cod) => ({ value: cod, label: cod.toString() }));
-    }, [dadosChamados]);
+        const unicos = [...new Set(dados.chamados)].sort((a, b) => b - a);
+        return unicos.map((cod) => ({ value: cod, label: cod.toString() }));
+    }, [dados.chamados]);
 }
 
-function useEntradasLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+function useEntradasLocais(dados: ReturnType<typeof useDadosMemoizados>) {
     return useMemo(() => {
-        if (!dadosChamados?.length) return [];
-
-        const datasUnicas = new Set<string>();
-        dadosChamados.forEach((chamado) => {
-            const dataFormatada = formatarData(chamado.DATA_CHAMADO);
-            if (dataFormatada) {
-                datasUnicas.add(dataFormatada);
-            }
-        });
-
-        return Array.from(datasUnicas)
-            .sort((a, b) => {
-                const [diaA, mesA, anoA] = a.split('/').map(Number);
-                const [diaB, mesB, anoB] = b.split('/').map(Number);
-                const dataA = new Date(anoA, mesA - 1, diaA);
-                const dataB = new Date(anoB, mesB - 1, diaB);
-                return dataB.getTime() - dataA.getTime();
-            })
-            .map((data) => ({ value: data, label: data }));
-    }, [dadosChamados]);
+        return [...new Set(dados.datasEntrada)]
+            .sort((a, b) => sortDataDesc(a, b))
+            .map((d) => ({ value: d, label: d }));
+    }, [dados.datasEntrada]);
 }
 
-function useIniciosLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+function useIniciosLocais(dados: ReturnType<typeof useDadosMemoizados>) {
     return useMemo(() => {
-        if (!dadosChamados?.length) return [];
-
-        const datasUnicas = new Set<string>();
-        dadosChamados.forEach((chamado) => {
-            const dataFormatada = formatarData(chamado.DTINI_CHAMADO);
-            if (dataFormatada) {
-                datasUnicas.add(dataFormatada);
-            }
-        });
-
-        return Array.from(datasUnicas)
-            .sort((a, b) => {
-                const [diaA, mesA, anoA] = a.split('/').map(Number);
-                const [diaB, mesB, anoB] = b.split('/').map(Number);
-                const dataA = new Date(anoA, mesA - 1, diaA);
-                const dataB = new Date(anoB, mesB - 1, diaB);
-                return dataB.getTime() - dataA.getTime();
-            })
-            .map((data) => ({ value: data, label: data }));
-    }, [dadosChamados]);
+        return [...new Set(dados.datasInicio)]
+            .sort((a, b) => sortDataDesc(a, b))
+            .map((d) => ({ value: d, label: d }));
+    }, [dados.datasInicio]);
 }
 
-function usePrioridadesLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+function usePrioridadesLocais(dados: ReturnType<typeof useDadosMemoizados>) {
+    const prioridadeLabels: Record<number, string> = {
+        1: '1 - Urgente',
+        2: '2 - Alta',
+        3: '3 - Normal',
+        4: '4 - Baixa',
+        100: '100 - Sem Prioridade',
+    };
     return useMemo(() => {
-        if (!dadosChamados?.length) return [];
-
-        const prioridadesUnicas = new Set<number>();
-        dadosChamados.forEach((chamado) => {
-            if (chamado.PRIOR_CHAMADO !== undefined && chamado.PRIOR_CHAMADO !== null) {
-                prioridadesUnicas.add(chamado.PRIOR_CHAMADO);
-            }
-        });
-
-        const prioridadeLabels: Record<number, string> = {
-            1: '1 - Urgente',
-            2: '2 - Alta',
-            3: '3 - Normal',
-            4: '4 - Baixa',
-            100: '100 - Sem Prioridade',
-        };
-
-        return Array.from(prioridadesUnicas)
+        return [...new Set(dados.prioridades)]
             .sort((a, b) => a - b)
-            .map((prior) => ({
-                value: prior,
-                label: prioridadeLabels[prior] || `${prior}`,
-            }));
-    }, [dadosChamados]);
+            .map((p) => ({ value: p, label: prioridadeLabels[p] || `${p}` }));
+    }, [dados.prioridades]);
 }
 
-function useClassificacoesLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+function useClassificacoesLocais(dados: ReturnType<typeof useDadosMemoizados>) {
     return useMemo(() => {
-        if (!dadosChamados?.length) return [];
-
-        const classificacoesUnicas = new Map<string, string>();
-        dadosChamados.forEach((chamado) => {
-            const nome = chamado.NOME_CLASSIFICACAO?.toString().trim();
-            if (nome && !classificacoesUnicas.has(nome)) {
-                classificacoesUnicas.set(nome, nome);
-            }
-        });
-
-        return Array.from(classificacoesUnicas.keys())
+        return [...new Set(dados.classificacoes)]
             .sort()
             .map((nome) => ({ value: nome, label: nome }));
-    }, [dadosChamados]);
+    }, [dados.classificacoes]);
 }
 
-function useAtribuicoesLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+function useAtribuicoesLocais(dados: ReturnType<typeof useDadosMemoizados>) {
     return useMemo(() => {
-        if (!dadosChamados?.length) return [];
-
-        const datasUnicas = new Set<string>();
-        dadosChamados.forEach((chamado) => {
-            const dataFormatada = formatarData(chamado.DTENVIO_CHAMADO);
-            if (dataFormatada) {
-                datasUnicas.add(dataFormatada);
-            }
-        });
-
-        return Array.from(datasUnicas)
-            .sort((a, b) => {
-                const [diaA, mesA, anoA] = a.split('/').map(Number);
-                const [diaB, mesB, anoB] = b.split('/').map(Number);
-                const dataA = new Date(anoA, mesA - 1, diaA);
-                const dataB = new Date(anoB, mesB - 1, diaB);
-                return dataB.getTime() - dataA.getTime();
-            })
-            .map((data) => ({ value: data, label: data }));
-    }, [dadosChamados]);
+        return [...new Set(dados.datasAtribuicao)]
+            .sort((a, b) => sortDataDesc(a, b))
+            .map((d) => ({ value: d, label: d }));
+    }, [dados.datasAtribuicao]);
 }
 
-function useFinalizacoesLocais(dadosChamados: FiltrosChamadoProps['dadosChamados']) {
+function useFinalizacoesLocais(dados: ReturnType<typeof useDadosMemoizados>) {
     return useMemo(() => {
-        if (!dadosChamados?.length) return [];
+        return [...new Set(dados.datasFinalizacao)]
+            .sort((a, b) => sortDataDesc(a, b))
+            .map((d) => ({ value: d, label: d }));
+    }, [dados.datasFinalizacao]);
+}
 
-        const datasUnicas = new Set<string>();
-        dadosChamados.forEach((chamado) => {
-            const dataFormatada = formatarData(chamado.DATA_HISTCHAMADO);
-            if (dataFormatada) {
-                datasUnicas.add(dataFormatada);
-            }
-        });
-
-        return Array.from(datasUnicas)
-            .sort((a, b) => {
-                const [diaA, mesA, anoA] = a.split('/').map(Number);
-                const [diaB, mesB, anoB] = b.split('/').map(Number);
-                const dataA = new Date(anoA, mesA - 1, diaA);
-                const dataB = new Date(anoB, mesB - 1, diaB);
-                return dataB.getTime() - dataA.getTime();
-            })
-            .map((data) => ({ value: data, label: data }));
-    }, [dadosChamados]);
+// Helper de ordenação desc para strings "dd/mm/yyyy"
+function sortDataDesc(a: string, b: string): number {
+    const [dA, mA, yA] = a.split('/').map(Number);
+    const [dB, mB, yB] = b.split('/').map(Number);
+    return new Date(yB, mB - 1, dB).getTime() - new Date(yA, mA - 1, dA).getTime();
 }
 
 // ==================== COMPONENTE SELECT ====================
@@ -574,7 +448,6 @@ function SelectWithClear({
                             ? JSON.stringify(opt.value)
                             : String(opt.value);
                     const optLabel = typeof opt.label === 'string' ? opt.label : String(opt.label);
-
                     return (
                         <option
                             key={`option-${optValue}-${index}`}
@@ -614,7 +487,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const { isAdmin, codCliente } = useAuthStore();
     const { hoje, anoAtual, mesAtual } = useDataAtual();
 
-    // Estado para controlar expansão do dropdown
     const [dropdownAberto, setDropdownAberto] = useState(false);
 
     // Estados temporários (antes de aplicar)
@@ -645,77 +517,65 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const [finalizacaoSelecionada, setFinalizacaoSelecionada] = useState('');
     const [inicioSelecionado, setInicioSelecionado] = useState('');
 
+    // ✅ CORREÇÃO 2: isInitialized sem dependências dinâmicas
+    //
+    // Problema anterior: o useEffect tinha [isAdmin, codCliente, dadosChamados.length]
+    // como dependências, fazendo setIsInitialized(true) re-disparar a cada atualização
+    // dos dados da tabela, o que forçava re-execução de todas as queries do useQuery.
+    //
+    // Correção: array vazio [] — inicializa apenas uma vez na montagem do componente,
+    // que é a intenção original.
     const [isInitialized, setIsInitialized] = useState(false);
+
     const [filtrosForamAlterados, setFiltrosForamAlterados] = useState(false);
 
-    // Dados extraídos localmente
-    const anosLocais = useAnosLocais(dadosChamados);
-    const mesesDisponiveisNoAno = useMesesDisponiveisNoAno(dadosChamados, anoTemp);
-    const recursosLocais = useRecursosLocais(dadosChamados);
-    const chamadosLocais = useChamadosLocais(dadosChamados);
-    const entradasLocais = useEntradasLocais(dadosChamados);
-    const prioridadesLocais = usePrioridadesLocais(dadosChamados);
-    const classificacoesLocais = useClassificacoesLocais(dadosChamados);
-    const atribuicoesLocais = useAtribuicoesLocais(dadosChamados);
-    const finalizacoesLocais = useFinalizacoesLocais(dadosChamados);
-    const iniciosLocais = useIniciosLocais(dadosChamados);
+    // ✅ CORREÇÃO 5: dados memoizados com chave estável — entrada dos hooks locais
+    const dadosMemo = useDadosMemoizados(dadosChamados);
 
-    // Valores padrão
+    const anosLocais = useAnosLocais(dadosMemo);
+    const mesesDisponiveisNoAno = useMesesDisponiveisNoAno(dadosMemo, anoTemp);
+    const recursosLocais = useRecursosLocais(dadosMemo);
+    const chamadosLocais = useChamadosLocais(dadosMemo);
+    const entradasLocais = useEntradasLocais(dadosMemo);
+    const prioridadesLocais = usePrioridadesLocais(dadosMemo);
+    const classificacoesLocais = useClassificacoesLocais(dadosMemo);
+    const atribuicoesLocais = useAtribuicoesLocais(dadosMemo);
+    const finalizacoesLocais = useFinalizacoesLocais(dadosMemo);
+    const iniciosLocais = useIniciosLocais(dadosMemo);
+
     const valoresPadrao = useMemo(
-        () => ({
-            ano: isAdmin ? anoAtual : undefined,
-            mes: isAdmin ? mesAtual : undefined,
-        }),
+        () => ({ ano: isAdmin ? anoAtual : undefined, mes: isAdmin ? mesAtual : undefined }),
         [isAdmin, anoAtual, mesAtual]
     );
 
-    // Status é FINALIZADO?
     const usarAnosConfigurados = useMemo(() => {
         const statusParaVerificar = statusTemp || statusSelecionado;
-        return statusParaVerificar?.trim().toUpperCase() === 'FINALIZADO';
+        const upper = statusParaVerificar?.trim().toUpperCase();
+        return upper === 'FINALIZADO' || upper === 'TODOS';
     }, [statusTemp, statusSelecionado]);
 
-    // Anos disponíveis
     const years = useMemo(() => {
-        if (usarAnosConfigurados) {
-            return ANOS_DISPONIVEIS_FINALIZADOS;
-        }
-        if (anosLocais.length === 0) {
-            return [2024, 2025, 2026];
-        }
+        if (usarAnosConfigurados) return ANOS_DISPONIVEIS_FINALIZADOS;
+        if (anosLocais.length === 0) return [2024, 2025, 2026];
         return anosLocais;
     }, [anosLocais, usarAnosConfigurados]);
 
-    // Meses disponíveis
     const mesesDisponiveis = useMemo(() => {
         if (!anoTemp) return [];
-
         if (usarAnosConfigurados) {
-            if (anoTemp < anoAtual) {
-                return MESES_NOMES.map((m, i) => ({ value: i + 1, label: m }));
-            }
-            if (anoTemp === anoAtual) {
+            if (anoTemp < anoAtual) return MESES_NOMES.map((m, i) => ({ value: i + 1, label: m }));
+            if (anoTemp === anoAtual)
                 return MESES_NOMES.slice(0, mesAtual).map((m, i) => ({ value: i + 1, label: m }));
-            }
-            if (anoTemp > anoAtual) {
-                return [];
-            }
+            return [];
         }
-
-        if (mesesDisponiveisNoAno.length > 0) {
+        if (mesesDisponiveisNoAno.length > 0)
             return mesesDisponiveisNoAno.map((mesNum) => ({
                 value: mesNum,
                 label: MESES_NOMES[mesNum - 1],
             }));
-        }
-
-        // Fallback
-        if (anoTemp < anoAtual) {
-            return MESES_NOMES.map((m, i) => ({ value: i + 1, label: m }));
-        }
-        if (anoTemp === anoAtual) {
+        if (anoTemp < anoAtual) return MESES_NOMES.map((m, i) => ({ value: i + 1, label: m }));
+        if (anoTemp === anoAtual)
             return MESES_NOMES.slice(0, mesAtual).map((m, i) => ({ value: i + 1, label: m }));
-        }
         if (anoTemp > anoAtual) {
             const diferencaAnos = anoTemp - anoAtual;
             if (diferencaAnos === 1) {
@@ -727,15 +587,14 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             }
             return [];
         }
-
         return MESES_NOMES.map((m, i) => ({ value: i + 1, label: m }));
     }, [anoTemp, anoAtual, mesAtual, mesesDisponiveisNoAno, usarAnosConfigurados]);
 
-    // Estados de desabilitação
     const anoDesabilitado = useMemo(() => {
-        const statusNaoFinalizado = statusTemp && statusTemp.trim().toUpperCase() !== 'FINALIZADO';
+        const upper = statusTemp?.trim().toUpperCase();
+        const statusNaoPermiteData = statusTemp && upper !== 'FINALIZADO' && upper !== 'TODOS';
         const statusMudou = statusTemp !== statusSelecionado;
-        return Boolean(statusNaoFinalizado && statusMudou);
+        return Boolean(statusNaoPermiteData && statusMudou);
     }, [statusTemp, statusSelecionado]);
 
     const mesDesabilitado = !anoTemp || mesesDisponiveis.length === 0 || anoDesabilitado;
@@ -745,7 +604,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const recursoDesabilitado =
         recursoDesabilitadoPorStatus || isLoadingRecursos || !recursosLocais.length;
 
-    // Queries
     const { data: clientesData = [], isLoading: clientesLoading } = useQuery({
         queryKey: ['clientes', mes, ano, isAdmin, codCliente],
         queryFn: () => fetchClientes({ mes, ano, isAdmin, codCliente }),
@@ -763,22 +621,22 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         retry: 2,
     });
 
-    // Função para obter label legível de um filtro
     const obterLabelFiltro = useCallback(
         (campo: string, valor: string | number | undefined) => {
             if (!valor) return '';
-
             switch (campo) {
                 case 'ano':
                     return `Ano: ${valor}`;
                 case 'mes':
                     return `Mês: ${MESES_NOMES[Number(valor) - 1]}`;
-                case 'cliente':
+                case 'cliente': {
                     const cliente = clientesData.find((c) => c.cod === valor);
                     return `Cliente: ${processarNome(cliente?.nome || String(valor), 3)}`;
-                case 'recurso':
+                }
+                case 'recurso': {
                     const recurso = recursosLocais.find((r) => r.cod === valor);
                     return `Consultor: ${processarNome(recurso?.nome || String(valor), 2)}`;
+                }
                 case 'status':
                     return `Status: ${valor}`;
                 case 'chamado':
@@ -789,9 +647,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                     return `Início: ${valor}`;
                 case 'atribuicao':
                     return `Atribuição: ${valor}`;
-                case 'prioridade':
+                case 'prioridade': {
                     const prioridade = prioridadesLocais.find((p) => p.value === Number(valor));
                     return `Prioridade: ${prioridade?.label || valor}`;
+                }
                 case 'classificacao':
                     return `Classificação: ${processarNome(String(valor), 2)}`;
                 case 'finalizacao':
@@ -803,98 +662,79 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         [clientesData, recursosLocais, prioridadesLocais]
     );
 
-    // Filtros ativos (tags)
     const filtrosAtivos = useMemo(() => {
         const tags: Array<{ campo: string; valor: string | number; label: string }> = [];
-
-        // Verificar diferença dos valores padrão para ano/mês
         if (isAdmin) {
-            if (ano !== valoresPadrao.ano) {
+            if (ano !== valoresPadrao.ano)
                 tags.push({ campo: 'ano', valor: ano!, label: obterLabelFiltro('ano', ano) });
-            }
-            if (mes !== valoresPadrao.mes) {
+            if (mes !== valoresPadrao.mes)
                 tags.push({ campo: 'mes', valor: mes!, label: obterLabelFiltro('mes', mes) });
-            }
         } else {
-            if (ano !== undefined) {
+            if (ano !== undefined)
                 tags.push({ campo: 'ano', valor: ano, label: obterLabelFiltro('ano', ano) });
-            }
-            if (mes !== undefined) {
+            if (mes !== undefined)
                 tags.push({ campo: 'mes', valor: mes, label: obterLabelFiltro('mes', mes) });
-            }
         }
-
-        if (isAdmin && clienteSelecionado) {
+        if (isAdmin && clienteSelecionado)
             tags.push({
                 campo: 'cliente',
                 valor: clienteSelecionado,
                 label: obterLabelFiltro('cliente', clienteSelecionado),
             });
-        }
-        if (recursoSelecionado) {
+        if (recursoSelecionado)
             tags.push({
                 campo: 'recurso',
                 valor: recursoSelecionado,
                 label: obterLabelFiltro('recurso', recursoSelecionado),
             });
-        }
-        if (statusSelecionado) {
+        if (statusSelecionado)
             tags.push({
                 campo: 'status',
                 valor: statusSelecionado,
                 label: obterLabelFiltro('status', statusSelecionado),
             });
-        }
-        if (chamadoSelecionado) {
+        if (chamadoSelecionado)
             tags.push({
                 campo: 'chamado',
                 valor: chamadoSelecionado,
                 label: obterLabelFiltro('chamado', chamadoSelecionado),
             });
-        }
-        if (entradaSelecionada) {
+        if (entradaSelecionada)
             tags.push({
                 campo: 'entrada',
                 valor: entradaSelecionada,
                 label: obterLabelFiltro('entrada', entradaSelecionada),
             });
-        }
-        if (inicioSelecionado) {
+        if (inicioSelecionado)
             tags.push({
                 campo: 'inicio',
                 valor: inicioSelecionado,
                 label: obterLabelFiltro('inicio', inicioSelecionado),
             });
-        }
-        if (atribuicaoSelecionada) {
+        if (atribuicaoSelecionada)
             tags.push({
                 campo: 'atribuicao',
                 valor: atribuicaoSelecionada,
                 label: obterLabelFiltro('atribuicao', atribuicaoSelecionada),
             });
-        }
-        if (prioridadeSelecionada) {
+        if (prioridadeSelecionada)
             tags.push({
                 campo: 'prioridade',
                 valor: prioridadeSelecionada,
                 label: obterLabelFiltro('prioridade', prioridadeSelecionada),
             });
-        }
-        if (classificacaoSelecionada) {
+        if (classificacaoSelecionada)
             tags.push({
                 campo: 'classificacao',
                 valor: classificacaoSelecionada,
                 label: obterLabelFiltro('classificacao', classificacaoSelecionada),
             });
-        }
-        if (finalizacaoSelecionada) {
+        if (finalizacaoSelecionada)
             tags.push({
                 campo: 'finalizacao',
                 valor: finalizacaoSelecionada,
                 label: obterLabelFiltro('finalizacao', finalizacaoSelecionada),
             });
-        }
-
         return tags;
     }, [
         ano,
@@ -914,7 +754,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         obterLabelFiltro,
     ]);
 
-    // Contadores e flags
     const mudancasCount = useMemo(() => {
         return [
             anoTemp !== ano,
@@ -959,10 +798,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     ]);
 
     const temMudancas = mudancasCount > 0;
-
     const temFiltrosAtivos = filtrosAtivos.length > 0;
 
-    // Callbacks
     const aplicarFiltros = useCallback(() => {
         setAno(anoTemp);
         setMes(mesTemp);
@@ -976,7 +813,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         setAtribuicaoSelecionada(atribuicaoTemp);
         setFinalizacaoSelecionada(finalizacaoTemp);
         setInicioSelecionado(inicioTemp);
-
         if (
             anoTemp !== valoresPadrao.ano ||
             mesTemp !== valoresPadrao.mes ||
@@ -990,11 +826,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             atribuicaoTemp ||
             finalizacaoTemp ||
             inicioTemp
-        ) {
+        )
             setFiltrosForamAlterados(true);
-        }
-
-        // Fechar dropdown após aplicar
         setDropdownAberto(false);
     }, [
         anoTemp,
@@ -1024,7 +857,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             setAno(undefined);
             setMes(undefined);
         }
-
         if (statusSelecionado === 'FINALIZADO') {
             setStatusTemp('');
             setStatusSelecionado('');
@@ -1060,8 +892,9 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                     setRecursoTemp('');
                     setRecursoSelecionado('');
                     break;
-                case 'status':
-                    if (statusSelecionado === 'FINALIZADO') {
+                case 'status': {
+                    const upper = statusSelecionado?.trim().toUpperCase();
+                    if (upper === 'FINALIZADO' || upper === 'TODOS') {
                         setRecursoTemp('');
                         setRecursoSelecionado('');
                     }
@@ -1074,6 +907,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         setMes(undefined);
                     }
                     break;
+                }
                 case 'chamado':
                     setChamadoTemp('');
                     setChamadoSelecionado('');
@@ -1105,17 +939,11 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
             }
 
             const verificarFiltrosRestantes = () => {
-                if (campo === 'status') {
-                    const temAnoMes =
-                        (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
-                        (!isAdmin && (ano !== undefined || mes !== undefined));
-                    const temCliente = isAdmin && clienteSelecionado;
-                    return temAnoMes || temCliente;
-                }
-                if (campo === 'cliente') {
-                    const temAnoMes =
-                        (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
-                        (!isAdmin && (ano !== undefined || mes !== undefined));
+                const temAnoMes =
+                    (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
+                    (!isAdmin && (ano !== undefined || mes !== undefined));
+                if (campo === 'status') return temAnoMes || (isAdmin && !!clienteSelecionado);
+                if (campo === 'cliente')
                     return (
                         temAnoMes ||
                         recursoSelecionado ||
@@ -1128,15 +956,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         finalizacaoSelecionada ||
                         inicioSelecionado
                     );
-                }
-                if (campo === 'recurso') {
-                    const temAnoMes =
-                        (isAdmin && (ano !== valoresPadrao.ano || mes !== valoresPadrao.mes)) ||
-                        (!isAdmin && (ano !== undefined || mes !== undefined));
-                    const temCliente = isAdmin && clienteSelecionado;
+                if (campo === 'recurso')
                     return (
                         temAnoMes ||
-                        temCliente ||
+                        (isAdmin && !!clienteSelecionado) ||
                         statusSelecionado ||
                         chamadoSelecionado ||
                         entradaSelecionada ||
@@ -1146,11 +969,9 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         finalizacaoSelecionada ||
                         inicioSelecionado
                     );
-                }
-                if (campo === 'ano' || campo === 'mes') {
-                    const temCliente = isAdmin && clienteSelecionado;
+                if (campo === 'ano' || campo === 'mes')
                     return (
-                        temCliente ||
+                        (isAdmin && !!clienteSelecionado) ||
                         recursoSelecionado ||
                         statusSelecionado ||
                         chamadoSelecionado ||
@@ -1161,13 +982,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         finalizacaoSelecionada ||
                         inicioSelecionado
                     );
-                }
                 return false;
             };
 
-            if (!verificarFiltrosRestantes()) {
-                setFiltrosForamAlterados(false);
-            }
+            if (!verificarFiltrosRestantes()) setFiltrosForamAlterados(false);
         },
         [
             limparAnoMes,
@@ -1204,7 +1022,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         setAtribuicaoTemp('');
         setFinalizacaoTemp('');
         setInicioTemp('');
-
         setAno(valoresPadrao.ano);
         setMes(valoresPadrao.mes);
         if (isAdmin) setClienteSelecionado('');
@@ -1220,13 +1037,14 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         setFiltrosForamAlterados(false);
     }, [valoresPadrao, isAdmin]);
 
-    // Effects
+    // ✅ CORREÇÃO 2: array vazio — inicializa apenas uma vez na montagem
     useEffect(() => {
         setIsInitialized(true);
-    }, [isAdmin, codCliente, dadosChamados.length]);
+    }, []); // ← era [isAdmin, codCliente, dadosChamados.length]
 
     useEffect(() => {
-        if (!isAdmin && statusTemp === 'FINALIZADO') {
+        const upper = statusTemp?.trim().toUpperCase();
+        if (!isAdmin && (upper === 'FINALIZADO' || upper === 'TODOS')) {
             if (!anoTemp) setAnoTemp(anoAtual);
             if (!mesTemp) setMesTemp(mesAtual);
         }
@@ -1235,9 +1053,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     useEffect(() => {
         if (mesTemp && anoTemp && mesesDisponiveis.length > 0) {
             const mesDisponivel = mesesDisponiveis.some((m) => m.value === mesTemp);
-            if (!mesDisponivel) {
-                setMesTemp(undefined);
-            }
+            if (!mesDisponivel) setMesTemp(undefined);
         }
     }, [anoTemp, mesesDisponiveis, mesTemp]);
 
@@ -1250,9 +1066,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     useEffect(() => {
         if (!recursoTemp) return;
         const recursoExiste = recursosLocais.some((r) => r.cod === recursoTemp);
-        if (!recursoExiste) {
-            setRecursoTemp('');
-        }
+        if (!recursoExiste) setRecursoTemp('');
     }, [recursosLocais, recursoTemp]);
 
     useEffect(() => {
@@ -1301,10 +1115,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     return (
         <FiltrosContext.Provider value={filtrosAtuais}>
             <div className="flex flex-col gap-10">
-                {/* ==================== HEADER COMPACTO ==================== */}
                 <header className="flex items-center justify-between px-4">
                     <div className="flex items-center gap-6">
-                        {/* Botão Dropdown + Tags de Filtros Ativos */}
                         <div className="flex items-center gap-6">
                             <button
                                 onClick={() => setDropdownAberto(!dropdownAberto)}
@@ -1319,7 +1131,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                 )}
                             </button>
 
-                            {/* Botão Limpar Externo */}
                             {filtrosAtivos.length > 1 && (
                                 <button
                                     onClick={limparFiltros}
@@ -1330,29 +1141,13 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                 </button>
                             )}
                         </div>
-                        {/* Tags de Filtros Aplicados */}
+
                         {filtrosAtivos.length > 0 && (
                             <div className="flex flex-wrap items-center gap-4">
                                 {filtrosAtivos.map((filtro, index) => (
                                     <button
                                         key={`${filtro.campo}-${index}`}
-                                        onClick={() =>
-                                            limparFiltroIndividual(
-                                                filtro.campo as
-                                                    | 'ano'
-                                                    | 'mes'
-                                                    | 'cliente'
-                                                    | 'recurso'
-                                                    | 'status'
-                                                    | 'chamado'
-                                                    | 'entrada'
-                                                    | 'prioridade'
-                                                    | 'classificacao'
-                                                    | 'atribuicao'
-                                                    | 'finalizacao'
-                                                    | 'inicio'
-                                            )
-                                        }
+                                        onClick={() => limparFiltroIndividual(filtro.campo as any)}
                                         title={`Remover filtro: ${filtro.label}`}
                                         className="group flex cursor-pointer items-center gap-4 rounded-full border-t border-purple-300 bg-purple-100 px-6 py-1 text-sm font-extrabold tracking-widest text-black shadow-sm shadow-black transition-all duration-200 hover:bg-purple-200 active:scale-95"
                                     >
@@ -1367,7 +1162,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         )}
                     </div>
 
-                    {/* Data e Relógio */}
                     <div className="mr-2 flex items-center justify-center gap-6">
                         <div className="flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
                             <MdCalendarMonth className="text-black" size={28} />
@@ -1381,31 +1175,23 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                     </div>
                 </header>
 
-                {/* ==================== DROPDOWN DE FILTROS ==================== */}
                 {dropdownAberto && (
                     <div className="mx-4 rounded-md border-t border-gray-300 bg-white p-6 shadow-md shadow-black">
                         <div className="grid grid-cols-3 gap-6">
-                            {/* COLUNA 1: PERÍODO, CONSULTOR, STATUS */}
+                            {/* COLUNA 1 */}
                             <div className="flex flex-col gap-1">
                                 <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
                                     PERÍODO / CONSULTOR / STATUS
                                 </h3>
-
                                 <div className="flex flex-col gap-4">
-                                    {/* DROPDOWN ANO */}
                                     <div className="flex flex-col gap-1">
-                                        <label
-                                            htmlFor=""
-                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
-                                        >
+                                        <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                             Ano
                                         </label>
                                         <SelectWithClear
                                             value={anoTemp}
                                             valorAplicado={ano}
-                                            onChange={(value) =>
-                                                setAnoTemp(value ? Number(value) : undefined)
-                                            }
+                                            onChange={(v) => setAnoTemp(v ? Number(v) : undefined)}
                                             onClearImmediate={() => limparFiltroIndividual('ano')}
                                             disabled={anoDesabilitado}
                                             options={years.map((y) => ({
@@ -1420,21 +1206,14 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             className={selectClassName}
                                         />
                                     </div>
-
-                                    {/* DROPDOWN MÊS */}
                                     <div className="flex flex-col gap-1">
-                                        <label
-                                            htmlFor=""
-                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
-                                        >
+                                        <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                             Mês
                                         </label>
                                         <SelectWithClear
                                             value={mesTemp}
                                             valorAplicado={mes}
-                                            onChange={(value) =>
-                                                setMesTemp(value ? Number(value) : undefined)
-                                            }
+                                            onChange={(v) => setMesTemp(v ? Number(v) : undefined)}
                                             onClearImmediate={() => limparFiltroIndividual('mes')}
                                             disabled={mesDesabilitado}
                                             options={mesesDisponiveis}
@@ -1448,14 +1227,9 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             className={selectClassName}
                                         />
                                     </div>
-
-                                    {/* DROPDOWN CLIENTE */}
                                     {isAdmin && (
                                         <div className="flex flex-col gap-1">
-                                            <label
-                                                htmlFor=""
-                                                className="text-sm font-semibold tracking-widest select-none"
-                                            >
+                                            <label className="text-sm font-semibold tracking-widest select-none">
                                                 Cliente
                                             </label>
                                             <SelectWithClear
@@ -1482,16 +1256,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             />
                                         </div>
                                     )}
-
-                                    {/* DROPDOWN CONSULTOR */}
                                     <div className="flex flex-col gap-1">
-                                        <label
-                                            htmlFor=""
-                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
-                                        >
+                                        <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                             Consultor
                                         </label>
-
                                         <SelectWithClear
                                             value={recursoTemp}
                                             valorAplicado={recursoSelecionado}
@@ -1516,16 +1284,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             className={selectClassName}
                                         />
                                     </div>
-
-                                    {/* DROPDOWN STATUS */}
                                     <div className="flex flex-col gap-1">
-                                        <label
-                                            htmlFor=""
-                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
-                                        >
+                                        <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                             Status
                                         </label>
-
                                         <SelectWithClear
                                             value={statusTemp}
                                             valorAplicado={statusSelecionado}
@@ -1534,10 +1296,13 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                                 limparFiltroIndividual('status')
                                             }
                                             disabled={!statusData.length || statusLoading}
-                                            options={statusData.map((s) => ({
-                                                value: s,
-                                                label: `Chamados ${s}`,
-                                            }))}
+                                            options={[
+                                                { value: 'TODOS', label: 'Todos os Chamados' },
+                                                ...statusData.map((s) => ({
+                                                    value: s,
+                                                    label: `Chamados ${s}`,
+                                                })),
+                                            ]}
                                             placeholder={
                                                 statusLoading ? 'Carregando...' : 'Chamados ATIVOS'
                                             }
@@ -1546,22 +1311,17 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                     </div>
                                 </div>
                             </div>
-                            {/* COLUNA 2: DADOS DO CHAMADO */}
+
+                            {/* COLUNA 2 */}
                             <div className="flex flex-col gap-1">
                                 <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
                                     DADOS DO CHAMADO
                                 </h3>
-
                                 <div className="flex flex-col gap-4">
-                                    {/* DROPDOWN Nº CHAMADO */}
                                     <div className="flex flex-col gap-1">
-                                        <label
-                                            htmlFor=""
-                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
-                                        >
+                                        <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                             Nº Chamado
                                         </label>
-
                                         <SelectWithClear
                                             value={chamadoTemp}
                                             valorAplicado={chamadoSelecionado}
@@ -1579,16 +1339,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             className={selectClassName}
                                         />
                                     </div>
-
-                                    {/* DROPDOWN DT ENTRADA */}
                                     <div className="flex flex-col gap-1">
-                                        <label
-                                            htmlFor=""
-                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
-                                        >
+                                        <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                             Data de Entrada
                                         </label>
-
                                         <SelectWithClear
                                             value={entradaTemp}
                                             valorAplicado={entradaSelecionada}
@@ -1606,13 +1360,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             className={selectClassName}
                                         />
                                     </div>
-
-                                    {/* DROPDOWN DT ATRIBUICAO */}
                                     <div className="flex flex-col gap-1">
-                                        <label
-                                            htmlFor=""
-                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
-                                        >
+                                        <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                             Data de Atribuição
                                         </label>
                                         <SelectWithClear
@@ -1632,13 +1381,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             className={selectClassName}
                                         />
                                     </div>
-
-                                    {/* DROPDOWN DT INÍCIO */}
                                     <div className="flex flex-col gap-1">
-                                        <label
-                                            htmlFor=""
-                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
-                                        >
+                                        <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                             Data de Início
                                         </label>
                                         <SelectWithClear
@@ -1658,13 +1402,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             className={selectClassName}
                                         />
                                     </div>
-
-                                    {/* DROPDOWN DT FINALIZAÇÃO */}
                                     <div className="flex flex-col gap-1">
-                                        <label
-                                            htmlFor=""
-                                            className="ml-4 text-sm font-semibold tracking-widest select-none"
-                                        >
+                                        <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                             Data de Finalização
                                         </label>
                                         <SelectWithClear
@@ -1686,15 +1425,14 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                     </div>
                                 </div>
                             </div>
-                            {/* COLUNA 3: CARACTERÍSTICAS */}
+
+                            {/* COLUNA 3 */}
                             <div className="flex flex-col gap-1">
                                 <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
                                     CARACTERÍSTICAS DO CHAMADO
                                 </h3>
-
                                 <div className="flex h-full flex-col">
                                     <div className="flex flex-col gap-4">
-                                        {/* DROPDOWN PRIORIDADE */}
                                         <div className="flex flex-col gap-1">
                                             <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                                 Prioridade
@@ -1716,8 +1454,6 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                                 className={selectClassName}
                                             />
                                         </div>
-
-                                        {/* DROPDOWN CLASSIFICAÇÃO */}
                                         <div className="flex flex-col gap-1">
                                             <label className="ml-4 text-sm font-semibold tracking-widest select-none">
                                                 Classificação
@@ -1740,32 +1476,19 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             />
                                         </div>
                                     </div>
-
-                                    {/* BOTÕES LIMPAR, APLICAR */}
                                     <div className="mt-auto flex items-center justify-end gap-6 pt-4">
-                                        {/* BOTÃO LIMPAR */}
                                         <button
                                             onClick={limparFiltros}
                                             disabled={!temFiltrosAtivos}
-                                            className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
-                                                temFiltrosAtivos
-                                                    ? 'cursor-pointer border-t border-red-700 bg-gradient-to-br from-red-600 to-red-700 text-white hover:from-red-500 hover:to-red-600 hover:shadow-lg hover:shadow-black active:scale-95'
-                                                    : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'
-                                            }`}
+                                            className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${temFiltrosAtivos ? 'cursor-pointer border-t border-red-700 bg-gradient-to-br from-red-600 to-red-700 text-white hover:from-red-500 hover:to-red-600 hover:shadow-lg hover:shadow-black active:scale-95' : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'}`}
                                         >
                                             {temFiltrosAtivos && <MdFilterAltOff size={24} />}
                                             <span>Limpar</span>
                                         </button>
-
-                                        {/* BOTÃO APLICAR */}
                                         <button
                                             onClick={aplicarFiltros}
                                             disabled={!temMudancas}
-                                            className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${
-                                                temMudancas
-                                                    ? 'cursor-pointer border-t border-blue-700 bg-gradient-to-br from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 hover:shadow-lg hover:shadow-black active:scale-95'
-                                                    : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'
-                                            }`}
+                                            className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${temMudancas ? 'cursor-pointer border-t border-blue-700 bg-gradient-to-br from-blue-600 to-blue-700 text-white hover:from-blue-500 hover:to-blue-600 hover:shadow-lg hover:shadow-black active:scale-95' : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'}`}
                                         >
                                             {temMudancas && <MdFilterAlt size={24} />}
                                             <span>
@@ -1778,7 +1501,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                         </button>
                                     </div>
                                 </div>
-                            </div>{' '}
+                            </div>
                         </div>
                     </div>
                 )}

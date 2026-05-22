@@ -132,5 +132,31 @@
     "indentRainbow.ignoreErrorLanguages": ["markdown", "plaintext"],
 
     // Colorir apenas a indentação ou incluir o código
-    "indentRainbow.colorOnWhiteSpaceOnly": true
+    "indentRainbow.colorOnWhiteSpaceOnly": true,
+
+    // ✅ ADICIONAR: limita memória do tsserver (padrão é ilimitado)
+    "typescript.tsserver.maxTsServerMemory": 3072,
+
+    // ✅ ADICIONAR: usa memória de forma mais eficiente no tsserver
+    "typescript.tsserver.experimental.enableProjectDiagnostics": false,
+
+    // ✅ ADICIONAR: não assiste arquivos desnecessários
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/**": true,
+        "**/.next/**": true,
+        "**/dist/**": true
+    },
+
+    // ✅ ADICIONAR: não busca dentro dessas pastas
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/.next": true,
+        "**/dist": true
+    },
+
+    // ✅ AJUSTAR: seu formatOnPaste pode ser removido (baixo impacto, mas evita
+    // processamento desnecessário ao colar código grande)
+    "editor.formatOnPaste": false
 }

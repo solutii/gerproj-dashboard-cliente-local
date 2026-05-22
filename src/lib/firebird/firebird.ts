@@ -2,6 +2,8 @@
 import Firebird from 'node-firebird';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 
+// ─── Options ────────────────────────────────────────────────────────────────
+
 export const firebirdOptions: Firebird.Options = {
     host: process.env.FIREBIRD_HOST,
     port: Number(process.env.FIREBIRD_PORT),
@@ -12,53 +14,60 @@ export const firebirdOptions: Firebird.Options = {
     pageSize: 4096,
 };
 
-// Função para detectar e converter encoding de Buffer para string
+// ─── Pool Singleton (sobrevive ao hot reload do Next.js) ─────────────────────
+
+const globalForFirebird = globalThis as unknown as {
+    fbPool: Firebird.ConnectionPool | undefined;
+};
+
+function getPool(): Firebird.ConnectionPool {
+    if (!globalForFirebird.fbPool) {
+        console.log('[FIREBIRD] Criando pool de conexões...');
+        globalForFirebird.fbPool = Firebird.pool(5, firebirdOptions);
+    }
+    return globalForFirebird.fbPool;
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
 function detectAndConvertEncoding(buffer: Buffer): string {
     try {
-        // Tenta UTF-8 primeiro
         const utf8Text = buffer.toString('utf8');
-
-        // Verifica se há caracteres de substituição (�) que indicam encoding errado
         if (!utf8Text.includes('�')) {
             return utf8Text;
         }
-
-        // Se falhou, tenta ISO-8859-1 (Latin1)
         const latin1Text = buffer.toString('latin1');
         return latin1Text;
     } catch (error) {
         console.error('Erro ao converter encoding:', error);
-        return buffer.toString('utf8'); // Fallback
+        return buffer.toString('utf8');
     }
 }
 
-// Função para extrair texto limpo de HTML
 function extractTextFromHtml(html: string): string {
     if (!html || !html.trim()) return '';
 
-    // Remove tags HTML comuns
     let text = html
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove scripts
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove styles
-        .replace(/<[^>]+>/g, ' ') // Remove todas as tags
-        .replace(/&nbsp;/g, ' ') // Substitui &nbsp;
-        .replace(/&quot;/g, '"') // Substitui &quot;
-        .replace(/&apos;/g, "'") // Substitui &apos;
-        .replace(/&lt;/g, '<') // Substitui &lt;
-        .replace(/&gt;/g, '>') // Substitui &gt;
-        .replace(/&amp;/g, '&') // Substitui &amp;
-        .replace(/,\s*,/g, ',') // Remove vírgulas duplicadas
-        .replace(/"\s*"/g, '"') // Remove aspas vazias duplicadas
-        .replace(/,\s*"/g, ' ') // Remove vírgula antes de aspas
-        .replace(/"\s*,/g, ' ') // Remove vírgula depois de aspas
-        .replace(/^[,"\s]+|[,"\s]+$/g, '') // Remove vírgulas/aspas do início e fim
-        .replace(/\s+/g, ' ') // Normaliza espaços
+        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&quot;/g, '"')
+        .replace(/&apos;/g, "'")
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&amp;/g, '&')
+        .replace(/,\s*,/g, ',')
+        .replace(/"\s*"/g, '"')
+        .replace(/,\s*"/g, ' ')
+        .replace(/"\s*,/g, ' ')
+        .replace(/^[,"\s]+|[,"\s]+$/g, '')
+        .replace(/\s+/g, ' ')
         .trim();
 
     return text;
 }
 
-// Função para ler BLOBs do Firebird e retornar como string
 function readBlob(blobFunction: any, transaction: any): Promise<string | null> {
     return new Promise((resolve) => {
         if (!blobFunction || typeof blobFunction !== 'function') {
@@ -88,18 +97,10 @@ function readBlob(blobFunction: any, transaction: any): Promise<string | null> {
 
                 eventEmitter.on('end', () => {
                     try {
-                        // Concatena todos os chunks em um único Buffer
                         const fullBuffer = Buffer.concat(chunks);
-
-                        // Detecta e converte o encoding correto
                         const text = detectAndConvertEncoding(fullBuffer);
-
-                        // Extrai texto limpo do HTML
                         const cleanText = extractTextFromHtml(text);
-
-                        // Corrige encoding do texto final
                         const correctedText = corrigirTextoCorrompido(cleanText);
-
                         resolve(correctedText || null);
                     } catch (error) {
                         console.error('Erro ao processar buffer do BLOB:', error);
@@ -119,7 +120,6 @@ function readBlob(blobFunction: any, transaction: any): Promise<string | null> {
     });
 }
 
-// Função para processar uma linha e ler BLOBs
 async function processRow(row: any, transaction: any): Promise<any> {
     const processedRow: any = {};
     const blobPromises: Array<Promise<void>> = [];
@@ -128,39 +128,35 @@ async function processRow(row: any, transaction: any): Promise<any> {
         const value = row[key];
         const valueType = typeof value;
 
-        // Se for uma função (BLOB padrão)
         if (valueType === 'function') {
             const promise = readBlob(value, transaction).then((blobContent) => {
                 processedRow[key] = blobContent;
             });
             blobPromises.push(promise);
-        }
-        // Se for object não-nulo e callable (BLOB como objeto - caso do OBS_OS)
-        else if (valueType === 'object' && value !== null && value.call) {
+        } else if (valueType === 'object' && value !== null && value.call) {
             const promise = readBlob(value, transaction).then((blobContent) => {
                 processedRow[key] = blobContent;
             });
             blobPromises.push(promise);
-        }
-        // Outros tipos (incluindo strings), apenas copia o valor
-        else {
+        } else {
             processedRow[key] = value;
         }
     }
 
-    // Aguarda todas as leituras de BLOB terminarem
     await Promise.all(blobPromises);
 
     return processedRow;
 }
 
-// Função para executar consultas SQL
+// ─── Query (SELECT) ───────────────────────────────────────────────────────────
+
 export function queryFirebird<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     return new Promise((resolve, reject) => {
-        Firebird.attach(firebirdOptions, (err, db) => {
+        const pool = getPool();
+
+        pool.get((err, db) => {
             if (err) return reject(err);
 
-            // Inicia uma transação para ler os BLOBs
             db.transaction(Firebird.ISOLATION_READ_COMMITTED, (err, transaction) => {
                 if (err) {
                     db.detach();
@@ -169,30 +165,23 @@ export function queryFirebird<T = any>(sql: string, params: any[] = []): Promise
 
                 transaction.query(sql, params, async (err, result) => {
                     if (err) {
-                        transaction.rollback(() => {
-                            db.detach();
-                        });
+                        transaction.rollback(() => db.detach());
                         return reject(err);
                     }
 
                     try {
-                        // Processa todas as linhas e lê os BLOBs ANTES de fechar
                         const processedResults = await Promise.all(
-                            result.map((row: any) => {
-                                return processRow(row, transaction);
-                            })
+                            result.map((row: any) => processRow(row, transaction))
                         );
-                        // Commit e fecha a conexão
+
                         transaction.commit((err) => {
-                            db.detach();
+                            db.detach(); // devolve conexão ao pool
                             if (err) return reject(err);
                             resolve(processedResults as T[]);
                         });
                     } catch (error) {
                         console.error('[FIREBIRD] Erro ao processar:', error);
-                        transaction.rollback(() => {
-                            db.detach();
-                        });
+                        transaction.rollback(() => db.detach());
                         reject(error);
                     }
                 });
@@ -201,30 +190,29 @@ export function queryFirebird<T = any>(sql: string, params: any[] = []): Promise
     });
 }
 
-// Função para executar comandos SQL (INSERT, UPDATE, DELETE)
+// ─── Execute (INSERT, UPDATE, DELETE) ────────────────────────────────────────
+
 export function executeFirebird(sql: string, params: any[] = []): Promise<void> {
     return new Promise((resolve, reject) => {
-        Firebird.attach(firebirdOptions, (err, db) => {
+        const pool = getPool();
+
+        pool.get((err, db) => {
             if (err) return reject(err);
 
-            // Inicia uma transação para executar o comando
             db.transaction(Firebird.ISOLATION_READ_COMMITTED, (err, transaction) => {
                 if (err) {
                     db.detach();
                     return reject(err);
                 }
 
-                transaction.query(sql, params, (err, result) => {
+                transaction.query(sql, params, (err) => {
                     if (err) {
-                        transaction.rollback(() => {
-                            db.detach();
-                        });
+                        transaction.rollback(() => db.detach());
                         return reject(err);
                     }
 
-                    // Commit e fecha a conexão
                     transaction.commit((err) => {
-                        db.detach();
+                        db.detach(); // devolve conexão ao pool
                         if (err) return reject(err);
                         resolve();
                     });

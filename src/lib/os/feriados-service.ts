@@ -7,7 +7,7 @@
  *   GET /api/feriados/v1/{year} → todos os feriados nacionais do ano
  *
  * Funcionalidades:
- *   - Cache em memória por ano com TTL de 24h
+ *   - Cache de Promises por ano (evita race condition com requisições simultâneas)
  *   - Fallback estático em caso de falha da API
  *   - Suporte a feriados estaduais e municipais via arrays configuráveis
  *   - Retorna datas no formato "DD/MM/YYYY" para o calcular-horas-adicionais
@@ -50,7 +50,6 @@ const FERIADOS_EXTRAS_POR_ANO: Record<number, string[]> = {
 // ==================== CONSTANTES ====================
 
 const BASE_URL = 'https://brasilapi.com.br/api/feriados/v1';
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 horas
 
 /**
  * Fallback estático com feriados nacionais + móveis por ano.
@@ -139,32 +138,16 @@ const FERIADOS_FIXOS_GENERICOS: string[] = [
     '25/12', // Natal
 ];
 
-// ==================== CACHE ====================
+// ==================== CACHE DE PROMISES ====================
+//
+// Armazena a Promise em andamento (ou já resolvida) por ano.
+//
+// Vantagem sobre cache de valor: se 1.500 chamadas simultâneas chegam
+// antes da primeira resposta da API, todas recebem a MESMA Promise —
+// apenas 1 fetch HTTP é disparado. Com um cache de valor simples,
+// todas encontrariam o cache vazio e disparariam 1.500 fetches.
 
-interface CacheEntry {
-    datas: string[];
-    ts: number;
-}
-
-const feriadosCache = new Map<string, CacheEntry>();
-
-function getFromCache(year: number): string[] | undefined {
-    const entry = feriadosCache.get(String(year));
-    if (!entry) return undefined;
-    if (Date.now() - entry.ts >= CACHE_TTL_MS) {
-        feriadosCache.delete(String(year));
-        return undefined;
-    }
-    return entry.datas;
-}
-
-function setToCache(year: number, datas: string[]): void {
-    if (feriadosCache.size >= 50) {
-        const oldest = feriadosCache.keys().next().value;
-        if (oldest) feriadosCache.delete(oldest);
-    }
-    feriadosCache.set(String(year), { datas, ts: Date.now() });
-}
+const feriadosPromiseCache = new Map<number, Promise<string[]>>();
 
 // ==================== NORMALIZAÇÃO ====================
 
@@ -185,10 +168,15 @@ function mesclarFeriados(nacionais: string[], year: number): string[] {
     const municipais = FERIADOS_MUNICIPAIS.map((f) => `${f}/${year}`);
     const extras = (FERIADOS_EXTRAS_POR_ANO[year] ?? []).map((f) => `${f}/${year}`);
 
-    const todos = [...nacionais, ...estaduais, ...municipais, ...extras];
+    return [...new Set([...nacionais, ...estaduais, ...municipais, ...extras])];
+}
 
-    // Remove duplicatas
-    return [...new Set(todos)];
+// ==================== FALLBACK ====================
+
+function feriadosFallback(year: number): string[] {
+    const base = FERIADOS_FALLBACK[year] ?? FERIADOS_FIXOS_GENERICOS;
+    const nacionais = base.map((f) => `${f}/${year}`);
+    return mesclarFeriados(nacionais, year);
 }
 
 // ==================== FUNÇÃO PRINCIPAL ====================
@@ -197,43 +185,55 @@ function mesclarFeriados(nacionais: string[], year: number): string[] {
  * Retorna datas de feriados no formato "DD/MM/YYYY" para um determinado ano,
  * incluindo nacionais (via BrasilAPI), estaduais, municipais e extras.
  *
- * Em caso de falha da API, retorna os feriados do fallback estático.
+ * O cache de Promises garante que chamadas simultâneas para o mesmo ano
+ * disparem apenas 1 requisição HTTP, eliminando a race condition que
+ * causava centenas de fetches paralelos.
+ *
+ * Em caso de falha da API, retorna os feriados do fallback estático
+ * e remove a entrada do cache para permitir nova tentativa futura.
  *
  * @example
  * await buscarFeriados({ year: 2026 })
  * // ["01/01/2026", "17/02/2026", "03/04/2026", ...]
  */
-export async function buscarFeriados(params: FeriadosQueryParams): Promise<string[]> {
-    const cached = getFromCache(params.year);
-    if (cached) return cached;
+export function buscarFeriados(params: FeriadosQueryParams): Promise<string[]> {
+    const { year } = params;
 
-    try {
-        const response = await fetch(`${BASE_URL}/${params.year}`, {
-            headers: { 'Content-Type': 'application/json' },
-            next: { revalidate: 86400 }, // Next.js ISR: revalida em 24h no servidor
-        });
-
-        if (!response.ok) {
-            throw new Error(`[feriados-service] HTTP ${response.status}`);
-        }
-
-        const feriados: { date: string; name: string; type: string }[] = await response.json();
-        const nacionais = feriados.map((f) => isoParaDDMMYYYY(f.date));
-        const datas = mesclarFeriados(nacionais, params.year);
-
-        setToCache(params.year, datas);
-        return datas;
-    } catch (error) {
-        console.error(
-            '[feriados-service] BrasilAPI indisponível, usando fallback estático:',
-            error instanceof Error ? error.message : error
-        );
-
-        // Fallback com feriados do ano mapeado
-        const fallback = FERIADOS_FALLBACK[params.year] ?? FERIADOS_FIXOS_GENERICOS;
-        const nacionais = fallback.map((f) => `${f}/${params.year}`);
-        return mesclarFeriados(nacionais, params.year);
+    // Reutiliza Promise existente (em andamento ou já resolvida)
+    if (feriadosPromiseCache.has(year)) {
+        return feriadosPromiseCache.get(year)!;
     }
+
+    const promise = (async (): Promise<string[]> => {
+        try {
+            const response = await fetch(`${BASE_URL}/${year}`, {
+                headers: { 'Content-Type': 'application/json' },
+                next: { revalidate: 86400 }, // Next.js ISR: revalida em 24h
+            });
+
+            if (!response.ok) {
+                throw new Error(`[feriados-service] HTTP ${response.status}`);
+            }
+
+            const feriados: { date: string; name: string; type: string }[] = await response.json();
+
+            const nacionais = feriados.map((f) => isoParaDDMMYYYY(f.date));
+            return mesclarFeriados(nacionais, year);
+        } catch (error) {
+            console.error(
+                '[feriados-service] BrasilAPI indisponível, usando fallback estático:',
+                error instanceof Error ? error.message : error
+            );
+
+            // Remove do cache para permitir nova tentativa na próxima requisição
+            feriadosPromiseCache.delete(year);
+
+            return feriadosFallback(year);
+        }
+    })();
+
+    feriadosPromiseCache.set(year, promise);
+    return promise;
 }
 
 /**
@@ -241,5 +241,5 @@ export async function buscarFeriados(params: FeriadosQueryParams): Promise<strin
  * Útil em testes ou para forçar atualização.
  */
 export function limparCacheFeriados(): void {
-    feriadosCache.clear();
+    feriadosPromiseCache.clear();
 }
