@@ -470,12 +470,7 @@ const buscarChamadosTodos = async (
 
         if (modo === 'finalizados') {
             clauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) = 'FINALIZADO'`);
-            if (dataInicio && dataFim) {
-                clauses.push(
-                    `HIST_MAX_JOIN.DATA_HISTCHAMADO >= ? AND HIST_MAX_JOIN.DATA_HISTCHAMADO < ?`
-                );
-                p.push(dataInicio, dataFim);
-            }
+            // data de finalização vai dentro do INNER JOIN HIST_MAX_JOIN — não entra no WHERE
         } else {
             clauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
             if (dataInicio && dataFim) {
@@ -500,21 +495,16 @@ const buscarChamadosTodos = async (
 
         const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
 
-        // Para finalizados precisamos do join com HISTCHAMADO para filtrar por data de finalização
         const histJoin =
-            modo === 'finalizados'
-                ? `
-            LEFT JOIN (
-                SELECT H.COD_CHAMADO, H.DATA_HISTCHAMADO
-                FROM HISTCHAMADO H
-                INNER JOIN (
-                    SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
-                    FROM HISTCHAMADO
-                    WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
-                    GROUP BY COD_CHAMADO
-                ) HM ON H.COD_HISTCHAMADO = HM.MAX_COD
-            ) HIST_MAX_JOIN ON CHAMADO.COD_CHAMADO = HIST_MAX_JOIN.COD_CHAMADO
-        `
+            modo === 'finalizados' && dataInicio && dataFim
+                ? `INNER JOIN (
+                SELECT COD_CHAMADO
+                FROM HISTCHAMADO
+                WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
+                AND DATA_HISTCHAMADO >= '${dataInicio}'
+                AND DATA_HISTCHAMADO < '${dataFim}'
+                GROUP BY COD_CHAMADO
+            ) HIST_MAX_JOIN ON CHAMADO.COD_CHAMADO = HIST_MAX_JOIN.COD_CHAMADO`
                 : '';
 
         const sql = `
