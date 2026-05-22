@@ -531,10 +531,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     const finalizacoesLocais = useFinalizacoesLocais(dadosMemo);
     const iniciosLocais = useIniciosLocais(dadosMemo);
 
-    const valoresPadrao = useMemo(
-        () => ({ ano: undefined, mes: undefined }),
-        [anoAtual, mesAtual]
-    );
+    const valoresPadrao = useMemo(() => ({ ano: undefined, mes: undefined }), [anoAtual, mesAtual]);
 
     const usarAnosConfigurados = useMemo(() => {
         const statusParaVerificar = statusTemp || statusSelecionado;
@@ -650,7 +647,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
         [clientesData, recursosLocais, prioridadesLocais]
     );
 
-    const filtrosAtivos = useMemo(() => {
+    const filtrosAplicados = useMemo(() => {
         const tags: Array<{ campo: string; valor: string | number; label: string }> = [];
         if (ano !== undefined)
             tags.push({ campo: 'ano', valor: ano, label: obterLabelFiltro('ano', ano) });
@@ -771,7 +768,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     ]);
 
     const temMudancas = mudancasCount > 0;
-    const temFiltrosAtivos = filtrosAtivos.length > 0;
+    const temfiltrosAplicados = filtrosAplicados.length > 0;
 
     const aplicarFiltros = useCallback(() => {
         setAno(anoTemp);
@@ -1086,35 +1083,29 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                     <MdExpandMore size={40} />
                                 )}
                             </button>
-
-                            {filtrosAtivos.length > 1 && (
-                                <button
-                                    onClick={limparFiltros}
-                                    className="flex cursor-pointer items-center justify-center gap-2 rounded-md border-t border-red-700 bg-gradient-to-br from-red-600 to-red-700 px-6 py-1 text-base font-extrabold tracking-widest text-white shadow-md shadow-black transition-all duration-200 hover:from-red-500 hover:to-red-600 hover:shadow-lg hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                    <MdFilterAltOff size={20} />
-                                    <span>Limpar Tudo</span>
-                                </button>
-                            )}
                         </div>
 
-                        {filtrosAtivos.length > 0 && (
-                            <div className="flex flex-wrap items-center gap-4">
-                                {filtrosAtivos.map((filtro, index) => (
-                                    <button
+                        {filtrosAplicados.length > 0 && (
+                            <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-2">
+                                {filtrosAplicados.map((filtro, index) => (
+                                    <div
                                         key={`${filtro.campo}-${index}`}
-                                        onClick={() => limparFiltroIndividual(filtro.campo as any)}
-                                        title={`Remover filtro: ${filtro.label}`}
-                                        className="group flex cursor-pointer items-center gap-4 rounded-full border-t border-purple-300 bg-purple-100 px-6 py-1 text-sm font-extrabold tracking-widest text-black shadow-sm shadow-black transition-all duration-200 hover:bg-purple-200 active:scale-95"
+                                        className="group flex items-center gap-4 rounded-full border-t border-purple-300 bg-purple-100 px-6 py-1 text-sm font-extrabold tracking-widest text-black shadow-sm shadow-black"
                                     >
                                         <span>{filtro.label}</span>
-                                        <MdClose
-                                            size={20}
-                                            className="text-red-600 transition-all duration-200 group-hover:scale-150 group-hover:rotate-180"
-                                        />
-                                    </button>
+                                    </div>
                                 ))}
                             </div>
+                        )}
+
+                        {filtrosAplicados.length > 1 && (
+                            <button
+                                onClick={limparFiltros}
+                                className="flex cursor-pointer items-center justify-center gap-2 rounded-md border-t border-red-700 bg-gradient-to-br from-red-600 to-red-700 px-6 py-1 text-lg font-extrabold tracking-widest text-white shadow-md shadow-black transition-all duration-200 hover:from-red-500 hover:to-red-600 hover:shadow-lg hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <MdFilterAltOff size={20} />
+                                <span>Limpar Filtros</span>
+                            </button>
                         )}
                     </div>
 
@@ -1224,14 +1215,16 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                             }
                                             disabled={!statusData.length || statusLoading}
                                             options={[
-                                                { value: 'TODOS', label: 'Todos os Chamados' },
+                                                { value: 'TODOS', label: 'Chamados - TODOS' },
                                                 ...statusData.map((s) => ({
                                                     value: s,
-                                                    label: `Chamados ${s}`,
+                                                    label: `Chamados - ${s}`,
                                                 })),
                                             ]}
                                             placeholder={
-                                                statusLoading ? 'Carregando...' : 'Chamados ATIVOS'
+                                                statusLoading
+                                                    ? 'Carregando...'
+                                                    : 'Chamados - ATIVOS'
                                             }
                                             className={selectClassName}
                                         />
@@ -1406,10 +1399,10 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                     <div className="mt-auto flex items-center justify-end gap-6 pt-4">
                                         <button
                                             onClick={limparFiltros}
-                                            disabled={!temFiltrosAtivos}
-                                            className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${temFiltrosAtivos ? 'cursor-pointer border-t border-red-700 bg-gradient-to-br from-red-600 to-red-700 text-white hover:from-red-500 hover:to-red-600 hover:shadow-lg hover:shadow-black active:scale-95' : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'}`}
+                                            disabled={!temfiltrosAplicados}
+                                            className={`flex cursor-pointer items-center justify-center gap-2 rounded-md px-6 py-2 text-lg font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 ${temfiltrosAplicados ? 'cursor-pointer border-t border-red-700 bg-gradient-to-br from-red-600 to-red-700 text-white hover:from-red-500 hover:to-red-600 hover:shadow-lg hover:shadow-black active:scale-95' : 'cursor-not-allowed border-t border-gray-300 bg-gray-300 text-gray-700'}`}
                                         >
-                                            {temFiltrosAtivos && <MdFilterAltOff size={24} />}
+                                            {temfiltrosAplicados && <MdFilterAltOff size={24} />}
                                             <span>Limpar</span>
                                         </button>
                                         <button

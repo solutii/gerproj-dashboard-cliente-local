@@ -2,7 +2,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IoCall, IoClose, IoHome, IoLogOut, IoMenu } from 'react-icons/io5';
 import { PiTimerFill } from 'react-icons/pi';
 import { useFiltersStore } from '../store/useFiltersStore';
@@ -18,8 +18,10 @@ export function Sidebar() {
     const [targetRoute, setTargetRoute] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
+    const [isExpanded, setIsExpanded] = useState(false);
     const [isModalSaldoOpen, setIsModalSaldoOpen] = useState(false);
     const [loadingProgress, setLoadingProgress] = useState(0);
+    const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const { logout } = useAuthStore();
 
@@ -92,6 +94,17 @@ export function Sidebar() {
         }, 300);
     };
 
+    const handleMouseEnter = () => {
+        if (isMobile) return;
+        if (collapseTimerRef.current) clearTimeout(collapseTimerRef.current);
+        setIsExpanded(true);
+    };
+
+    const handleMouseLeave = () => {
+        if (isMobile) return;
+        collapseTimerRef.current = setTimeout(() => setIsExpanded(false), 300);
+    };
+
     const toggleSidebar = () => {
         setIsOpen(!isOpen);
     };
@@ -138,22 +151,24 @@ export function Sidebar() {
             )}
 
             <nav
-                className={`group/sidebar flex h-full flex-col items-center overflow-hidden rounded-xl border border-purple-950 bg-purple-900 text-white transition-all duration-200 ease-in-out ${
+                className={`flex h-full flex-col items-center overflow-hidden rounded-xl border border-purple-950 bg-purple-900 text-white transition-all duration-300 ease-in-out ${
                     isMobile
                         ? `fixed top-0 left-0 z-50 h-screen ${isOpen ? 'translate-x-0' : '-translate-x-full'} w-64 p-5`
-                        : 'relative w-20 p-3 hover:w-64 hover:p-5'
+                        : `relative ${isExpanded ? 'w-64 p-5' : 'w-20 p-3'}`
                 }`}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
                 onClick={(e) => e.stopPropagation()}
             >
                 {/* Botão de Fechar (Mobile) */}
                 {isMobile && (
                     <button
                         onClick={toggleSidebar}
-                        className="absolute top-4 right-4 z-[100] h-10 w-10 transition-all duration-200"
+                        className="absolute top-4 right-4 z-[100] h-10 w-10 transition-all duration-300"
                         aria-label="Fechar menu"
                     >
                         <div className="relative flex h-full w-full items-center justify-center">
-                            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-red-500 to-red-700 shadow-lg shadow-black/60 transition-all duration-200 active:scale-90" />
+                            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-red-500 to-red-700 shadow-lg shadow-black/60 transition-all duration-300 active:scale-90" />
                             <IoClose className="relative z-10 h-6 w-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
                         </div>
                     </button>
@@ -234,7 +249,7 @@ export function Sidebar() {
                                     alt="Logo Solutii"
                                     width={isMobile ? 70 : 40}
                                     height={isMobile ? 70 : 40}
-                                    className="relative z-10 rounded-xl transition-all duration-700 group-hover:rotate-[360deg] group-hover:drop-shadow-[0_0_20px_rgba(168,85,247,0.8)] group-hover/sidebar:h-[70px] group-hover/sidebar:w-[70px]"
+                                    className={`relative z-10 rounded-xl transition-all duration-700 group-hover:rotate-[360deg] group-hover:drop-shadow-[0_0_20px_rgba(168,85,247,0.8)] ${isExpanded ? 'h-[70px] w-[70px]' : ''}`}
                                     priority
                                 />
                             </div>
@@ -256,7 +271,7 @@ export function Sidebar() {
                         <Link
                             href="/paginas/dashboard"
                             onClick={(e) => handleNavigation(e, '/paginas/dashboard')}
-                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-200 ${
+                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
                                 pathname === '/paginas/dashboard'
                                     ? 'border-teal-400 bg-gradient-to-r from-purple-950 via-indigo-950 to-blue-950 shadow-xl ring-2 shadow-teal-500/30 ring-teal-400/60'
                                     : 'border border-purple-900 bg-purple-700 shadow-md shadow-black hover:shadow-xl hover:shadow-black'
@@ -277,7 +292,7 @@ export function Sidebar() {
 
                             {/* Efeito de brilho no hover para botões inativos */}
                             {pathname !== '/paginas/dashboard' && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-200 group-hover:via-purple-300/20"></div>
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
                             )}
 
                             <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
@@ -285,7 +300,7 @@ export function Sidebar() {
                                     <div className="h-7 w-7 flex-shrink-0 animate-spin rounded-full border-3 border-white/20 border-t-white"></div>
                                 ) : (
                                     <IoHome
-                                        className={`h-7 w-7 flex-shrink-0 transition-all duration-200 ${
+                                        className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
                                             pathname === '/paginas/dashboard'
                                                 ? 'scale-110 text-white drop-shadow-[0_0_12px_rgba(94,234,212,0.8)]'
                                                 : 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
@@ -294,14 +309,14 @@ export function Sidebar() {
                                 )}
 
                                 <span
-                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-200 select-none ${
+                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-300 select-none ${
                                         pathname === '/paginas/dashboard'
                                             ? 'text-white drop-shadow-[0_0_8px_rgba(94,234,212,0.5)]'
                                             : 'text-white/70 group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]'
                                     } ${
-                                        isMobile
+                                        isMobile || isExpanded
                                             ? 'w-auto opacity-100'
-                                            : 'w-0 opacity-0 group-hover/sidebar:w-auto group-hover/sidebar:opacity-100'
+                                            : 'w-0 opacity-0'
                                     }`}
                                 >
                                     Dashboard
@@ -313,7 +328,7 @@ export function Sidebar() {
                         <Link
                             href="/paginas/chamados"
                             onClick={(e) => handleNavigation(e, '/paginas/chamados')}
-                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-200 ${
+                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
                                 pathname === '/paginas/chamados'
                                     ? 'border-teal-400 bg-gradient-to-r from-purple-950 via-indigo-950 to-blue-950 shadow-xl ring-2 shadow-teal-500/30 ring-teal-400/60'
                                     : 'border border-purple-900 bg-purple-700 shadow-md shadow-black hover:shadow-xl hover:shadow-black'
@@ -334,7 +349,7 @@ export function Sidebar() {
 
                             {/* Efeito de brilho no hover para botões inativos */}
                             {pathname !== '/paginas/chamados' && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-200 group-hover:via-purple-300/20"></div>
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
                             )}
 
                             <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
@@ -342,7 +357,7 @@ export function Sidebar() {
                                     <div className="h-7 w-7 flex-shrink-0 animate-spin rounded-full border-3 border-white/20 border-t-white"></div>
                                 ) : (
                                     <IoCall
-                                        className={`h-7 w-7 flex-shrink-0 transition-all duration-200 ${
+                                        className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
                                             pathname === '/paginas/chamados'
                                                 ? 'scale-110 text-white drop-shadow-[0_0_12px_rgba(94,234,212,0.8)]'
                                                 : 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
@@ -351,14 +366,14 @@ export function Sidebar() {
                                 )}
 
                                 <span
-                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-200 select-none ${
+                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-300 select-none ${
                                         pathname === '/paginas/chamados'
                                             ? 'text-white drop-shadow-[0_0_8px_rgba(94,234,212,0.5)]'
                                             : 'text-white/70 group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]'
                                     } ${
-                                        isMobile
+                                        isMobile || isExpanded
                                             ? 'w-auto opacity-100'
-                                            : 'w-0 opacity-0 group-hover/sidebar:w-auto group-hover/sidebar:opacity-100'
+                                            : 'w-0 opacity-0'
                                     }`}
                                 >
                                     Chamados
@@ -375,7 +390,7 @@ export function Sidebar() {
                                     ? 'Selecione um cliente nos filtros para visualizar o saldo'
                                     : 'Visualizar saldo de horas'
                             }
-                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-200 ${
+                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
                                 hasClienteSelecionado
                                     ? 'cursor-pointer border border-purple-900 bg-purple-700 shadow-md shadow-black hover:scale-[1.03] hover:shadow-xl hover:shadow-black active:scale-[0.98]'
                                     : 'cursor-not-allowed border-gray-700/30 bg-white/30 opacity-40 shadow-md shadow-black'
@@ -383,12 +398,12 @@ export function Sidebar() {
                         >
                             {/* Efeito de brilho no hover (apenas quando habilitado) */}
                             {hasClienteSelecionado && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-200 group-hover:via-purple-300/20"></div>
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
                             )}
 
                             <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
                                 <PiTimerFill
-                                    className={`h-7 w-7 flex-shrink-0 transition-all duration-200 ${
+                                    className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
                                         hasClienteSelecionado
                                             ? 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
                                             : 'text-white/70'
@@ -396,14 +411,14 @@ export function Sidebar() {
                                 />
 
                                 <span
-                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-200 select-none ${
+                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-300 select-none ${
                                         hasClienteSelecionado
                                             ? 'text-white/70 group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]'
                                             : 'text-white/70'
                                     } ${
-                                        isMobile
+                                        isMobile || isExpanded
                                             ? 'w-auto opacity-100'
-                                            : 'w-0 opacity-0 group-hover/sidebar:w-auto group-hover/sidebar:opacity-100'
+                                            : 'w-0 opacity-0'
                                     }`}
                                 >
                                     Saldo
@@ -419,19 +434,19 @@ export function Sidebar() {
                     <div className="w-full pb-4">
                         <button
                             onClick={handleLogout}
-                            className="group relative flex w-full cursor-pointer items-center overflow-hidden rounded-xl border border-purple-900 bg-purple-700 p-3 shadow-md shadow-black transition-all duration-200 hover:scale-103 hover:shadow-xl hover:shadow-black active:scale-95"
+                            className="group relative flex w-full cursor-pointer items-center overflow-hidden rounded-xl border border-purple-900 bg-purple-700 p-3 shadow-md shadow-black transition-all duration-300 hover:scale-103 hover:shadow-xl hover:shadow-black active:scale-95"
                         >
                             {/* Efeito de brilho no hover */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-300/0 to-transparent transition-all duration-200 group-hover:via-red-300/20"></div>
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-300/0 to-transparent transition-all duration-300 group-hover:via-red-300/20"></div>
 
                             <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
-                                <IoLogOut className="h-7 w-7 flex-shrink-0 text-white/70 transition-all duration-200 group-hover:scale-125 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
+                                <IoLogOut className="h-7 w-7 flex-shrink-0 text-white/70 transition-all duration-300 group-hover:scale-125 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
 
                                 <span
-                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap text-white/70 transition-all duration-200 select-none group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.4)] ${
-                                        isMobile
+                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap text-white/70 transition-all duration-300 select-none group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.4)] ${
+                                        isMobile || isExpanded
                                             ? 'w-auto opacity-100'
-                                            : 'w-0 opacity-0 group-hover/sidebar:w-auto group-hover/sidebar:opacity-100'
+                                            : 'w-0 opacity-0'
                                     }`}
                                 >
                                     Sair
