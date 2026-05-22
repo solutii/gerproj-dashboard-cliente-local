@@ -330,15 +330,11 @@ const construirWherePrincipal = (
                 whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
             }
             whereParams.push(dataInicio, dataFim);
-        } else if (statusUpper === 'FINALIZADO') {
-            whereClauses.push(
-                `(HISTCHAMADO.DATA_HISTCHAMADO >= ? AND HISTCHAMADO.DATA_HISTCHAMADO < ?)`
-            );
-            whereParams.push(dataInicio, dataFim);
-        } else {
+        } else if (statusUpper !== 'FINALIZADO') {
             whereClauses.push(`(OS.DTINI_OS >= ? AND OS.DTINI_OS < ?)`);
             whereParams.push(dataInicio, dataFim);
         }
+        // FINALIZADO: filtro de data vai dentro do INNER JOIN HIST_MAX no corpo da query
     }
 
     if (!params.statusFilter) {
@@ -673,6 +669,24 @@ const buscarChamados = async (
 
     const osJoinType = dataInicio && dataFim ? 'INNER' : 'LEFT';
 
+    const isFinalizado = params.statusFilter?.toUpperCase() === 'FINALIZADO';
+    const histMaxJoin =
+        isFinalizado && dataInicio && dataFim
+            ? `INNER JOIN (
+        SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
+        FROM HISTCHAMADO
+        WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
+        AND DATA_HISTCHAMADO >= '${dataInicio}'
+        AND DATA_HISTCHAMADO < '${dataFim}'
+        GROUP BY COD_CHAMADO
+    ) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO`
+            : `LEFT JOIN (
+        SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
+        FROM HISTCHAMADO
+        WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
+        GROUP BY COD_CHAMADO
+    ) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO`;
+
     const sqlChamados = `SELECT ${camposSelect},
     COALESCE(SUM(
         CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
@@ -704,12 +718,7 @@ const buscarChamados = async (
     LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO
     ${osJoinType} JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
     ${osJoinType} JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1
-    LEFT JOIN (
-        SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
-        FROM HISTCHAMADO
-        WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
-        GROUP BY COD_CHAMADO
-    ) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO
+    ${histMaxJoin}
     LEFT JOIN HISTCHAMADO ON HISTCHAMADO.COD_HISTCHAMADO = HIST_MAX.MAX_COD
     LEFT JOIN (
         SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
@@ -723,7 +732,7 @@ const buscarChamados = async (
     ORDER BY CHAMADO.DATA_CHAMADO DESC, CHAMADO.HORA_CHAMADO DESC
     ROWS ${offset + 1} TO ${offset + params.limit}`;
 
-    const sqlCount = buildCountQuery(params, whereClause, osJoinType);
+    const sqlCount = buildCountQuery(params, whereClause, osJoinType, dataInicio, dataFim);
 
     const [chamados, countResult] = await Promise.all([
         firebirdQuery<ChamadoRaw>(sqlChamados, [...whereParams]),
@@ -736,7 +745,13 @@ const buscarChamados = async (
     };
 };
 
-const buildCountQuery = (params: QueryParams, whereClause: string, osJoinType: string): string => {
+const buildCountQuery = (
+    params: QueryParams,
+    whereClause: string,
+    osJoinType: string,
+    dataInicio: string | null,
+    dataFim: string | null
+): string => {
     let joins = `${osJoinType} JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))\n`;
     joins += `${osJoinType} JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1\n`;
 
@@ -748,9 +763,8 @@ const buildCountQuery = (params: QueryParams, whereClause: string, osJoinType: s
         joins += `LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO\n`;
     }
 
-    if (params.statusFilter?.toUpperCase() === 'FINALIZADO') {
-        joins += `LEFT JOIN (SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD FROM HISTCHAMADO WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO' GROUP BY COD_CHAMADO) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO\n`;
-        joins += `LEFT JOIN HISTCHAMADO ON HISTCHAMADO.COD_HISTCHAMADO = HIST_MAX.MAX_COD\n`;
+    if (params.statusFilter?.toUpperCase() === 'FINALIZADO' && dataInicio && dataFim) {
+        joins += `INNER JOIN (SELECT COD_CHAMADO FROM HISTCHAMADO WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO' AND DATA_HISTCHAMADO >= '${dataInicio}' AND DATA_HISTCHAMADO < '${dataFim}' GROUP BY COD_CHAMADO) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO\n`;
     }
 
     return `SELECT COUNT(DISTINCT CHAMADO.COD_CHAMADO) AS TOTAL
