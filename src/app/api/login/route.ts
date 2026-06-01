@@ -166,13 +166,19 @@ async function buscarConsultorPorId(idUsuario: string): Promise<UsuarioConsultor
     }
 }
 
-function validarSenhaConsultor(senhaDigitada: string, senhaArmazenada: string): boolean {
-    // Remove espaços extras da senha do banco
-    const senhaBanco = senhaArmazenada.trim();
-    const senhaDigitadaTrim = senhaDigitada.trim();
+function encodeSenhaConsultor(senha: string): string {
+    // O GERPROJ subtrai 11 do código ASCII de cada caractere ao salvar a senha.
+    // Ex: '1' (49) é armazenado como '&' (38).
+    return senha
+        .split('')
+        .map((c) => String.fromCharCode(c.charCodeAt(0) - 11))
+        .join('');
+}
 
-    // Comparação direta (Firebird armazena senha em texto plano CHAR(10))
-    return senhaDigitadaTrim === senhaBanco;
+function validarSenhaConsultor(senhaDigitada: string, senhaArmazenada: string): boolean {
+    const senhaBanco = senhaArmazenada.trim();
+    const senhaEncodada = encodeSenhaConsultor(senhaDigitada.trim());
+    return senhaEncodada === senhaBanco;
 }
 
 function construirRespostaConsultor(consultor: UsuarioConsultor): LoginResponse {

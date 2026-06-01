@@ -4,13 +4,149 @@
 import { useAuthStore } from '@/store/useAuthStore';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ImSpinner2 } from 'react-icons/im';
-import { IoEye, IoEyeOff, IoLockClosed, IoMail, IoPeople } from 'react-icons/io5';
+import {
+    IoChevronDown,
+    IoClose,
+    IoEye,
+    IoEyeOff,
+    IoLockClosed,
+    IoMail,
+    IoPeople,
+    IoSearch,
+} from 'react-icons/io5';
 import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// ==================== Dropdown de cliente com busca ====================
+interface ClienteDropdownProps {
+    clientes: { cod: string; nome: string }[];
+    value: string;
+    onChange: (cod: string) => void;
+    loading: boolean;
+}
+
+function ClienteDropdown({ clientes, value, onChange, loading }: ClienteDropdownProps) {
+    const [open, setOpen] = useState(false);
+    const [busca, setBusca] = useState('');
+    const ref = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    const clienteSelecionado = clientes.find((c) => c.cod === value);
+
+    const clientesFiltrados = clientes.filter((c) =>
+        c.nome.toLowerCase().includes(busca.toLowerCase())
+    );
+
+    useEffect(() => {
+        function handleClickOutside(e: MouseEvent) {
+            if (ref.current && !ref.current.contains(e.target as Node)) {
+                setOpen(false);
+                setBusca('');
+            }
+        }
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    useEffect(() => {
+        if (open) {
+            setTimeout(() => inputRef.current?.focus(), 50);
+        }
+    }, [open]);
+
+    const handleSelect = (cod: string) => {
+        onChange(cod);
+        setOpen(false);
+        setBusca('');
+    };
+
+    return (
+        <div ref={ref} className="relative">
+            {/* Botão que abre o dropdown */}
+            <button
+                type="button"
+                onClick={() => setOpen((prev) => !prev)}
+                disabled={loading}
+                className="flex w-full items-center gap-3 rounded-xl border border-white/20 bg-white/10 py-3 pr-3 pl-4 text-sm text-white backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:py-4 sm:pr-4 sm:pl-4 sm:text-base"
+            >
+                <IoPeople className="h-4 w-4 shrink-0 text-white/60 sm:h-5 sm:w-5" />
+                <span
+                    className={`flex-1 truncate text-left ${clienteSelecionado ? 'text-white' : 'text-white/60'}`}
+                >
+                    {loading
+                        ? 'Carregando clientes...'
+                        : clienteSelecionado
+                          ? clienteSelecionado.nome
+                          : 'Selecione um cliente...'}
+                </span>
+                {loading ? (
+                    <ImSpinner2 className="h-4 w-4 shrink-0 animate-spin text-white/60" />
+                ) : (
+                    <IoChevronDown
+                        className={`h-4 w-4 shrink-0 text-white/60 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+                    />
+                )}
+            </button>
+
+            {/* Painel do dropdown */}
+            {open && (
+                <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-white/20 bg-gray-900/95 shadow-2xl backdrop-blur-xl sm:rounded-2xl">
+                    {/* Campo de busca */}
+                    <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
+                        <IoSearch className="h-4 w-4 shrink-0 text-white/50" />
+                        <input
+                            ref={inputRef}
+                            type="text"
+                            value={busca}
+                            onChange={(e) => setBusca(e.target.value)}
+                            placeholder="Buscar cliente..."
+                            className="flex-1 bg-transparent text-sm text-white placeholder-white/40 focus:outline-none"
+                        />
+                        {busca && (
+                            <button
+                                type="button"
+                                onClick={() => setBusca('')}
+                                className="shrink-0 text-white/40 hover:text-white/80"
+                            >
+                                <IoClose className="h-4 w-4" />
+                            </button>
+                        )}
+                    </div>
+
+                    {/* Lista de clientes */}
+                    <ul className="max-h-40 overflow-y-auto">
+                        {clientesFiltrados.length === 0 ? (
+                            <li className="px-4 py-3 text-sm text-white/40 select-none">
+                                Nenhum cliente encontrado
+                            </li>
+                        ) : (
+                            clientesFiltrados.map((c) => (
+                                <li
+                                    key={c.cod}
+                                    onClick={() => handleSelect(c.cod)}
+                                    className={`cursor-pointer px-4 py-2.5 text-sm transition-colors duration-100 select-none hover:bg-purple-600/40 ${
+                                        c.cod === value
+                                            ? 'bg-purple-600/30 font-semibold text-white'
+                                            : 'text-white/80'
+                                    }`}
+                                >
+                                    {c.nome}
+                                </li>
+                            ))
+                        )}
+                    </ul>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ================================================================================
+// COMPONENTE PRINCIPAL
+// ================================================================================
 export function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -120,7 +256,6 @@ export function Login() {
                 }}
             ></div>
 
-            {/* Overlay escuro para melhor contraste */}
             <div className="absolute inset-0 bg-gradient-to-br from-black/50 via-purple-900/30 to-black/50"></div>
 
             {/* Floating Orbs */}
@@ -211,52 +346,18 @@ export function Login() {
                             </div>
                         </div>
 
-                        {/* Admin: Client Selector */}
+                        {/* Admin: Client Dropdown com busca */}
                         {adminMode && (
                             <div className="space-y-2 sm:space-y-3">
-                                <label
-                                    htmlFor="cliente"
-                                    className="block text-sm font-semibold text-white/90"
-                                >
+                                <label className="block text-sm font-semibold text-white/90">
                                     Cliente
                                 </label>
-                                <div className="group relative">
-                                    <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3 sm:pl-4">
-                                        <IoPeople className="h-4 w-4 text-white/60 transition-colors duration-200 group-focus-within:text-purple-300 sm:h-5 sm:w-5" />
-                                    </div>
-                                    {loadingClientes ? (
-                                        <div className="flex h-12 w-full items-center rounded-xl border border-white/20 bg-white/10 pl-10 sm:h-14 sm:rounded-2xl sm:pl-12">
-                                            <ImSpinner2 className="h-4 w-4 animate-spin text-white/60" />
-                                            <span className="ml-2 text-sm text-white/60">
-                                                Carregando clientes...
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <select
-                                            id="cliente"
-                                            value={clienteSelecionado}
-                                            onChange={(e) => setClienteSelecionado(e.target.value)}
-                                            className="block w-full cursor-pointer rounded-xl border border-white/20 bg-white/10 py-3 pr-3 pl-10 text-sm text-white backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none sm:rounded-2xl sm:py-4 sm:pr-4 sm:pl-12 sm:text-base"
-                                        >
-                                            <option
-                                                value=""
-                                                className="bg-gray-900 text-white"
-                                            >
-                                                Selecione um cliente...
-                                            </option>
-                                            {clientes.map((c) => (
-                                                <option
-                                                    key={c.cod}
-                                                    value={c.cod}
-                                                    className="bg-gray-900 text-white"
-                                                >
-                                                    {c.nome}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    )}
-                                    <div className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 blur-sm transition-opacity duration-200 group-focus-within:opacity-100 sm:rounded-2xl"></div>
-                                </div>
+                                <ClienteDropdown
+                                    clientes={clientes}
+                                    value={clienteSelecionado}
+                                    onChange={setClienteSelecionado}
+                                    loading={loadingClientes}
+                                />
                             </div>
                         )}
 

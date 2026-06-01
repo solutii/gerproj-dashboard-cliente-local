@@ -131,7 +131,8 @@ export function Filtros() {
     const filters = useFiltersStore((state) => state.filters);
     const setFilters = useFiltersStore((state) => state.setFilters);
 
-    const { codCliente } = useAuthStore();
+    const { codCliente, tipoUsuario, setAdminCodCliente } = useAuthStore();
+    const isAdmin = tipoUsuario === 'ADM';
 
     const [ano, setAno] = useState(filters.ano);
     const [mes, setMes] = useState(filters.mes);
@@ -155,9 +156,12 @@ export function Filtros() {
     const [debouncedStatusSelecionado] = useDebounce(statusSelecionado, 300);
 
     const { data: clientesData = [], isLoading: clientesLoading } = useQuery({
-        queryKey: ['clientes', mes, ano, codCliente],
-        queryFn: () => fetchClientes({ mes, ano, codCliente }),
-        enabled: !!(mes && ano && codCliente && isInitialized),
+        queryKey: ['clientes', mes, ano, isAdmin ? 'admin' : codCliente],
+        queryFn: () =>
+            isAdmin
+                ? fetch('/api/admin/clientes').then((r) => r.json())
+                : fetchClientes({ mes, ano, codCliente }),
+        enabled: isAdmin ? !!(mes && ano && isInitialized) : !!(mes && ano && codCliente && isInitialized),
         staleTime: 1000 * 60 * 5,
         retry: 2,
     });
@@ -243,6 +247,13 @@ export function Filtros() {
             }
         }
     }, [statusData, statusSelecionado, isInitialized]);
+
+    const handleClienteChange = (value: string) => {
+        setClienteSelecionado(value);
+        if (isAdmin && value) {
+            setAdminCodCliente(value);
+        }
+    };
 
     // ==================== CONSTANTES ====================
     const years = [2024, 2025, 2026];
@@ -429,9 +440,9 @@ export function Filtros() {
                 {/* Cliente */}
                 <SelectWithClear
                     value={clienteSelecionado}
-                    onChange={setClienteSelecionado}
+                    onChange={handleClienteChange}
                     onClear={() => setClienteSelecionado('')}
-                    disabled={!clientesData.length || !!codCliente || clientesLoading}
+                    disabled={!clientesData.length || (!isAdmin && !!codCliente) || clientesLoading}
                     options={clientesData.map((c) => ({ value: c.cod, label: c.nome }))}
                     placeholder={clientesLoading ? 'Carregando...' : 'Selecione o cliente'}
                     showClear={!codCliente}
