@@ -426,12 +426,18 @@ export function Graficos({ filters }: FilterProps) {
                         </div>
                         <div>
                             <span className="font-semibold">Média mensal:</span>{' '}
-                            {formatarHorasTotaisSufixo(
-                                horasPorMes.reduce(
+                            {(() => {
+                                const mesesComHoras = horasPorMes.filter(
+                                    (m: { horas: number }) => m.horas > 0
+                                );
+                                const total = mesesComHoras.reduce(
                                     (acc: number, m: { horas: number }) => acc + m.horas,
                                     0
-                                ) / 12
-                            )}
+                                );
+                                return formatarHorasTotaisSufixo(
+                                    mesesComHoras.length > 0 ? total / mesesComHoras.length : 0
+                                );
+                            })()}
                         </div>
                     </div>
                 </ChartCard>
