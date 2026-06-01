@@ -37,7 +37,8 @@
     {
         "email": "denilson.souza@tecnosulfur.com.br",
         "password": "$2b$10$yBDAZ6OhheeCJKI9bZQ8hurO/PRjeIGefJF4ML0xBP9EhuWB8pNhq",
-        "cod_cliente": "156"
+        "cod_cliente": "156",
+        "isAdmin": true
     },
     {
         "email": "thaiz@pwaservice.com.br",

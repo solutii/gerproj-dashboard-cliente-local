@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { ImSpinner2 } from 'react-icons/im';
-import { IoEye, IoEyeOff, IoLockClosed, IoMail } from 'react-icons/io5';
+import { IoEye, IoEyeOff, IoLockClosed, IoMail, IoPeople } from 'react-icons/io5';
 import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -19,8 +19,13 @@ export function Login() {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
+    const [adminMode, setAdminMode] = useState(false);
+    const [clientes, setClientes] = useState<{ cod: string; nome: string }[]>([]);
+    const [clienteSelecionado, setClienteSelecionado] = useState('');
+    const [loadingClientes, setLoadingClientes] = useState(false);
+
     const router = useRouter();
-    const { login } = useAuthStore();
+    const { login, setAdminCodCliente } = useAuthStore();
 
     useEffect(() => {
         const rememberedEmail = localStorage.getItem('rememberedEmail');
@@ -33,6 +38,18 @@ export function Login() {
     const handleSubmit = async (e: React.FormEvent<HTMLDivElement>) => {
         e.preventDefault();
         setError('');
+
+        if (adminMode) {
+            if (!clienteSelecionado) {
+                setError('Selecione um cliente para continuar.');
+                return;
+            }
+            setIsLoading(true);
+            setAdminCodCliente(clienteSelecionado);
+            await router.push('/paginas/dashboard');
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -45,14 +62,27 @@ export function Login() {
                     localStorage.removeItem('rememberedEmail');
                 }
 
+                if (userData.loginType === 'consultor' && userData.tipoUsuario === 'ADM') {
+                    setLoadingClientes(true);
+                    setIsLoading(false);
+                    try {
+                        const res = await fetch('/api/admin/clientes');
+                        const data = await res.json();
+                        setClientes(data);
+                        setAdminMode(true);
+                    } catch {
+                        setError('Erro ao carregar lista de clientes.');
+                    } finally {
+                        setLoadingClientes(false);
+                    }
+                    return;
+                }
+
                 await sleep(1000);
 
-                // Roteamento baseado no tipo de login
                 if (userData.loginType === 'consultor') {
-                    // Consultores sempre vão para a página de chamados
                     await router.push('/paginas/gerproj/chamados');
                 } else {
-                    // Cliente
                     if (userData.codCliente) {
                         await router.push('/paginas/dashboard');
                     } else if (userData.codRecurso) {
@@ -146,7 +176,9 @@ export function Login() {
                             Bem-vindo de volta!
                         </h1>
                         <p className="mt-2 text-sm text-white/70 sm:text-base">
-                            Entre com suas credenciais para continuar
+                            {adminMode
+                                ? 'Selecione o cliente para continuar'
+                                : 'Entre com suas credenciais para continuar'}
                         </p>
                     </div>
 
@@ -172,68 +204,122 @@ export function Login() {
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="seu@email.com ou usuário"
                                     required
-                                    className="block w-full rounded-xl border border-white/20 bg-white/10 py-3 pr-3 pl-10 text-sm text-white placeholder-white/60 backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none sm:rounded-2xl sm:py-4 sm:pr-4 sm:pl-12 sm:text-base"
+                                    disabled={adminMode}
+                                    className="block w-full rounded-xl border border-white/20 bg-white/10 py-3 pr-3 pl-10 text-sm text-white placeholder-white/60 backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:py-4 sm:pr-4 sm:pl-12 sm:text-base"
                                 />
                                 <div className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 blur-sm transition-opacity duration-200 group-focus-within:opacity-100 sm:rounded-2xl"></div>
                             </div>
                         </div>
+
+                        {/* Admin: Client Selector */}
+                        {adminMode && (
+                            <div className="space-y-2 sm:space-y-3">
+                                <label
+                                    htmlFor="cliente"
+                                    className="block text-sm font-semibold text-white/90"
+                                >
+                                    Cliente
+                                </label>
+                                <div className="group relative">
+                                    <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3 sm:pl-4">
+                                        <IoPeople className="h-4 w-4 text-white/60 transition-colors duration-200 group-focus-within:text-purple-300 sm:h-5 sm:w-5" />
+                                    </div>
+                                    {loadingClientes ? (
+                                        <div className="flex h-12 w-full items-center rounded-xl border border-white/20 bg-white/10 pl-10 sm:h-14 sm:rounded-2xl sm:pl-12">
+                                            <ImSpinner2 className="h-4 w-4 animate-spin text-white/60" />
+                                            <span className="ml-2 text-sm text-white/60">
+                                                Carregando clientes...
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            id="cliente"
+                                            value={clienteSelecionado}
+                                            onChange={(e) => setClienteSelecionado(e.target.value)}
+                                            className="block w-full cursor-pointer rounded-xl border border-white/20 bg-white/10 py-3 pr-3 pl-10 text-sm text-white backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none sm:rounded-2xl sm:py-4 sm:pr-4 sm:pl-12 sm:text-base"
+                                        >
+                                            <option
+                                                value=""
+                                                className="bg-gray-900 text-white"
+                                            >
+                                                Selecione um cliente...
+                                            </option>
+                                            {clientes.map((c) => (
+                                                <option
+                                                    key={c.cod}
+                                                    value={c.cod}
+                                                    className="bg-gray-900 text-white"
+                                                >
+                                                    {c.nome}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    )}
+                                    <div className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 blur-sm transition-opacity duration-200 group-focus-within:opacity-100 sm:rounded-2xl"></div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Password Field */}
-                        <div className="space-y-2 sm:space-y-3">
-                            <label
-                                htmlFor="password"
-                                className="block text-sm font-semibold text-white/90"
-                            >
-                                Senha
-                            </label>
-                            <div className="group relative">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3 sm:pl-4">
-                                    <IoLockClosed className="h-4 w-4 text-white/60 transition-colors duration-200 group-focus-within:text-purple-300 sm:h-5 sm:w-5" />
-                                </div>
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    id="password"
-                                    name="password"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Digite sua senha"
-                                    required
-                                    className="block w-full rounded-xl border border-white/20 bg-white/10 py-3 pr-10 pl-10 text-sm text-white placeholder-white/60 backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none sm:rounded-2xl sm:py-4 sm:pr-12 sm:pl-12 sm:text-base"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 z-10 flex touch-manipulation items-center pr-3 transition-transform duration-200 hover:scale-110 sm:pr-4"
-                                    tabIndex={-1}
+                        {!adminMode && (
+                            <div className="space-y-2 sm:space-y-3">
+                                <label
+                                    htmlFor="password"
+                                    className="block text-sm font-semibold text-white/90"
                                 >
-                                    {showPassword ? (
-                                        <IoEyeOff className="h-4 w-4 text-white/60 sm:h-5 sm:w-5" />
-                                    ) : (
-                                        <IoEye className="h-4 w-4 text-white/60 sm:h-5 sm:w-5" />
-                                    )}
-                                </button>
-                                <div className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 blur-sm transition-opacity duration-200 group-focus-within:opacity-100 sm:rounded-2xl"></div>
+                                    Senha
+                                </label>
+                                <div className="group relative">
+                                    <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3 sm:pl-4">
+                                        <IoLockClosed className="h-4 w-4 text-white/60 transition-colors duration-200 group-focus-within:text-purple-300 sm:h-5 sm:w-5" />
+                                    </div>
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        id="password"
+                                        name="password"
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        placeholder="Digite sua senha"
+                                        required
+                                        className="block w-full rounded-xl border border-white/20 bg-white/10 py-3 pr-10 pl-10 text-sm text-white placeholder-white/60 backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none sm:rounded-2xl sm:py-4 sm:pr-12 sm:pl-12 sm:text-base"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute inset-y-0 right-0 z-10 flex touch-manipulation items-center pr-3 transition-transform duration-200 hover:scale-110 sm:pr-4"
+                                        tabIndex={-1}
+                                    >
+                                        {showPassword ? (
+                                            <IoEyeOff className="h-4 w-4 text-white/60 sm:h-5 sm:w-5" />
+                                        ) : (
+                                            <IoEye className="h-4 w-4 text-white/60 sm:h-5 sm:w-5" />
+                                        )}
+                                    </button>
+                                    <div className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 blur-sm transition-opacity duration-200 group-focus-within:opacity-100 sm:rounded-2xl"></div>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Remember Me */}
-                        <div className="flex items-center justify-between pt-1 text-xs sm:pt-2 sm:text-sm">
-                            <div className="group flex items-center">
-                                <input
-                                    id="remember-me"
-                                    type="checkbox"
-                                    checked={rememberMe}
-                                    onChange={() => setRememberMe(!rememberMe)}
-                                    className="h-3.5 w-3.5 rounded border-white/30 bg-white/10 text-purple-400 sm:h-4 sm:w-4"
-                                />
-                                <label
-                                    htmlFor="remember-me"
-                                    className="ml-2 cursor-pointer text-white/80 group-hover:text-white sm:ml-3"
-                                >
-                                    Lembrar de mim
-                                </label>
+                        {!adminMode && (
+                            <div className="flex items-center justify-between pt-1 text-xs sm:pt-2 sm:text-sm">
+                                <div className="group flex items-center">
+                                    <input
+                                        id="remember-me"
+                                        type="checkbox"
+                                        checked={rememberMe}
+                                        onChange={() => setRememberMe(!rememberMe)}
+                                        className="h-3.5 w-3.5 rounded border-white/30 bg-white/10 text-purple-400 sm:h-4 sm:w-4"
+                                    />
+                                    <label
+                                        htmlFor="remember-me"
+                                        className="ml-2 cursor-pointer text-white/80 group-hover:text-white sm:ml-3"
+                                    >
+                                        Lembrar de mim
+                                    </label>
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Error Message */}
                         {error && (
@@ -248,9 +334,9 @@ export function Login() {
                         <button
                             type="button"
                             onClick={handleSubmit as any}
-                            disabled={isLoading}
+                            disabled={isLoading || loadingClientes}
                             className={`group relative flex w-full transform items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3.5 text-sm font-semibold text-white shadow-xl transition-all duration-200 sm:rounded-2xl sm:px-6 sm:py-4 sm:text-base ${
-                                isLoading
+                                isLoading || loadingClientes
                                     ? 'cursor-not-allowed opacity-60'
                                     : 'hover:-translate-y-1 hover:scale-[1.02] hover:from-purple-600 hover:to-pink-600 hover:shadow-2xl active:scale-[0.98]'
                             }`}
@@ -260,11 +346,13 @@ export function Login() {
                             {isLoading ? (
                                 <span className="relative z-10 flex items-center gap-2">
                                     <ImSpinner2 className="h-5 w-5 animate-spin" />
-                                    Entrando...
+                                    {adminMode ? 'Acessando...' : 'Entrando...'}
                                 </span>
                             ) : (
                                 <>
-                                    <span className="relative z-10 mr-2">Entrar</span>
+                                    <span className="relative z-10 mr-2">
+                                        {adminMode ? 'Confirmar Cliente' : 'Entrar'}
+                                    </span>
                                     <MdOutlineKeyboardArrowRight className="relative z-10 h-4 w-4 transition-transform duration-200 group-hover:translate-x-2 sm:h-5 sm:w-5" />
                                 </>
                             )}

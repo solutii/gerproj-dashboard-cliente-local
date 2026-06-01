@@ -49,6 +49,7 @@ type AuthState = {
     login: (email: string, password: string) => Promise<UserData | null>;
     logout: () => void;
     hydrate: () => void;
+    setAdminCodCliente: (codCliente: string) => void;
 };
 
 // ==================== HELPERS ====================
@@ -176,6 +177,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         }
 
         if (stored.loginType === 'consultor') {
+            const codCliente = localStorage.getItem('codCliente') || null;
             set({
                 isLoggedIn: true,
                 isLoading: false,
@@ -185,6 +187,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 idUsuario: stored.idUsuario,
                 tipoUsuario: stored.tipoUsuario,
                 permissoes: stored.permissoes,
+                codCliente,
             });
         } else {
             set({
@@ -228,6 +231,12 @@ export const useAuthStore = create<AuthState>((set) => ({
             console.error('Erro ao fazer login:', error);
             return null;
         }
+    },
+
+    // ── Selecionar cliente como admin ──
+    setAdminCodCliente: (codCliente) => {
+        localStorage.setItem('codCliente', codCliente);
+        set({ codCliente });
     },
 
     // ── Logout ──
