@@ -155,13 +155,15 @@ export function Filtros() {
     const [debouncedRecursoSelecionado] = useDebounce(recursoSelecionado, 300);
     const [debouncedStatusSelecionado] = useDebounce(statusSelecionado, 300);
 
-    const { data: clientesData = [], isLoading: clientesLoading } = useQuery({
+    const { data: clientesData = [], isLoading: clientesLoading } = useQuery<Cliente[]>({
         queryKey: ['clientes', mes, ano, isAdmin ? 'admin' : codCliente],
         queryFn: () =>
             isAdmin
-                ? fetch('/api/admin/clientes').then((r) => r.json())
+                ? fetch('/api/admin/clientes').then((r) => r.json() as Promise<Cliente[]>)
                 : fetchClientes({ mes, ano, codCliente }),
-        enabled: isAdmin ? !!(mes && ano && isInitialized) : !!(mes && ano && codCliente && isInitialized),
+        enabled: isAdmin
+            ? !!(mes && ano && isInitialized)
+            : !!(mes && ano && codCliente && isInitialized),
         staleTime: 1000 * 60 * 5,
         retry: 2,
     });

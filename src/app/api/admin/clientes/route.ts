@@ -16,6 +16,7 @@ export async function GET() {
             INNER JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
             WHERE CLIENTE.NOME_CLIENTE IS NOT NULL
                 AND TRIM(CLIENTE.NOME_CLIENTE) <> ''
+                AND CLIENTE.ATIVO_CLIENTE = 1
             ORDER BY CLIENTE.NOME_CLIENTE
         `;
 

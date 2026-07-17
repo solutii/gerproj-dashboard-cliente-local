@@ -32,16 +32,7 @@ export const SLACell: React.FC<SLACellProps> = ({
     statusChamado,
     dataInicioAtendimento,
 }) => {
-    // Se não tiver data de início de atendimento, não mostra nada
-    if (!dataInicioAtendimento) {
-        return (
-            <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
-                ==========
-            </div>
-        );
-    }
-
-    // Hook mantido com toda a lógica original intacta
+    // Hook deve ser chamado antes de qualquer return condicional (Rules of Hooks)
     const sla = useSLADinamico(
         dataChamado,
         horaChamado,
@@ -50,6 +41,14 @@ export const SLACell: React.FC<SLACellProps> = ({
         dataInicioAtendimento,
         60000
     );
+
+    if (!dataInicioAtendimento) {
+        return (
+            <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+                ==========
+            </div>
+        );
+    }
 
     if (!sla) {
         return (

@@ -9,7 +9,6 @@ import { useMemo } from 'react';
 // ==================== TIPOS ====================
 interface HorasMesTooltipProps {
     meses: HorasMes[];
-    totalHorasFaturadas: number;
     children: React.ReactNode;
 }
 
@@ -31,7 +30,7 @@ const MESES_LABEL = [
 ];
 
 // ==================== COMPONENTE ====================
-export function HorasMesTooltip({ meses, totalHorasFaturadas, children }: HorasMesTooltipProps) {
+export function HorasMesTooltip({ meses, children }: HorasMesTooltipProps) {
     // Não renderiza tooltip se não há dados mensais
     const temDados = meses.length > 0;
 
@@ -42,6 +41,12 @@ export function HorasMesTooltip({ meses, totalHorasFaturadas, children }: HorasM
                 horas: formatarHorasTotaisSufixo(m.horasFaturadas),
                 valor: m.horasFaturadas,
             })),
+        [meses]
+    );
+
+    // Total histórico (todos os meses) — soma independente do mês filtrado na tabela
+    const totalHistorico = useMemo(
+        () => meses.reduce((acc, m) => acc + m.horasFaturadas, 0),
         [meses]
     );
 
@@ -71,7 +76,7 @@ export function HorasMesTooltip({ meses, totalHorasFaturadas, children }: HorasM
             >
                 {/* Cabeçalho */}
                 <p className="border-b border-gray-400 font-semibold tracking-widest text-white select-none">
-                    Horas faturadas por mês
+                    Histórico de horas faturadas
                 </p>
 
                 {/* Linhas */}
@@ -88,14 +93,14 @@ export function HorasMesTooltip({ meses, totalHorasFaturadas, children }: HorasM
                     ))}
                 </ul>
 
-                {/* Rodapé: total */}
+                {/* Rodapé: total histórico (todos os meses) */}
                 {linhas.length > 1 && (
                     <div className="flex justify-between border-t border-gray-500">
                         <span className="font-semibold tracking-widest text-white select-none">
                             Total
                         </span>
                         <span className="font-semibold tracking-widest text-white select-none">
-                            {formatarHorasTotaisSufixo(totalHorasFaturadas)}
+                            {formatarHorasTotaisSufixo(totalHistorico)}
                         </span>
                     </div>
                 )}

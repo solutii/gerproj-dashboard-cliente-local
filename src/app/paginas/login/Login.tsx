@@ -2,23 +2,43 @@
 'use client';
 
 import { useAuthStore } from '@/store/useAuthStore';
+import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { ImSpinner2 } from 'react-icons/im';
 import {
-    IoChevronDown,
-    IoClose,
-    IoEye,
-    IoEyeOff,
-    IoLockClosed,
-    IoMail,
-    IoPeople,
-    IoSearch,
-} from 'react-icons/io5';
-import { MdOutlineKeyboardArrowRight } from 'react-icons/md';
+    FaArrowRight,
+    FaClipboardList,
+    FaEye,
+    FaEyeSlash,
+    FaLock,
+    FaTicketAlt,
+} from 'react-icons/fa';
+import { FiLoader } from 'react-icons/fi';
+import { ImSpinner2 } from 'react-icons/im';
+import { IoIosMail, IoIosTime } from 'react-icons/io';
+import { IoBarChart, IoChevronDown, IoClose, IoSearch } from 'react-icons/io5';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// ==================== Variantes de animação ====================
+const fadeUp = (delay = 0) => ({
+    initial: { opacity: 0, y: 20 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.5, ease: 'easeOut' as const, delay },
+});
+
+const fadeIn = (delay = 0) => ({
+    initial: { opacity: 0 },
+    animate: { opacity: 1 },
+    transition: { duration: 0.5, ease: 'easeOut' as const, delay },
+});
+
+const slideRight = (delay = 0) => ({
+    initial: { opacity: 0, x: 24 },
+    animate: { opacity: 1, x: 0 },
+    transition: { duration: 0.45, ease: 'easeOut' as const, delay },
+});
 
 // ==================== Dropdown de cliente com busca ====================
 interface ClienteDropdownProps {
@@ -35,26 +55,23 @@ function ClienteDropdown({ clientes, value, onChange, loading }: ClienteDropdown
     const inputRef = useRef<HTMLInputElement>(null);
 
     const clienteSelecionado = clientes.find((c) => c.cod === value);
-
     const clientesFiltrados = clientes.filter((c) =>
         c.nome.toLowerCase().includes(busca.toLowerCase())
     );
 
     useEffect(() => {
-        function handleClickOutside(e: MouseEvent) {
+        function onClickOutside(e: MouseEvent) {
             if (ref.current && !ref.current.contains(e.target as Node)) {
                 setOpen(false);
                 setBusca('');
             }
         }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('mousedown', onClickOutside);
+        return () => document.removeEventListener('mousedown', onClickOutside);
     }, []);
 
     useEffect(() => {
-        if (open) {
-            setTimeout(() => inputRef.current?.focus(), 50);
-        }
+        if (open) setTimeout(() => inputRef.current?.focus(), 50);
     }, [open]);
 
     const handleSelect = (cod: string) => {
@@ -64,85 +81,107 @@ function ClienteDropdown({ clientes, value, onChange, loading }: ClienteDropdown
     };
 
     return (
-        <div ref={ref} className="relative">
-            {/* Botão que abre o dropdown */}
+        <div ref={ref} className="relative z-10">
             <button
                 type="button"
-                onClick={() => setOpen((prev) => !prev)}
+                onClick={() => setOpen((p) => !p)}
                 disabled={loading}
-                className="flex w-full items-center gap-3 rounded-xl border border-white/20 bg-white/10 py-3 pr-3 pl-4 text-sm text-white backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:py-4 sm:pr-4 sm:pl-4 sm:text-base"
+                className="flex h-12 w-full items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-4 text-sm text-white transition-all duration-200 hover:border-blue-500/50 hover:bg-white/8 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             >
-                <IoPeople className="h-4 w-4 shrink-0 text-white/60 sm:h-5 sm:w-5" />
                 <span
-                    className={`flex-1 truncate text-left ${clienteSelecionado ? 'text-white' : 'text-white/60'}`}
+                    className={`flex-1 truncate text-left ${clienteSelecionado ? 'text-white' : 'text-white/40'}`}
                 >
                     {loading
-                        ? 'Carregando clientes...'
-                        : clienteSelecionado
-                          ? clienteSelecionado.nome
-                          : 'Selecione um cliente...'}
+                        ? 'Carregando...'
+                        : (clienteSelecionado?.nome ?? 'Selecione um cliente...')}
                 </span>
                 {loading ? (
-                    <ImSpinner2 className="h-4 w-4 shrink-0 animate-spin text-white/60" />
+                    <ImSpinner2 className="h-4 w-4 shrink-0 animate-spin text-white/40" />
                 ) : (
-                    <IoChevronDown
-                        className={`h-4 w-4 shrink-0 text-white/60 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-                    />
+                    <motion.span
+                        animate={{ rotate: open ? 180 : 0 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <IoChevronDown className="h-4 w-4 text-white/40" />
+                    </motion.span>
                 )}
             </button>
 
-            {/* Painel do dropdown */}
-            {open && (
-                <div className="absolute z-50 mt-2 w-full overflow-hidden rounded-xl border border-white/20 bg-gray-900/95 shadow-2xl backdrop-blur-xl sm:rounded-2xl">
-                    {/* Campo de busca */}
-                    <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-                        <IoSearch className="h-4 w-4 shrink-0 text-white/50" />
-                        <input
-                            ref={inputRef}
-                            type="text"
-                            value={busca}
-                            onChange={(e) => setBusca(e.target.value)}
-                            placeholder="Buscar cliente..."
-                            className="flex-1 bg-transparent text-sm text-white placeholder-white/40 focus:outline-none"
-                        />
-                        {busca && (
-                            <button
-                                type="button"
-                                onClick={() => setBusca('')}
-                                className="shrink-0 text-white/40 hover:text-white/80"
-                            >
-                                <IoClose className="h-4 w-4" />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Lista de clientes */}
-                    <ul className="max-h-40 overflow-y-auto">
-                        {clientesFiltrados.length === 0 ? (
-                            <li className="px-4 py-3 text-sm text-white/40 select-none">
-                                Nenhum cliente encontrado
-                            </li>
-                        ) : (
-                            clientesFiltrados.map((c) => (
-                                <li
-                                    key={c.cod}
-                                    onClick={() => handleSelect(c.cod)}
-                                    className={`cursor-pointer px-4 py-2.5 text-sm transition-colors duration-100 select-none hover:bg-purple-600/40 ${
-                                        c.cod === value
-                                            ? 'bg-purple-600/30 font-semibold text-white'
-                                            : 'text-white/80'
-                                    }`}
+            <AnimatePresence>
+                {open && (
+                    <motion.div
+                        initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                        transition={{ duration: 0.18, ease: 'easeOut' }}
+                        className="absolute z-50 mt-1.5 w-full overflow-hidden rounded-xl border border-white/10 bg-[#0d1424] shadow-2xl shadow-black/60"
+                    >
+                        <div className="flex items-center gap-2 border-b border-white/8 px-3 py-2.5">
+                            <IoSearch className="h-4 w-4 shrink-0 text-white/30" />
+                            <input
+                                ref={inputRef}
+                                type="text"
+                                value={busca}
+                                onChange={(e) => setBusca(e.target.value)}
+                                placeholder="Buscar cliente..."
+                                className="flex-1 bg-transparent text-sm text-white placeholder-white/30 focus:outline-none"
+                            />
+                            {busca && (
+                                <button
+                                    type="button"
+                                    onClick={() => setBusca('')}
+                                    className="text-white/30 hover:text-white/60"
                                 >
-                                    {c.nome}
+                                    <IoClose className="h-4 w-4" />
+                                </button>
+                            )}
+                        </div>
+                        <ul className="max-h-48 overflow-y-auto">
+                            {clientesFiltrados.length === 0 ? (
+                                <li className="px-4 py-3 text-sm text-white/30 select-none">
+                                    Nenhum cliente encontrado
                                 </li>
-                            ))
-                        )}
-                    </ul>
-                </div>
-            )}
+                            ) : (
+                                clientesFiltrados.map((c) => (
+                                    <li
+                                        key={c.cod}
+                                        onClick={() => handleSelect(c.cod)}
+                                        className={`cursor-pointer px-4 py-2.5 text-sm transition-colors select-none hover:bg-blue-500/15 ${c.cod === value ? 'bg-blue-500/15 font-semibold text-blue-300' : 'text-white/70'}`}
+                                    >
+                                        {c.nome}
+                                    </li>
+                                ))
+                            )}
+                        </ul>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }
+
+// ==================== Dados visuais do painel esquerdo ====================
+// const stats = [
+//     { value: '98%', label: 'SLA cumprido' },
+//     { value: '4.9', label: 'Satisfação' },
+//     { value: '24/7', label: 'Monitoramento' },
+// ];
+
+const features = [
+    {
+        icon: <FaTicketAlt className="h-5 w-5 text-white/60" />,
+        text: 'Acompanhe chamados em tempo real',
+    },
+    {
+        icon: <FaClipboardList className="h-5 w-5 text-white/60" />,
+        text: 'Ordens de serviço detalhadas',
+    },
+    {
+        icon: <IoBarChart className="h-5 w-5 text-white/60" />,
+        text: 'Dashboard com métricas e relatórios',
+    },
+    { icon: <IoIosTime className="h-5 w-5 text-white/60" />, text: 'Controle de horas e SLA' },
+];
 
 // ================================================================================
 // COMPONENTE PRINCIPAL
@@ -171,7 +210,7 @@ export function Login() {
         }
     }, []);
 
-    const handleSubmit = async (e: React.FormEvent<HTMLDivElement>) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
 
@@ -182,7 +221,7 @@ export function Login() {
             }
             setIsLoading(true);
             setAdminCodCliente(clienteSelecionado);
-            await router.push('/paginas/dashboard');
+            router.push('/paginas/dashboard');
             return;
         }
 
@@ -203,6 +242,7 @@ export function Login() {
                     setIsLoading(false);
                     try {
                         const res = await fetch('/api/admin/clientes');
+                        if (!res.ok) throw new Error(`HTTP ${res.status}`);
                         const data = await res.json();
                         setClientes(data);
                         setAdminMode(true);
@@ -217,12 +257,12 @@ export function Login() {
                 await sleep(1000);
 
                 if (userData.loginType === 'consultor') {
-                    await router.push('/paginas/gerproj/chamados');
+                    router.push('/paginas/gerproj/chamados');
                 } else {
                     if (userData.codCliente) {
-                        await router.push('/paginas/dashboard');
+                        router.push('/paginas/dashboard');
                     } else if (userData.codRecurso) {
-                        await router.push('/paginas/tabela-chamados-abertos');
+                        router.push('/paginas/tabela-chamados-abertos');
                     } else {
                         setError('Usuário autenticado, mas sem permissões definidas.');
                         setIsLoading(false);
@@ -239,226 +279,357 @@ export function Login() {
         }
     };
 
-    const handleKeyPress = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !isLoading) {
-            handleSubmit(e as any);
-        }
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !isLoading) handleSubmit(e as any);
     };
 
     return (
-        <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 p-4 sm:p-6">
-            {/* Background Image */}
-            <div
-                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+        <div
+            className="relative flex h-screen overflow-hidden"
+            style={{
+                background: 'linear-gradient(140deg, #060c18 0%, #0a1228 50%, #07101f 100%)',
+            }}
+        >
+            {/* ── Fundo global animado com Motion ── */}
+
+            {/* Grid animado */}
+            <motion.div
+                className="pointer-events-none absolute inset-0 bg-purple-900 opacity-[0.09]"
                 style={{
-                    backgroundImage: 'url(/imagem-fundo-login.avif)',
-                    opacity: 0.15,
+                    backgroundImage:
+                        'linear-gradient(rgba(99,179,237,0.6) 1px, transparent 1px), linear-gradient(90deg, rgba(99,179,237,0.6) 1px, transparent 1px)',
+                    backgroundSize: '60px 60px',
                 }}
-            ></div>
+                animate={{ backgroundPosition: ['0px 0px', '60px 60px'] }}
+                transition={{ duration: 8, repeat: Infinity, ease: 'linear' }}
+            />
 
-            <div className="absolute inset-0 bg-gradient-to-br from-black/50 via-purple-900/30 to-black/50"></div>
+            {/* Orb central */}
+            <motion.div
+                className="pointer-events-none absolute top-1/2 left-1/2 h-[360px] w-[360px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-600/6 blur-3xl"
+                animate={{ scale: [1, 1.08, 0.94, 1], opacity: [0.6, 1, 0.6, 0.6] }}
+                transition={{ duration: 18, repeat: Infinity, ease: 'easeInOut', delay: 3 }}
+            />
 
-            {/* Floating Orbs */}
-            <div className="absolute top-1/4 left-1/4 h-16 w-16 animate-pulse rounded-full bg-gradient-to-r from-purple-400/30 to-pink-400/30 blur-xl sm:h-24 sm:w-24 lg:h-32 lg:w-32"></div>
-            <div className="absolute top-3/4 right-1/4 h-20 w-20 animate-pulse rounded-full bg-gradient-to-r from-blue-400/25 to-purple-400/25 blur-2xl delay-1000 sm:h-32 sm:w-32 lg:h-40 lg:w-40"></div>
-            <div className="absolute top-1/2 left-3/4 h-12 w-12 animate-pulse rounded-full bg-gradient-to-r from-pink-400/35 to-purple-400/35 blur-xl delay-500 sm:h-18 sm:w-18 lg:h-24 lg:w-24"></div>
+            {/* Texto de fundo decorativo */}
+            <motion.div
+                className="pointer-events-none absolute inset-0 flex items-center justify-center select-none"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 2, delay: 0.5 }}
+            >
+                <span className="text-[200px] font-black tracking-tighter text-white/[0.025]">
+                    PORTAL CLIENTES
+                </span>
+            </motion.div>
 
-            {/* Grid Pattern */}
+            {/* ══════════════════════════════════════════════
+                PAINEL ESQUERDO — branding
+            ══════════════════════════════════════════════ */}
+            <div className="relative flex w-1/2 overflow-hidden pl-92">
+                <div className="relative z-10 flex flex-col justify-center">
+                    <div className="space-y-10">
+                        {/* Bloco 1 */}
+                        <motion.div {...fadeUp(0.1)} className="flex items-center gap-4">
+                            <div className="relative">
+                                <Image
+                                    src="/logo-solutii.png"
+                                    alt="Solutii"
+                                    width={50}
+                                    height={50}
+                                    className="rounded-xl"
+                                />
+                            </div>
+                            <div>
+                                <p className="font-bold tracking-widest text-white uppercase select-none">
+                                    Solutii Sistemas
+                                </p>
+                                <p className="inline-flex gap-1 text-sm font-semibold tracking-wider text-white select-none">
+                                    <p className="text-cyan-500">Tecnologia</p> &amp;{' '}
+                                    <p className="text-orange-500">Consultoria</p>
+                                </p>
+                            </div>
+                        </motion.div>
+
+                        {/* Bloco 2 */}
+                        <motion.div {...fadeUp(0.2)}>
+                            <div className="inline-flex animate-pulse items-center gap-2.5 rounded-full border border-emerald-400/50 bg-emerald-400/10 px-6 py-1.5 shadow-md shadow-emerald-700">
+                                <motion.span
+                                    className="h-2 w-2 rounded-full bg-emerald-400"
+                                    animate={{ opacity: [1, 0.3, 1] }}
+                                    transition={{
+                                        duration: 2,
+                                        repeat: Infinity,
+                                        ease: 'easeInOut',
+                                    }}
+                                />
+                                <span className="text-xs font-semibold tracking-widest text-emerald-400 uppercase">
+                                    Sistema Online
+                                </span>
+                            </div>
+                        </motion.div>
+
+                        {/* Bloco 3 */}
+                        <motion.div {...fadeUp(0.3)} className="space-y-4">
+                            <h1 className="text-5xl leading-[1.1] font-black tracking-tight text-white xl:text-6xl">
+                                Gestão de
+                                <br />
+                                <span
+                                    style={{
+                                        background:
+                                            'linear-gradient(90deg, #60a5fa, #818cf8, #a78bfa)',
+                                        WebkitBackgroundClip: 'text',
+                                        WebkitTextFillColor: 'transparent',
+                                    }}
+                                >
+                                    Chamados
+                                </span>
+                                <br />
+                                <span className="text-5xl text-white/50 select-none">
+                                    e Suporte Técnico
+                                </span>
+                            </h1>
+                            <p className="max-w-md text-base tracking-wider text-white/50 select-none">
+                                Acompanhe seus chamados, ordens de serviço e indicadores de
+                                atendimento em tempo real.
+                            </p>
+                        </motion.div>
+
+                        {/* Bloco 4 */}
+                        <motion.div {...fadeUp(0.5)} className="space-y-3">
+                            {features.map(({ icon, text }, i) => (
+                                <motion.div
+                                    key={text}
+                                    initial={{ opacity: 0, x: -16 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ duration: 0.4, delay: 0.55 + i * 0.07 }}
+                                    className="flex items-center gap-3"
+                                >
+                                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-white/20 bg-white/5">
+                                        {icon}
+                                    </span>
+                                    <span className="text-sm tracking-wider text-white/50 select-none">
+                                        {text}
+                                    </span>
+                                </motion.div>
+                            ))}
+                        </motion.div>
+                    </div>
+                </div>
+
+                {/* Borda divisória */}
+                <div className="absolute top-0 right-0 h-full w-px bg-gradient-to-b from-transparent via-cyan-500/50 to-transparent" />
+            </div>
+
+            {/* ══════════════════════════════════════════════
+                PAINEL DIREITO — formulário
+            ══════════════════════════════════════════════ */}
             <div
-                className="absolute inset-0 opacity-10"
-                style={{
-                    backgroundImage: `
-                        linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
-                        linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
-                    `,
-                    backgroundSize: '50px 50px',
-                }}
-            ></div>
-
-            {/* Radial Gradients */}
-            <div
-                className="absolute inset-0"
-                style={{
-                    backgroundImage: `
-                        radial-gradient(circle at 20% 20%, rgba(168,85,247,0.2) 0%, transparent 50%),
-                        radial-gradient(circle at 80% 80%, rgba(236,72,153,0.15) 0%, transparent 50%),
-                        radial-gradient(circle at 60% 20%, rgba(59,130,246,0.12) 0%, transparent 50%)
-                    `,
-                }}
-            ></div>
-
-            {/* Login Card */}
-            <div className="relative z-10 w-full max-w-md">
-                <div className="rounded-2xl border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur-xl sm:rounded-3xl sm:p-8 lg:p-10">
-                    {/* Logo Header */}
-                    <div className="relative mb-6 text-center sm:mb-8">
-                        <div className="absolute inset-0 scale-110 rounded-full bg-gradient-to-r from-purple-400 to-pink-400 opacity-30 blur-lg"></div>
-                        <div className="relative inline-block rounded-full border border-white/30 bg-white/20 p-3 backdrop-blur-sm sm:p-4">
-                            <Image
-                                src="/logo-solutii.png"
-                                alt="Logo Solutii"
-                                width={60}
-                                height={60}
-                                className="mx-auto rounded-full drop-shadow-lg sm:h-20 sm:w-20"
-                                priority
-                            />
+                className="relative flex w-1/2 flex-col items-center justify-center overflow-hidden pr-60"
+                onKeyDown={handleKeyDown}
+            >
+                <div className="relative z-10 w-full max-w-sm">
+                    {/* Logo — só mobile */}
+                    <motion.div
+                        {...fadeUp(0.1)}
+                        className="mb-8 flex flex-col items-center lg:hidden"
+                    >
+                        <div className="relative mb-3">
+                            <div className="absolute inset-0 rounded-2xl bg-blue-500/15 blur-lg" />
+                            <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
+                                <Image
+                                    src="/logo-solutii.png"
+                                    alt="Solutii"
+                                    width={40}
+                                    height={40}
+                                    className="rounded-xl"
+                                />
+                            </div>
                         </div>
-                    </div>
-
-                    {/* Welcome Title */}
-                    <div className="mb-6 text-center sm:mb-8">
-                        <h1 className="text-2xl font-bold text-white sm:text-3xl lg:text-4xl">
-                            Bem-vindo de volta!
-                        </h1>
-                        <p className="mt-2 text-sm text-white/70 sm:text-base">
-                            {adminMode
-                                ? 'Selecione o cliente para continuar'
-                                : 'Entre com suas credenciais para continuar'}
+                        <p className="text-xs font-bold tracking-[0.3em] text-blue-400 uppercase">
+                            Solutii
                         </p>
-                    </div>
+                    </motion.div>
 
-                    {/* Form */}
-                    <div className="space-y-5 sm:space-y-6" onKeyPress={handleKeyPress}>
-                        {/* Email/Username Field */}
-                        <div className="space-y-2 sm:space-y-3">
-                            <label
-                                htmlFor="email"
-                                className="block text-sm font-semibold text-white/90"
+                    {/* Cabeçalho do form */}
+                    <motion.div {...fadeUp(0.15)} className="mb-8">
+                        <AnimatePresence mode="wait">
+                            <motion.h2
+                                key={adminMode ? 'admin' : 'login'}
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -10 }}
+                                transition={{ duration: 0.3 }}
+                                className="text-3xl font-black tracking-tight text-white"
                             >
+                                {adminMode ? 'Selecionar Cliente' : 'Acessar conta'}
+                            </motion.h2>
+                        </AnimatePresence>
+                        <p className="mt-1.5 text-sm tracking-wider text-white/50 select-none">
+                            {adminMode
+                                ? 'Selecione o cliente para carregar o dashboard'
+                                : 'Insira suas credenciais para continuar'}
+                        </p>
+                    </motion.div>
+
+                    {/* Formulário */}
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Email */}
+                        <motion.div {...slideRight(0.25)} className="space-y-1.5">
+                            <label className="block text-xs font-semibold tracking-wider text-white/50">
                                 Email ou Usuário
                             </label>
-                            <div className="group relative">
-                                <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3 sm:pl-4">
-                                    <IoMail className="h-4 w-4 text-white/60 transition-colors duration-200 group-focus-within:text-purple-300 sm:h-5 sm:w-5" />
-                                </div>
+                            <div className="relative">
+                                <IoIosMail className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-white/25" />
                                 <input
                                     type="text"
-                                    id="email"
-                                    name="email"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
                                     placeholder="seu@email.com ou usuário"
                                     required
                                     disabled={adminMode}
-                                    className="block w-full rounded-xl border border-white/20 bg-white/10 py-3 pr-3 pl-10 text-sm text-white placeholder-white/60 backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-2xl sm:py-4 sm:pr-4 sm:pl-12 sm:text-base"
-                                />
-                                <div className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 blur-sm transition-opacity duration-200 group-focus-within:opacity-100 sm:rounded-2xl"></div>
-                            </div>
-                        </div>
-
-                        {/* Admin: Client Dropdown com busca */}
-                        {adminMode && (
-                            <div className="space-y-2 sm:space-y-3">
-                                <label className="block text-sm font-semibold text-white/90">
-                                    Cliente
-                                </label>
-                                <ClienteDropdown
-                                    clientes={clientes}
-                                    value={clienteSelecionado}
-                                    onChange={setClienteSelecionado}
-                                    loading={loadingClientes}
+                                    className="h-12 w-full rounded-lg border border-white/10 bg-white/[0.04] py-3 pr-4 pl-10 text-sm tracking-widest text-white placeholder-white/25 transition-all duration-200 hover:border-white/15 focus:border-blue-500/60 focus:bg-white/[0.06] focus:ring-2 focus:ring-blue-500/15 focus:outline-none disabled:cursor-not-allowed disabled:opacity-40"
                                 />
                             </div>
-                        )}
+                        </motion.div>
 
-                        {/* Password Field */}
-                        {!adminMode && (
-                            <div className="space-y-2 sm:space-y-3">
-                                <label
-                                    htmlFor="password"
-                                    className="block text-sm font-semibold text-white/90"
+                        {/* Dropdown admin */}
+                        <AnimatePresence>
+                            {adminMode && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -8 }}
+                                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                                    className="relative z-10"
                                 >
-                                    Senha
-                                </label>
-                                <div className="group relative">
-                                    <div className="pointer-events-none absolute inset-y-0 left-0 z-10 flex items-center pl-3 sm:pl-4">
-                                        <IoLockClosed className="h-4 w-4 text-white/60 transition-colors duration-200 group-focus-within:text-purple-300 sm:h-5 sm:w-5" />
+                                    <div className="space-y-1.5 pt-0.5">
+                                        <label className="block text-xs font-semibold tracking-wider text-white/50 uppercase">
+                                            Cliente
+                                        </label>
+                                        <ClienteDropdown
+                                            clientes={clientes}
+                                            value={clienteSelecionado}
+                                            onChange={setClienteSelecionado}
+                                            loading={loadingClientes}
+                                        />
                                     </div>
-                                    <input
-                                        type={showPassword ? 'text' : 'password'}
-                                        id="password"
-                                        name="password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        placeholder="Digite sua senha"
-                                        required
-                                        className="block w-full rounded-xl border border-white/20 bg-white/10 py-3 pr-10 pl-10 text-sm text-white placeholder-white/60 backdrop-blur-sm transition-all duration-200 hover:border-white/30 hover:bg-white/15 focus:border-transparent focus:ring-2 focus:ring-purple-400 focus:outline-none sm:rounded-2xl sm:py-4 sm:pr-12 sm:pl-12 sm:text-base"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute inset-y-0 right-0 z-10 flex touch-manipulation items-center pr-3 transition-transform duration-200 hover:scale-110 sm:pr-4"
-                                        tabIndex={-1}
-                                    >
-                                        {showPassword ? (
-                                            <IoEyeOff className="h-4 w-4 text-white/60 sm:h-5 sm:w-5" />
-                                        ) : (
-                                            <IoEye className="h-4 w-4 text-white/60 sm:h-5 sm:w-5" />
-                                        )}
-                                    </button>
-                                    <div className="absolute inset-0 -z-10 rounded-xl bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 blur-sm transition-opacity duration-200 group-focus-within:opacity-100 sm:rounded-2xl"></div>
-                                </div>
-                            </div>
-                        )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
-                        {/* Remember Me */}
-                        {!adminMode && (
-                            <div className="flex items-center justify-between pt-1 text-xs sm:pt-2 sm:text-sm">
-                                <div className="group flex items-center">
+                        {/* Senha */}
+                        <AnimatePresence>
+                            {!adminMode && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="space-y-1.5 pt-0.5">
+                                        <label className="block text-xs font-semibold tracking-wider text-white/50">
+                                            Senha
+                                        </label>
+                                        <div className="relative">
+                                            <FaLock className="absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-white/25" />
+                                            <input
+                                                type={showPassword ? 'text' : 'password'}
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                placeholder="••••••••"
+                                                required
+                                                className="h-12 w-full rounded-lg border border-white/10 bg-white/[0.04] py-3 pr-11 pl-10 text-sm tracking-widest text-white placeholder-white/25 transition-all duration-200 hover:border-white/15 focus:border-blue-500/60 focus:bg-white/[0.06] focus:ring-2 focus:ring-blue-500/15 focus:outline-none"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowPassword(!showPassword)}
+                                                tabIndex={-1}
+                                                className="absolute top-1/2 right-3.5 -translate-y-1/2 text-white/25 transition-colors hover:text-white/60"
+                                            >
+                                                {showPassword ? (
+                                                    <FaEyeSlash size={16} />
+                                                ) : (
+                                                    <FaEye size={16} />
+                                                )}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Lembrar */}
+                        <AnimatePresence>
+                            {!adminMode && (
+                                <motion.div
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.2 }}
+                                    className="flex items-center gap-2.5 pt-0.5"
+                                >
                                     <input
-                                        id="remember-me"
+                                        id="remember"
                                         type="checkbox"
                                         checked={rememberMe}
                                         onChange={() => setRememberMe(!rememberMe)}
-                                        className="h-3.5 w-3.5 rounded border-white/30 bg-white/10 text-purple-400 sm:h-4 sm:w-4"
+                                        className="h-4 w-4 cursor-pointer rounded shadow-md shadow-black"
                                     />
                                     <label
-                                        htmlFor="remember-me"
-                                        className="ml-2 cursor-pointer text-white/80 group-hover:text-white sm:ml-3"
+                                        htmlFor="remember"
+                                        className="cursor-pointer text-sm tracking-wider text-white/50 select-none hover:text-white/60"
                                     >
                                         Lembrar de mim
                                     </label>
-                                </div>
-                            </div>
-                        )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
-                        {/* Error Message */}
-                        {error && (
-                            <div className="rounded-xl border border-red-400/30 bg-red-500/20 p-3 backdrop-blur-sm">
-                                <p className="text-center text-xs font-medium text-red-200 sm:text-sm">
-                                    {error}
-                                </p>
-                            </div>
-                        )}
+                        {/* Erro */}
+                        <AnimatePresence>
+                            {error && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                                    transition={{ duration: 0.25 }}
+                                    className="flex items-start gap-3 rounded-xl border border-red-500/15 bg-red-500/8 px-4 py-3"
+                                >
+                                    <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-400" />
+                                    <p className="text-sm text-red-300/90">{error}</p>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
-                        {/* Submit Button */}
-                        <button
-                            type="button"
-                            onClick={handleSubmit as any}
+                        {/* Botão */}
+                        <motion.button
+                            {...slideRight(0.35)}
+                            type="submit"
                             disabled={isLoading || loadingClientes}
-                            className={`group relative flex w-full transform items-center justify-center rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 px-4 py-3.5 text-sm font-semibold text-white shadow-xl transition-all duration-200 sm:rounded-2xl sm:px-6 sm:py-4 sm:text-base ${
-                                isLoading || loadingClientes
-                                    ? 'cursor-not-allowed opacity-60'
-                                    : 'hover:-translate-y-1 hover:scale-[1.02] hover:from-purple-600 hover:to-pink-600 hover:shadow-2xl active:scale-[0.98]'
-                            }`}
+                            className="group relative mt-2 flex w-full cursor-pointer items-center justify-center overflow-hidden rounded-lg border-none bg-cyan-800 py-4 font-semibold tracking-widest text-white shadow-md shadow-black transition-all duration-300 hover:bg-cyan-600 active:scale-95 disabled:cursor-not-allowed disabled:bg-cyan-600"
                         >
-                            <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 blur-lg transition-opacity duration-200 group-hover:opacity-30 sm:rounded-2xl" />
-
                             {isLoading ? (
-                                <span className="relative z-10 flex items-center gap-2">
-                                    <ImSpinner2 className="h-5 w-5 animate-spin" />
+                                <span className="relative flex items-center gap-2">
+                                    <FiLoader className="animate-spin" size={16} />
                                     {adminMode ? 'Acessando...' : 'Entrando...'}
                                 </span>
                             ) : (
-                                <>
-                                    <span className="relative z-10 mr-2">
-                                        {adminMode ? 'Confirmar Cliente' : 'Entrar'}
-                                    </span>
-                                    <MdOutlineKeyboardArrowRight className="relative z-10 h-4 w-4 transition-transform duration-200 group-hover:translate-x-2 sm:h-5 sm:w-5" />
-                                </>
+                                <span className="relative flex items-center gap-2">
+                                    {adminMode ? 'Confirmar Cliente' : 'Entrar'}
+                                    <FaArrowRight
+                                        className="transition-transform duration-300 group-hover:translate-x-2"
+                                        size={16}
+                                    />
+                                </span>
                             )}
-                        </button>
-                    </div>
+                        </motion.button>
+                    </form>
+
+                    <motion.p {...fadeIn(0.6)} className="mt-10 text-center text-xs text-white/20">
+                        © {new Date().getFullYear()} Solutii Tecnologia. Todos os direitos
+                    </motion.p>
                 </div>
             </div>
         </div>

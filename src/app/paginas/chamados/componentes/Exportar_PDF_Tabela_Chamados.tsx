@@ -669,7 +669,12 @@ function gerarPaginaOS(
 
     doc.addPage();
 
-    let yPos = adicionarCabecalhoPDF(doc, 'RELATÓRIO DE ORDENS DE SERVIÇO', [8, 145, 178], filtros);
+    const yPos = adicionarCabecalhoPDF(
+        doc,
+        'RELATÓRIO DE ORDENS DE SERVIÇO',
+        [8, 145, 178],
+        filtros
+    );
 
     const osTableData: any[] = [];
     chamadosComOS.forEach((chamado) => {

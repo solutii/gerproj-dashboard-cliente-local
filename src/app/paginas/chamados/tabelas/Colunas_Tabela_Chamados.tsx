@@ -464,11 +464,11 @@ export const getColunasChamados = (
             header: () => <CellHeader>QTD. HORAS</CellHeader>,
             cell: ({ getValue, row }) => {
                 const totalHoras = getValue() as number | null;
-                const { COD_CHAMADO, TEM_OS, TOTAL_HORAS_OS_FATURADAS, STATUS_CHAMADO } =
-                    row.original;
+                const { COD_CHAMADO, TEM_OS } = row.original;
 
-                const isFinalizado = STATUS_CHAMADO?.toUpperCase() === 'FINALIZADO';
-                const meses = TEM_OS && getHoras && !isFinalizado ? getHoras(COD_CHAMADO) : [];
+                // Histórico completo (todos os meses) — independe do mês filtrado,
+                // usado só para o tooltip. O valor exibido na célula é o do mês filtrado.
+                const meses = TEM_OS && getHoras ? getHoras(COD_CHAMADO) : [];
 
                 const conteudo = (
                     <div className="text-center text-base font-extrabold tracking-widest text-black select-none">
@@ -482,14 +482,7 @@ export const getColunasChamados = (
 
                 if (meses.length === 0) return conteudo;
 
-                return (
-                    <HorasMesTooltip
-                        meses={meses}
-                        totalHorasFaturadas={TOTAL_HORAS_OS_FATURADAS ?? 0}
-                    >
-                        {conteudo}
-                    </HorasMesTooltip>
-                );
+                return <HorasMesTooltip meses={meses}>{conteudo}</HorasMesTooltip>;
             },
             enableColumnFilter: false,
         },

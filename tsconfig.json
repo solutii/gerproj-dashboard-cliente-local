@@ -15,8 +15,6 @@
         "skipLibCheck": true, // ✅ manter — não recompila @types
         "noEmit": true, // ✅ CORRIGIR: Next não precisa emitir arquivos
         "types": ["node", "react", "react-dom"],
-        "baseUrl": ".",
-        "ignoreDeprecations": "6.0", // ✅ silencia o aviso do baseUrl
         "paths": {
             "@/*": ["./src/*"]
         },

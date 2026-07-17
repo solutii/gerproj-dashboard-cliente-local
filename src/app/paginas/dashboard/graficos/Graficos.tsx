@@ -207,10 +207,7 @@ const SkeletonLoadingCard = ({ variant = 'primary' }: { variant?: string }) => {
 };
 
 // ==================== Funções de Fetch ====================
-const fetchOrdensServico = async (
-    filters: FilterProps['filters'],
-    codCliente: string | null
-) => {
+const fetchOrdensServico = async (filters: FilterProps['filters'], codCliente: string | null) => {
     const params = new URLSearchParams({
         mes: filters.mes.toString(),
         ano: filters.ano.toString(),
@@ -239,11 +236,7 @@ const fetchOrdensServico = async (
 };
 
 // Função para buscar dados do histórico de saldo
-const fetchSaldoHistorico = async (
-    codCliente: string,
-    mes: number,
-    ano: number
-) => {
+const fetchSaldoHistorico = async (codCliente: string, mes: number, ano: number) => {
     const params = new URLSearchParams({
         codCliente: codCliente,
         mes: mes.toString(),

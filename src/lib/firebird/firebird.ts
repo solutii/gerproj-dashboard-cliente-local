@@ -47,7 +47,7 @@ function detectAndConvertEncoding(buffer: Buffer): string {
 function extractTextFromHtml(html: string): string {
     if (!html || !html.trim()) return '';
 
-    let text = html
+    const text = html
         .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
         .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
         .replace(/<[^>]+>/g, ' ')

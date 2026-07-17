@@ -302,7 +302,7 @@ async function gerarHorasPorMes(ano: number, params: QueryParams) {
     const promessasMeses = Array.from({ length: 12 }, (_, i) => i + 1).map(async (mes) => {
         const { dataInicio, dataFim } = construirDatas(mes, ano);
 
-        let sql = `
+        const sql = `
   SELECT OS.HRINI_OS, OS.HRFIM_OS
   FROM OS
   INNER JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1

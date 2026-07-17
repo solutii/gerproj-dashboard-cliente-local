@@ -79,6 +79,7 @@ interface ChamadoRaw {
     DATA_INICIO_ATENDIMENTO?: Date | null;
     HORA_INICIO_ATENDIMENTO?: string | null;
     TOTAL_RECORDS?: number;
+    POSSUI_OS?: number;
 }
 
 // ==================== CORREÇÃO 1: CACHE DE PROMISES ====================
@@ -472,11 +473,9 @@ const buscarChamadosTodos = async (
             clauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) = 'FINALIZADO'`);
             // data de finalização vai dentro do INNER JOIN HIST_MAX_JOIN — não entra no WHERE
         } else {
+            // Chamados não finalizados são sempre considerados em aberto,
+            // independente do mês/ano em que foram abertos — não filtra por data.
             clauses.push(`UPPER(CHAMADO.STATUS_CHAMADO) <> 'FINALIZADO'`);
-            if (dataInicio && dataFim) {
-                clauses.push(`CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?`);
-                p.push(dataInicio, dataFim);
-            }
         }
 
         // filtros de coluna que precisam de join simples
@@ -566,10 +565,19 @@ const buscarChamadosTodos = async (
 
     const placeholders = paginaIds.map(() => '?').join(', ');
 
+    // Todas as horas (finalizados ou não) só contam OS lançadas dentro do mês/ano
+    // filtrado, para bater com o total exibido no card de resumo. O histórico
+    // completo (todas as OS do chamado, de qualquer mês) fica disponível à parte,
+    // via /api/chamados/horas-por-mes, exibido no tooltip da coluna.
+    const dentroDoMes =
+        dataInicio && dataFim
+            ? `(OS.DTINI_OS >= '${dataInicio}' AND OS.DTINI_OS < '${dataFim}')`
+            : `1=1`;
+
     const sqlCompleta = `
         SELECT ${CAMPOS_CHAMADO_BASE_SELECT}${CAMPOS_AVALIACAO_SELECT},
         COALESCE(SUM(
-            CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
+            CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' AND ${dentroDoMes} THEN
                 (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
                     CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
                     CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
@@ -577,7 +585,7 @@ const buscarChamadosTodos = async (
             ELSE 0 END
         ), 0) AS TOTAL_HORAS_OS,
         COALESCE(SUM(
-            CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
+            CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' AND ${dentroDoMes} THEN
                 (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
                     CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
                     CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
@@ -585,13 +593,14 @@ const buscarChamadosTodos = async (
             ELSE 0 END
         ), 0) AS TOTAL_HORAS_OS_FATURADAS,
         COALESCE(SUM(
-            CASE WHEN UPPER(OS.FATURADO_OS) = 'NAO' THEN
+            CASE WHEN UPPER(OS.FATURADO_OS) = 'NAO' AND ${dentroDoMes} THEN
                 (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
                     CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
                     CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
                     CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
             ELSE 0 END
-        ), 0) AS TOTAL_HORAS_OS_NAO_FATURADAS
+        ), 0) AS TOTAL_HORAS_OS_NAO_FATURADAS,
+        MAX(CASE WHEN OS.COD_OS IS NOT NULL THEN 1 ELSE 0 END) AS POSSUI_OS
         FROM CHAMADO
         LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
         LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO
@@ -959,7 +968,9 @@ const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado
             NOME_CLIENTE: c.NOME_CLIENTE || null,
             NOME_RECURSO: c.NOME_RECURSO || null,
             NOME_CLASSIFICACAO: c.NOME_CLASSIFICACAO || null,
-            TEM_OS: (c.TOTAL_HORAS_OS ?? 0) > 0,
+            // Usa POSSUI_OS (existência real de OS, qualquer mês) quando disponível —
+            // evita esconder o tooltip de histórico quando o mês filtrado não teve horas.
+            TEM_OS: c.POSSUI_OS != null ? c.POSSUI_OS > 0 : (c.TOTAL_HORAS_OS ?? 0) > 0,
             TOTAL_HORAS_OS: c.TOTAL_HORAS_OS ?? 0,
             TOTAL_HORAS_OS_FATURADAS: c.TOTAL_HORAS_OS_FATURADAS ?? 0,
             TOTAL_HORAS_OS_NAO_FATURADAS: c.TOTAL_HORAS_OS_NAO_FATURADAS ?? 0,
