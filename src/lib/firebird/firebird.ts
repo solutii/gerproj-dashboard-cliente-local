@@ -2,6 +2,42 @@
 import Firebird from 'node-firebird';
 import { corrigirTextoCorrompido } from '../../formatters/formatar-texto-corrompido';
 
+// ─── Patch: encoding de texto do driver (leitura E escrita) ──────────────────
+//
+// node-firebird@1.1.9 IGNORA a option `encoding` ao decodificar colunas
+// VARCHAR/CHAR — lib/wire/xsqlvar.js chama `data.readText(len, Const.DEFAULT_ENCODING)`
+// com a constante fixa 'UTF8' (lib/wire/const.js), não com o que configuramos
+// na conexão. O banco (legado Delphi/Windows) grava em WIN1252: um byte
+// acentuado sozinho (ex: 0xE7 = "ç") não é uma sequência UTF-8 válida, então
+// Buffer.toString('utf8', ...) descarta o byte original e devolve "�" — uma
+// perda de dado que não tem como ser corrigida depois (não sabemos mais qual
+// dos 256 valores de byte era). WIN1252 e latin1 são idênticos no intervalo
+// 0xA0–0xFF (onde ficam os acentos), então forçar 'latin1' aqui decodifica
+// certo. Isso é um patch no protótipo do driver, não uma option pública —
+// se um dia atualizarmos o node-firebird (a versão instalada é bem antiga),
+// vale checar se essa versão nova já respeita `encoding` e remover o patch.
+// O mesmo bug existe simetricamente na escrita: xsqlvar.js (SQLParamString.encode)
+// chama `data.addText(this.value, Const.DEFAULT_ENCODING)` — grava parâmetros
+// de string sempre como UTF-8, mesmo em coluna WIN1252/NONE (1 byte por
+// caractere). Resultado: "ç" (1 char) grava como 2 bytes UTF-8 (0xC3 0x87),
+// e na releitura (mesmo já com o patch de leitura acima) vira "Ã" duplicado —
+// dado errado gravado no banco, não só um problema de exibição. Sem esse
+// patch de escrita, qualquer INSERT/UPDATE com acento corrompe a coluna.
+{
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- caminho interno do driver, sem types públicos
+    const { XdrReader, XdrWriter } = require('node-firebird/lib/wire/serialize');
+
+    const readTextOriginal = XdrReader.prototype.readText;
+    XdrReader.prototype.readText = function (len: number) {
+        return readTextOriginal.call(this, len, 'latin1');
+    };
+
+    const addTextOriginal = XdrWriter.prototype.addText;
+    XdrWriter.prototype.addText = function (s: string) {
+        return addTextOriginal.call(this, s, 'latin1');
+    };
+}
+
 // ─── Options ────────────────────────────────────────────────────────────────
 
 export const firebirdOptions: Firebird.Options = {
@@ -147,6 +183,11 @@ async function processRow(row: any, transaction: any, rawBlobs = false): Promise
                 processedRow[key] = blobContent;
             });
             blobPromises.push(promise);
+        } else if (valueType === 'string') {
+            // Colunas VARCHAR/CHAR não passam pelo readBlob — sem essa correção,
+            // valores acentuados gravados com encoding divergente do driver
+            // (ex: "CRIAÇÃO" -> "CRIA��O") chegam corrompidos no front.
+            processedRow[key] = corrigirTextoCorrompido(value);
         } else {
             processedRow[key] = value;
         }

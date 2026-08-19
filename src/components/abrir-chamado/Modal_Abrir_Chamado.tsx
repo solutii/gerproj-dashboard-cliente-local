@@ -2,7 +2,6 @@
 
 'use client';
 
-import { removerAcentos } from '@/formatters/remover-acentuacao';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useEffect, useRef, useState } from 'react';
 import { FaCheckCircle, FaFileExcel, FaFilePdf, FaFileWord, FaImage } from 'react-icons/fa';
@@ -204,7 +203,8 @@ interface ModalAbrirChamadoProps {
 }
 
 export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
-    const { codCliente } = useAuthStore();
+    const { codCliente, loginType, tipoUsuario } = useAuthStore();
+    const isAdmin = loginType === 'consultor' && tipoUsuario === 'ADM';
 
     const [solicitante, setSolicitante] = useState('');
     const [email, setEmail] = useState('');
@@ -230,6 +230,20 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
     const [area, setArea] = useState<Opcao | null>(null);
     const [classificacao, setClassificacao] = useState<Opcao | null>(null);
 
+    // ── Somente ADM: cliente/recurso/tarefa em nome de quem o chamado é aberto ──
+    // O cliente NÃO é escolhido aqui — vem do useAuthStore (definido no login e
+    // atualizado pelos Filtros do dashboard via setAdminCodCliente). O dropdown
+    // fica travado, só refletindo esse valor.
+    const [clientesAtivos, setClientesAtivos] = useState<Opcao[]>([]);
+    const [recursosAtivos, setRecursosAtivos] = useState<Opcao[]>([]);
+    const [loadingClientesRecursos, setLoadingClientesRecursos] = useState(false);
+    const [recursoSelecionado, setRecursoSelecionado] = useState<Opcao | null>(null);
+    const [tarefas, setTarefas] = useState<Opcao[]>([]);
+    const [loadingTarefas, setLoadingTarefas] = useState(false);
+    const [tarefaSelecionada, setTarefaSelecionada] = useState<Opcao | null>(null);
+
+    const clienteAtual = clientesAtivos.find((c) => String(c.cod) === codCliente) ?? null;
+
     const resetFormulario = () => {
         setSolicitante('');
         setEmail('');
@@ -243,6 +257,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
         setArquivos([]);
         setErro('');
         setCodChamadoCriado(null);
+        setRecursoSelecionado(null);
     };
 
     useEffect(() => {
@@ -256,6 +271,43 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
             .catch(() => {})
             .finally(() => setLoadingOpcoes(false));
     }, [isOpen]);
+
+    // Carrega clientes/recursos ativos só quando o modal abre pra um ADM
+    useEffect(() => {
+        if (!isOpen || !isAdmin) return;
+
+        setLoadingClientesRecursos(true);
+        Promise.all([
+            fetch('/api/clientes-ativos').then((r) => r.json()),
+            fetch('/api/recursos-ativos').then((r) => r.json()),
+        ])
+            .then(([clientes, recursos]: [Opcao[], Opcao[]]) => {
+                setClientesAtivos(clientes);
+                setRecursosAtivos(recursos);
+            })
+            .catch(() => {})
+            .finally(() => setLoadingClientesRecursos(false));
+    }, [isOpen, isAdmin]);
+
+    // Busca as tarefas do cliente atual (ADM) sempre que o modal abre ou o
+    // cliente muda (inclusive enquanto o modal está fechado, via Filtros do
+    // dashboard) — assim a lista já está atualizada quando o modal reabre.
+    useEffect(() => {
+        if (!isOpen || !isAdmin || !clienteAtual) {
+            setTarefas([]);
+            setTarefaSelecionada(null);
+            return;
+        }
+
+        setTarefaSelecionada(null);
+        setLoadingTarefas(true);
+        fetch(`/api/chamados/tarefas?codCliente=${clienteAtual.cod}`)
+            .then((r) => r.json())
+            .then((data: Opcao[]) => setTarefas(data))
+            .catch(() => setTarefas([]))
+            .finally(() => setLoadingTarefas(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, isAdmin, clienteAtual?.cod]);
 
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
@@ -308,7 +360,12 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
 
     const handleSubmit = async () => {
         setErro('');
-        if (!codCliente) {
+        if (isAdmin) {
+            if (!clienteAtual) {
+                setErro('Nenhum cliente selecionado. Escolha um cliente nos filtros do dashboard.');
+                return;
+            }
+        } else if (!codCliente) {
             setErro('Nenhum cliente selecionado. Faça login novamente ou selecione um cliente.');
             return;
         }
@@ -355,16 +412,19 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    assunto: removerAcentos(assunto),
-                    solicitacao: removerAcentos(solicitacao),
+                    assunto,
+                    solicitacao,
                     codCliente,
-                    solicitante: removerAcentos(solicitante),
+                    solicitante,
                     email,
                     telefone,
                     codDepartamento: departamento.cod,
                     codArea: area.cod,
-                    rotina: removerAcentos(rotina),
+                    rotina,
                     codClassificacao: classificacao.cod,
+                    codClienteSelecionado: isAdmin ? clienteAtual?.cod : undefined,
+                    codRecursoSelecionado: isAdmin ? recursoSelecionado?.cod : undefined,
+                    codTarefaSelecionada: isAdmin ? tarefaSelecionada?.cod : undefined,
                 }),
             });
             if (!res.ok) {
@@ -418,6 +478,13 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                         <PiTimerFill className="flex-shrink-0 text-white" size={44} />
                         <div className="flex flex-col gap-1 tracking-widest text-white select-none">
                             <h1 className="text-3xl font-extrabold">ABRIR CHAMADO</h1>
+                            {isAdmin && (
+                                <span className="text-sm font-semibold tracking-wider text-teal-100">
+                                    {loadingClientesRecursos
+                                        ? 'Carregando cliente...'
+                                        : (clienteAtual?.nome ?? 'Nenhum cliente selecionado')}
+                                </span>
+                            )}
                         </div>
                     </div>
 
@@ -462,6 +529,48 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                         </div>
                     ) : (
                         <>
+                            {/* Cliente / Recurso / Tarefa — somente ADM */}
+                            {isAdmin && (
+                                <>
+                                    <div className="mb-7 grid grid-cols-1 gap-7 sm:grid-cols-2">
+                                        <div>
+                                            <label className={labelClass}>Cliente:</label>
+                                            <div
+                                                className={`${inputClass} cursor-not-allowed text-gray-500`}
+                                            >
+                                                {loadingClientesRecursos
+                                                    ? 'Carregando...'
+                                                    : (clienteAtual?.nome ??
+                                                      'Nenhum cliente selecionado')}
+                                            </div>
+                                        </div>
+                                        <SeletorBusca
+                                            label="Recurso: (opcional)"
+                                            placeholder="Selecione o recurso responsável"
+                                            opcoes={recursosAtivos}
+                                            loading={loadingClientesRecursos}
+                                            valorSelecionado={recursoSelecionado}
+                                            onSelecionar={setRecursoSelecionado}
+                                        />
+                                    </div>
+
+                                    <div className="mb-7">
+                                        <SeletorBusca
+                                            label="Tarefa: (opcional)"
+                                            placeholder={
+                                                !clienteAtual
+                                                    ? 'Selecione um cliente primeiro'
+                                                    : 'Selecione a tarefa'
+                                            }
+                                            opcoes={tarefas}
+                                            loading={loadingTarefas}
+                                            valorSelecionado={tarefaSelecionada}
+                                            onSelecionar={setTarefaSelecionada}
+                                        />
+                                    </div>
+                                </>
+                            )}
+
                             {/* Solicitante / Email / Telefone */}
                             <div className="mb-7 grid grid-cols-1 gap-7 sm:grid-cols-3">
                                 <div>
@@ -473,7 +582,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                             setSolicitante(capitalizarNome(e.target.value));
                                             if (erro) setErro('');
                                         }}
-                                        maxLength={100}
+                                        maxLength={50}
                                         placeholder="Nome completo"
                                         className={inputClass}
                                     />
@@ -487,6 +596,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                             setEmail(e.target.value);
                                             if (erro) setErro('');
                                         }}
+                                        maxLength={250}
                                         placeholder="seuemail@empresa.com"
                                         className={inputClass}
                                     />
@@ -548,6 +658,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                         onChange={(e) =>
                                             setRotina(capitalizarFrases(e.target.value))
                                         }
+                                        maxLength={150}
                                         placeholder="Rotina relacionada"
                                         className={inputClass}
                                     />

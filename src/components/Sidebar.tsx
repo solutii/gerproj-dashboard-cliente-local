@@ -18,6 +18,9 @@ import { useFiltersStore } from '../store/useFiltersStore';
 import { ModalAbrirChamado } from './abrir-chamado/Modal_Abrir_Chamado';
 import { ModalSaldoHoras } from './saldo-horas/Modal_Saldo_Horas';
 
+// Chave única para reativar o botão "Abrir Chamado" quando o fluxo for liberado.
+const ABRIR_CHAMADO_DISPONIVEL = true;
+
 // ================================================================================
 // COMPONENTE PRINCIPAL
 // ================================================================================
@@ -408,30 +411,32 @@ export function Sidebar() {
                             </div>
                         </Link>
 
-                        {/* Botão Abrir Chamado */}
+                        {/* Botão Abrir Chamado — temporariamente indisponível */}
                         <button
                             onClick={handleOpenAbrirChamadoModal}
-                            disabled={!codCliente}
+                            disabled={!ABRIR_CHAMADO_DISPONIVEL || !codCliente}
                             title={
-                                !codCliente
-                                    ? 'Selecione um cliente para abrir um chamado'
-                                    : 'Abrir novo chamado'
+                                !ABRIR_CHAMADO_DISPONIVEL
+                                    ? 'Indisponível no momento'
+                                    : !codCliente
+                                      ? 'Selecione um cliente para abrir um chamado'
+                                      : 'Abrir novo chamado'
                             }
                             className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
-                                codCliente
+                                ABRIR_CHAMADO_DISPONIVEL && codCliente
                                     ? 'cursor-pointer border border-purple-900 bg-purple-700 shadow-md shadow-black hover:scale-[1.03] hover:shadow-xl hover:shadow-black active:scale-[0.98]'
                                     : 'cursor-not-allowed border-gray-700/30 bg-white/30 opacity-40 shadow-md shadow-black'
                             }`}
                         >
                             {/* Efeito de brilho no hover (apenas quando habilitado) */}
-                            {codCliente && (
+                            {ABRIR_CHAMADO_DISPONIVEL && codCliente && (
                                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
                             )}
 
                             <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
                                 <IoAddCircle
                                     className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
-                                        codCliente
+                                        ABRIR_CHAMADO_DISPONIVEL && codCliente
                                             ? 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
                                             : 'text-white/70'
                                     }`}

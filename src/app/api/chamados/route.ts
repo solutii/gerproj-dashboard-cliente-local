@@ -1169,11 +1169,14 @@ async function inserirChamado(params: {
     codArea: number;
     rotina: string;
     codClassificacao: number;
+    codRecurso: number | null;
+    codTarefa: number | null;
 }): Promise<number> {
     const agora = new Date();
     const dataChamado = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
     const hhmmBruto = `${String(agora.getHours()).padStart(2, '0')}${String(agora.getMinutes()).padStart(2, '0')}`;
     const horaChamado = arredondarHora(hhmmBruto);
+    const statusChamado = params.codRecurso ? 'ATRIBUIDO' : 'NAO INICIADO';
 
     const MAX_TENTATIVAS = 5;
     for (let tentativa = 0; tentativa < MAX_TENTATIVAS; tentativa++) {
@@ -1190,18 +1193,20 @@ async function inserirChamado(params: {
                     ASSUNTO_CHAMADO, SOLICITACAO_CHAMADO, SOLICITACAO2_CHAMADO,
                     EMAIL_CHAMADO, COD_CLIENTE, COD_RECURSO, IDMAIL_CHAMADO,
                     SOLICITANTE_CHAMADO, TEL_SOLIC_CHAMADO, COD_DEPARTAMENTO,
-                    COD_AREA, ROTINA_CHAMADO, COD_CLASSIFICACAO,
+                    COD_AREA, ROTINA_CHAMADO, COD_CLASSIFICACAO, CODTRF_CHAMADO,
                     PRIOR_CHAMADO, AVALIA_CHAMADO
-                ) VALUES (?, ?, ?, 'NAO INICIADO', ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, 100, 1)`,
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 100, 1)`,
                 [
                     cod,
                     dataChamado,
                     horaChamado,
+                    statusChamado,
                     params.assunto,
                     params.corpoHtml,
                     params.corpoHtml,
                     params.emailChamado,
                     params.codCliente,
+                    params.codRecurso,
                     params.idMail,
                     params.solicitante,
                     params.telefone,
@@ -1209,6 +1214,7 @@ async function inserirChamado(params: {
                     params.codArea,
                     params.rotina,
                     params.codClassificacao,
+                    params.codTarefa,
                 ]
             );
             return cod;
@@ -1236,6 +1242,9 @@ export async function POST(request: NextRequest) {
             codArea,
             rotina,
             codClassificacao,
+            codClienteSelecionado,
+            codRecursoSelecionado,
+            codTarefaSelecionada,
         } = await request.json();
 
         if (!assunto?.trim() || !solicitacao?.trim()) {
@@ -1262,16 +1271,52 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        const codClienteNum = Number(codCliente);
-        if (!codClienteNum || isNaN(codClienteNum)) {
-            return NextResponse.json({ error: 'Cliente não identificado.' }, { status: 400 });
+        // ── ADM abrindo em nome de outro cliente: valida a seleção contra o
+        //    banco, nunca confia cegamente no que veio do body. Sem seleção de
+        //    ADM, cai no codCliente do próprio cliente logado ──────────────────
+        let codClienteFinal: number;
+        if (codClienteSelecionado) {
+            const clienteValido = await firebirdQuery(
+                `SELECT COD_CLIENTE FROM CLIENTE WHERE COD_CLIENTE = ? AND ATIVO_CLIENTE = 1`,
+                [Number(codClienteSelecionado)]
+            );
+            if (clienteValido.length === 0) {
+                return NextResponse.json(
+                    { error: 'Cliente selecionado inválido ou inativo.' },
+                    { status: 400 }
+                );
+            }
+            codClienteFinal = Number(codClienteSelecionado);
+        } else {
+            const codClienteNum = Number(codCliente);
+            if (!codClienteNum || isNaN(codClienteNum)) {
+                return NextResponse.json({ error: 'Cliente não identificado.' }, { status: 400 });
+            }
+            codClienteFinal = codClienteNum;
         }
+
+        let codRecursoFinal: number | null = null;
+        if (codRecursoSelecionado) {
+            const recursoValido = await firebirdQuery(
+                `SELECT COD_RECURSO FROM RECURSO WHERE COD_RECURSO = ? AND ATIVO_RECURSO = 1`,
+                [Number(codRecursoSelecionado)]
+            );
+            if (recursoValido.length === 0) {
+                return NextResponse.json(
+                    { error: 'Recurso selecionado inválido ou inativo.' },
+                    { status: 400 }
+                );
+            }
+            codRecursoFinal = Number(codRecursoSelecionado);
+        }
+
+        const codTarefaFinal = codTarefaSelecionada ? Number(codTarefaSelecionada) : null;
 
         const corpoHtml = montarCorpoHtml(solicitacao);
 
         const clienteRows = await firebirdQuery(
             `SELECT SLA_CLIENTE, CEL_CLIENTE, ZAP_CLIENTE, NOME_CLIENTE FROM CLIENTE WHERE COD_CLIENTE = ?`,
-            [codClienteNum]
+            [codClienteFinal]
         );
         const cliente = clienteRows[0] as Record<string, unknown> | undefined;
         if (!cliente) {
@@ -1283,9 +1328,9 @@ export async function POST(request: NextRequest) {
         const zapCliente = ((cliente.ZAP_CLIENTE as string) ?? 'NAO').trim().toUpperCase();
         const nomeCliente = ((cliente.NOME_CLIENTE as string) ?? '').trim();
         const emailSolicitante = (email as string).trim().toLowerCase();
-        const solicitanteLimpo = (solicitante as string).trim().substring(0, 100);
+        const solicitanteLimpo = (solicitante as string).trim().substring(0, 50);
         const telefoneLimpo = (telefone as string).trim();
-        const rotinaLimpa = ((rotina as string) ?? '').trim();
+        const rotinaLimpa = ((rotina as string) ?? '').trim().substring(0, 150);
 
         // Prefixo [PRIMEIRO_NOME_CLIENTE] no assunto — padrão usado em todos os
         // chamados existentes (ex: "[TIROL] Erro na agenda").
@@ -1299,7 +1344,7 @@ export async function POST(request: NextRequest) {
             assunto: assuntoLimpo,
             corpoHtml,
             emailChamado: emailSolicitante,
-            codCliente: codClienteNum,
+            codCliente: codClienteFinal,
             idMail,
             solicitante: solicitanteLimpo,
             telefone: telefoneLimpo,
@@ -1307,6 +1352,8 @@ export async function POST(request: NextRequest) {
             codArea: codAreaNum,
             rotina: rotinaLimpa,
             codClassificacao: codClassificacaoNum,
+            codRecurso: codRecursoFinal,
+            codTarefa: codTarefaFinal,
         });
 
         const assuntoEmail = `${assuntoLimpo} - CHAMADO TÉCNICO Nº ${novoCod}`;
