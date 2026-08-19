@@ -88,5 +88,10 @@
     "email": "juliana.comi@hesselbachcompany.com.br",
     "password": "$2b$10$Q345qyVJKKDw7l5VbULXLu./D7VZaUcBl/Q6i7LySrtkAcDcg4nwy",
     "cod_cliente": "174"
+  },
+  {
+    "email": "rogerio.jlf@gmail.com",
+    "password": "$2b$10$R3vQg.GCAs7Gbe4ydik2Wei/B.jhG2CtZB6kzrgmFn5YUf1yjlu9C",
+    "cod_cliente": "172"
   }
 ]

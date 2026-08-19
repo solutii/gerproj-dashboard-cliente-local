@@ -68,7 +68,10 @@ function extractTextFromHtml(html: string): string {
     return text;
 }
 
-function readBlob(blobFunction: any, transaction: any): Promise<string | null> {
+// rawBlob=true pula a extração/limpeza de HTML — usado para BLOBs que guardam
+// HTML a ser preservado (ex: CLIENTE_IA), diferente de descrições de chamados
+// onde o HTML é lixo de editor rico e deve virar texto puro.
+function readBlob(blobFunction: any, transaction: any, rawBlob = false): Promise<string | null> {
     return new Promise((resolve) => {
         if (!blobFunction || typeof blobFunction !== 'function') {
             resolve(null);
@@ -99,6 +102,12 @@ function readBlob(blobFunction: any, transaction: any): Promise<string | null> {
                     try {
                         const fullBuffer = Buffer.concat(chunks);
                         const text = detectAndConvertEncoding(fullBuffer);
+
+                        if (rawBlob) {
+                            resolve(text || null);
+                            return;
+                        }
+
                         const cleanText = extractTextFromHtml(text);
                         const correctedText = corrigirTextoCorrompido(cleanText);
                         resolve(correctedText || null);
@@ -120,7 +129,7 @@ function readBlob(blobFunction: any, transaction: any): Promise<string | null> {
     });
 }
 
-async function processRow(row: any, transaction: any): Promise<any> {
+async function processRow(row: any, transaction: any, rawBlobs = false): Promise<any> {
     const processedRow: any = {};
     const blobPromises: Array<Promise<void>> = [];
 
@@ -129,12 +138,12 @@ async function processRow(row: any, transaction: any): Promise<any> {
         const valueType = typeof value;
 
         if (valueType === 'function') {
-            const promise = readBlob(value, transaction).then((blobContent) => {
+            const promise = readBlob(value, transaction, rawBlobs).then((blobContent) => {
                 processedRow[key] = blobContent;
             });
             blobPromises.push(promise);
         } else if (valueType === 'object' && value !== null && value.call) {
-            const promise = readBlob(value, transaction).then((blobContent) => {
+            const promise = readBlob(value, transaction, rawBlobs).then((blobContent) => {
                 processedRow[key] = blobContent;
             });
             blobPromises.push(promise);
@@ -148,14 +157,74 @@ async function processRow(row: any, transaction: any): Promise<any> {
     return processedRow;
 }
 
+// ─── Timeout de segurança ──────────────────────────────────────────────────
+//
+// Se qualquer etapa (pool.get / transaction / query / commit) travar e nunca
+// chamar seu callback — por instabilidade de rede, driver, etc — a conexão
+// fica presa "emprestada" do pool para sempre. Com um pool fixo de 5
+// conexões, algumas travas ao longo de dias esgotam o pool inteiro e toda
+// query nova passa a ficar pendurada indefinidamente. Esse timeout garante
+// que a conexão sempre volta ao pool (via db.detach), mesmo em caso de trava.
+const QUERY_TIMEOUT_MS = 20_000;
+
+function settleOnce<T>(
+    fn: (
+        resolve: (value: T) => void,
+        reject: (reason: unknown) => void,
+        registerDb: (db: Firebird.Database) => void
+    ) => void
+): Promise<T> {
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        let dbRef: Firebird.Database | null = null;
+
+        const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            console.error(
+                `[FIREBIRD] Query travou por mais de ${QUERY_TIMEOUT_MS}ms — liberando conexão do pool à força.`
+            );
+            try {
+                dbRef?.detach();
+            } catch {
+                // conexão pode já estar inválida — ignora
+            }
+            reject(new Error('Timeout na consulta ao Firebird'));
+        }, QUERY_TIMEOUT_MS);
+
+        fn(
+            (value) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                resolve(value);
+            },
+            (reason) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                reject(reason);
+            },
+            (db) => {
+                dbRef = db;
+            }
+        );
+    });
+}
+
 // ─── Query (SELECT) ───────────────────────────────────────────────────────────
 
-export function queryFirebird<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-    return new Promise((resolve, reject) => {
+export function queryFirebird<T = any>(
+    sql: string,
+    params: any[] = [],
+    options?: { rawBlobs?: boolean }
+): Promise<T[]> {
+    return settleOnce<T[]>((resolve, reject, registerDb) => {
         const pool = getPool();
 
         pool.get((err, db) => {
             if (err) return reject(err);
+            registerDb(db);
 
             db.transaction(Firebird.ISOLATION_READ_COMMITTED, (err, transaction) => {
                 if (err) {
@@ -171,7 +240,9 @@ export function queryFirebird<T = any>(sql: string, params: any[] = []): Promise
 
                     try {
                         const processedResults = await Promise.all(
-                            result.map((row: any) => processRow(row, transaction))
+                            result.map((row: any) =>
+                                processRow(row, transaction, options?.rawBlobs)
+                            )
                         );
 
                         transaction.commit((err) => {
@@ -193,11 +264,12 @@ export function queryFirebird<T = any>(sql: string, params: any[] = []): Promise
 // ─── Execute (INSERT, UPDATE, DELETE) ────────────────────────────────────────
 
 export function executeFirebird(sql: string, params: any[] = []): Promise<void> {
-    return new Promise((resolve, reject) => {
+    return settleOnce<void>((resolve, reject, registerDb) => {
         const pool = getPool();
 
         pool.get((err, db) => {
             if (err) return reject(err);
+            registerDb(db);
 
             db.transaction(Firebird.ISOLATION_READ_COMMITTED, (err, transaction) => {
                 if (err) {

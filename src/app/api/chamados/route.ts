@@ -1,7 +1,10 @@
 // app/api/chamados/route.ts
 
-import { firebirdQuery } from '@/lib/firebird/firebird-client';
+import { firebirdExecute, firebirdQuery } from '@/lib/firebird/firebird-client';
+import { sendMail } from '@/lib/mail/mailer';
+import { templateConfirmacaoChamado, templateNotificacaoSuporte } from '@/lib/mail/templates';
 import { calcularStatusSLA, SLA_CONFIGS } from '@/lib/sla/sla-utils';
+import { enviarWhatsApp, montarMensagemChamado } from '@/lib/whatsapp/zap';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ==================== TIPOS ====================
@@ -1107,4 +1110,300 @@ export function limparCacheChamados(): void {
     nomeClienteCache.clear();
     nomeRecursoCache.clear();
     totaisCache.clear();
+}
+
+// ==================== ABERTURA DE CHAMADO (POST) ====================
+
+function escapeHtml(texto: string): string {
+    return texto
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/** Converte o texto puro do formulário em parágrafos HTML — vira o SOLICITACAO_CHAMADO gravado no banco. */
+function montarCorpoHtml(texto: string): string {
+    const trimmed = texto.trim();
+    if (!trimmed) return '';
+
+    return trimmed
+        .split(/\r?\n/)
+        .map((l) => (l.trim() ? `<p>${escapeHtml(l.trim())}</p>` : '<p>&nbsp;</p>'))
+        .join('');
+}
+
+/** Arredonda HHmm pro múltiplo de 15 mais próximo — replica o fHrOK do Delphi. */
+function arredondarHora(hhmm: string): string {
+    if (hhmm.length !== 4) return hhmm;
+    const hh = hhmm.slice(0, 2);
+    const mm = hhmm.slice(2, 4);
+    if (['00', '15', '30', '45'].includes(mm)) return hhmm;
+
+    const nMin = Number(mm);
+    if (nMin > 0 && nMin < 15) return hh + (nMin <= 7 ? '00' : '15');
+    if (nMin > 15 && nMin < 30) return hh + (nMin <= 22 ? '15' : '30');
+    if (nMin > 30 && nMin < 45) return hh + (nMin <= 37 ? '30' : '45');
+    if (nMin <= 52) return hh + '45';
+
+    const proxHora = Number(hh) + 1;
+    return proxHora <= 23 ? `${String(proxHora).padStart(2, '0')}00` : '0030';
+}
+
+/**
+ * Cria o chamado direto na tabela CHAMADO, replicando os defaults do Delphi
+ * (PRIOR_CHAMADO=100, AVALIA_CHAMADO=1). COD_CHAMADO não tem generator — é
+ * MAX+1 por convenção — então em caso de colisão de PK com outro processo
+ * concorrente, tenta de novo.
+ */
+async function inserirChamado(params: {
+    assunto: string;
+    corpoHtml: string;
+    emailChamado: string;
+    codCliente: number;
+    idMail: string;
+    solicitante: string;
+    telefone: string;
+    codDepartamento: number;
+    codArea: number;
+    rotina: string;
+    codClassificacao: number;
+}): Promise<number> {
+    const agora = new Date();
+    const dataChamado = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+    const hhmmBruto = `${String(agora.getHours()).padStart(2, '0')}${String(agora.getMinutes()).padStart(2, '0')}`;
+    const horaChamado = arredondarHora(hhmmBruto);
+
+    const MAX_TENTATIVAS = 5;
+    for (let tentativa = 0; tentativa < MAX_TENTATIVAS; tentativa++) {
+        const seqRows = await firebirdQuery(
+            'SELECT COALESCE(MAX(COD_CHAMADO), 0) + 1 AS PROXIMO FROM CHAMADO',
+            []
+        );
+        const cod = (seqRows[0] as Record<string, unknown>).PROXIMO as number;
+
+        try {
+            await firebirdExecute(
+                `INSERT INTO CHAMADO (
+                    COD_CHAMADO, DATA_CHAMADO, HORA_CHAMADO, STATUS_CHAMADO,
+                    ASSUNTO_CHAMADO, SOLICITACAO_CHAMADO, SOLICITACAO2_CHAMADO,
+                    EMAIL_CHAMADO, COD_CLIENTE, COD_RECURSO, IDMAIL_CHAMADO,
+                    SOLICITANTE_CHAMADO, TEL_SOLIC_CHAMADO, COD_DEPARTAMENTO,
+                    COD_AREA, ROTINA_CHAMADO, COD_CLASSIFICACAO,
+                    PRIOR_CHAMADO, AVALIA_CHAMADO
+                ) VALUES (?, ?, ?, 'NAO INICIADO', ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, 100, 1)`,
+                [
+                    cod,
+                    dataChamado,
+                    horaChamado,
+                    params.assunto,
+                    params.corpoHtml,
+                    params.corpoHtml,
+                    params.emailChamado,
+                    params.codCliente,
+                    params.idMail,
+                    params.solicitante,
+                    params.telefone,
+                    params.codDepartamento,
+                    params.codArea,
+                    params.rotina,
+                    params.codClassificacao,
+                ]
+            );
+            return cod;
+        } catch (err) {
+            const msg = (err as Error)?.message ?? '';
+            const isColisaoPK = /PRIMARY|UNIQUE/i.test(msg);
+            if (isColisaoPK && tentativa < MAX_TENTATIVAS - 1) continue;
+            throw err;
+        }
+    }
+    throw new Error('Não foi possível gerar um número de chamado após várias tentativas.');
+}
+
+// ─── POST: abre novo chamado em nome do cliente logado ────────────────────────
+export async function POST(request: NextRequest) {
+    try {
+        const {
+            assunto,
+            solicitacao,
+            codCliente,
+            solicitante,
+            email,
+            telefone,
+            codDepartamento,
+            codArea,
+            rotina,
+            codClassificacao,
+        } = await request.json();
+
+        if (!assunto?.trim() || !solicitacao?.trim()) {
+            return NextResponse.json(
+                { error: 'Assunto e descrição são obrigatórios.' },
+                { status: 400 }
+            );
+        }
+
+        if (!solicitante?.trim() || !email?.trim() || !telefone?.trim()) {
+            return NextResponse.json(
+                { error: 'Solicitante, e-mail e telefone são obrigatórios.' },
+                { status: 400 }
+            );
+        }
+
+        const codDepartamentoNum = Number(codDepartamento);
+        const codAreaNum = Number(codArea);
+        const codClassificacaoNum = Number(codClassificacao);
+        if (!codDepartamentoNum || !codAreaNum || !codClassificacaoNum) {
+            return NextResponse.json(
+                { error: 'Departamento, módulo e tipo de solicitação são obrigatórios.' },
+                { status: 400 }
+            );
+        }
+
+        const codClienteNum = Number(codCliente);
+        if (!codClienteNum || isNaN(codClienteNum)) {
+            return NextResponse.json({ error: 'Cliente não identificado.' }, { status: 400 });
+        }
+
+        const corpoHtml = montarCorpoHtml(solicitacao);
+
+        const clienteRows = await firebirdQuery(
+            `SELECT SLA_CLIENTE, CEL_CLIENTE, ZAP_CLIENTE, NOME_CLIENTE FROM CLIENTE WHERE COD_CLIENTE = ?`,
+            [codClienteNum]
+        );
+        const cliente = clienteRows[0] as Record<string, unknown> | undefined;
+        if (!cliente) {
+            return NextResponse.json({ error: 'Cliente não encontrado.' }, { status: 404 });
+        }
+
+        const slaCliente = (cliente.SLA_CLIENTE as number) ?? 0;
+        const celCliente = ((cliente.CEL_CLIENTE as string) ?? '').trim();
+        const zapCliente = ((cliente.ZAP_CLIENTE as string) ?? 'NAO').trim().toUpperCase();
+        const nomeCliente = ((cliente.NOME_CLIENTE as string) ?? '').trim();
+        const emailSolicitante = (email as string).trim().toLowerCase();
+        const solicitanteLimpo = (solicitante as string).trim().substring(0, 100);
+        const telefoneLimpo = (telefone as string).trim();
+        const rotinaLimpa = ((rotina as string) ?? '').trim();
+
+        // Prefixo [PRIMEIRO_NOME_CLIENTE] no assunto — padrão usado em todos os
+        // chamados existentes (ex: "[TIROL] Erro na agenda").
+        const prefixoCliente = nomeCliente.split(/\s+/)[0] || '';
+        const assuntoLimpo = (
+            prefixoCliente ? `[${prefixoCliente}] ${assunto.trim()}` : assunto.trim()
+        ).substring(0, 150);
+
+        const idMail = `<chamado-${Date.now()}@solutii.com.br>`.toUpperCase();
+        const novoCod = await inserirChamado({
+            assunto: assuntoLimpo,
+            corpoHtml,
+            emailChamado: emailSolicitante,
+            codCliente: codClienteNum,
+            idMail,
+            solicitante: solicitanteLimpo,
+            telefone: telefoneLimpo,
+            codDepartamento: codDepartamentoNum,
+            codArea: codAreaNum,
+            rotina: rotinaLimpa,
+            codClassificacao: codClassificacaoNum,
+        });
+
+        const assuntoEmail = `${assuntoLimpo} - CHAMADO TÉCNICO Nº ${novoCod}`;
+        const emailSuporte = (process.env.EMAIL_USER ?? '').trim().toLowerCase();
+
+        // E-mail informativo pro suporte — não cria o chamado (já foi feito acima), só avisa.
+        try {
+            await sendMail({
+                from: emailSolicitante || undefined,
+                envelopeFrom: emailSuporte,
+                to: emailSuporte,
+                subject: assuntoEmail,
+                html: templateNotificacaoSuporte({
+                    codChamado: novoCod,
+                    assunto: assuntoLimpo,
+                    emailSolicitante,
+                    nomeCliente,
+                    descricaoChamado: corpoHtml,
+                }),
+                replyTo: emailSolicitante || undefined,
+                references: idMail,
+                inReplyTo: idMail,
+            });
+        } catch (mailErr) {
+            console.error('[chamados] Falha ao enviar e-mail informativo para o suporte:', mailErr);
+        }
+
+        // Confirmação para o solicitante
+        if (emailSolicitante && emailSolicitante !== emailSuporte) {
+            try {
+                await sendMail({
+                    to: emailSolicitante,
+                    subject: assuntoEmail,
+                    html: templateConfirmacaoChamado({
+                        codChamado: novoCod,
+                        assunto: assuntoLimpo,
+                        emailSolicitante,
+                        slaCliente,
+                    }),
+                });
+            } catch (mailErr) {
+                console.error(
+                    '[chamados] Falha ao enviar confirmação para o solicitante:',
+                    mailErr
+                );
+            }
+        }
+
+        // WhatsApp para a equipe (CELCHAMADO do banco de parâmetros)
+        try {
+            const celRows = await firebirdQuery(
+                `SELECT VALOR_PARAMETRO FROM PARAMETROS WHERE DESCR_PARAMETRO = 'CELCHAMADO'`,
+                []
+            );
+            const celEquipe = (
+                (celRows[0] as Record<string, unknown>)?.VALOR_PARAMETRO as string
+            )?.trim();
+
+            if (celEquipe) {
+                await enviarWhatsApp(
+                    celEquipe,
+                    montarMensagemChamado({
+                        codChamado: novoCod,
+                        emailCliente: emailSolicitante,
+                        assunto: assuntoLimpo,
+                        responsavel: solicitanteLimpo || undefined,
+                        telefone: telefoneLimpo || undefined,
+                        nomeEmpresa: nomeCliente || undefined,
+                    })
+                );
+            }
+        } catch (zapErr) {
+            console.error('[chamados] Erro ao enviar WhatsApp para a equipe:', zapErr);
+        }
+
+        // WhatsApp para o cliente (somente se ZAP_CLIENTE = 'SIM')
+        if (zapCliente === 'SIM' && celCliente) {
+            try {
+                await enviarWhatsApp(
+                    celCliente,
+                    montarMensagemChamado({
+                        codChamado: novoCod,
+                        emailCliente: emailSolicitante,
+                        assunto: assuntoLimpo,
+                        responsavel: solicitanteLimpo || undefined,
+                        telefone: telefoneLimpo || undefined,
+                        nomeEmpresa: nomeCliente || undefined,
+                    })
+                );
+            } catch (zapErr) {
+                console.error('[chamados] Erro ao enviar WhatsApp para o cliente:', zapErr);
+            }
+        }
+
+        return NextResponse.json({ cod_chamado: novoCod }, { status: 201 });
+    } catch (error) {
+        console.error('[API CHAMADOS] Erro ao criar chamado:', error);
+        return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });
+    }
 }

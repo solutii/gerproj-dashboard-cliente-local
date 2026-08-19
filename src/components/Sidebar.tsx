@@ -1,11 +1,21 @@
+import { useClienteIA } from '@/hooks/useClienteIA';
 import { useAuthStore } from '@/store/useAuthStore';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
-import { IoCall, IoClose, IoHome, IoLogOut, IoMenu } from 'react-icons/io5';
+import {
+    IoAddCircle,
+    IoCall,
+    IoClose,
+    IoHome,
+    IoLogOut,
+    IoMenu,
+    IoSparkles,
+} from 'react-icons/io5';
 import { PiTimerFill } from 'react-icons/pi';
 import { useFiltersStore } from '../store/useFiltersStore';
+import { ModalAbrirChamado } from './abrir-chamado/Modal_Abrir_Chamado';
 import { ModalSaldoHoras } from './saldo-horas/Modal_Saldo_Horas';
 
 // ================================================================================
@@ -20,16 +30,20 @@ export function Sidebar() {
     const [isOpen, setIsOpen] = useState(false);
     const [isExpanded, setIsExpanded] = useState(false);
     const [isModalSaldoOpen, setIsModalSaldoOpen] = useState(false);
+    const [isModalAbrirChamadoOpen, setIsModalAbrirChamadoOpen] = useState(false);
     const [loadingProgress, setLoadingProgress] = useState(0);
     const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const { logout } = useAuthStore();
+    const { logout, codCliente } = useAuthStore();
 
     const clearFilters = useFiltersStore((state) => state.clearFilters);
     const cliente = useFiltersStore((state) => state.filters.cliente);
 
     // Verifica se há cliente selecionado
     const hasClienteSelecionado = cliente && cliente.trim() !== '';
+
+    const { data: clienteIA } = useClienteIA(codCliente);
+    const exibeBotaoIA = clienteIA?.exibe ?? false;
 
     useEffect(() => {
         if (!isNavigating) return;
@@ -122,6 +136,19 @@ export function Sidebar() {
         if (isMobile) {
             setIsOpen(false);
         }
+    };
+
+    const handleOpenAbrirChamadoModal = () => {
+        if (!codCliente) return;
+
+        setIsModalAbrirChamadoOpen(true);
+        if (isMobile) {
+            setIsOpen(false);
+        }
+    };
+
+    const handleOpenIA = (e: React.MouseEvent<HTMLAnchorElement>) => {
+        handleNavigation(e, '/paginas/ia');
     };
 
     if (isMobile && !isOpen) {
@@ -381,6 +408,51 @@ export function Sidebar() {
                             </div>
                         </Link>
 
+                        {/* Botão Abrir Chamado */}
+                        <button
+                            onClick={handleOpenAbrirChamadoModal}
+                            disabled={!codCliente}
+                            title={
+                                !codCliente
+                                    ? 'Selecione um cliente para abrir um chamado'
+                                    : 'Abrir novo chamado'
+                            }
+                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
+                                codCliente
+                                    ? 'cursor-pointer border border-purple-900 bg-purple-700 shadow-md shadow-black hover:scale-[1.03] hover:shadow-xl hover:shadow-black active:scale-[0.98]'
+                                    : 'cursor-not-allowed border-gray-700/30 bg-white/30 opacity-40 shadow-md shadow-black'
+                            }`}
+                        >
+                            {/* Efeito de brilho no hover (apenas quando habilitado) */}
+                            {codCliente && (
+                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
+                            )}
+
+                            <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
+                                <IoAddCircle
+                                    className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
+                                        codCliente
+                                            ? 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
+                                            : 'text-white/70'
+                                    }`}
+                                />
+
+                                <span
+                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-300 select-none ${
+                                        codCliente
+                                            ? 'text-white/70 group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]'
+                                            : 'text-white/70'
+                                    } ${
+                                        isMobile || isExpanded
+                                            ? 'w-auto opacity-100'
+                                            : 'w-0 opacity-0'
+                                    }`}
+                                >
+                                    Abrir Chamado
+                                </span>
+                            </div>
+                        </button>
+
                         {/* Botão Saldo de Horas */}
                         <button
                             onClick={handleOpenSaldoModal}
@@ -430,6 +502,54 @@ export function Sidebar() {
                     {/* Divisor antes do logout */}
                     <div className="my-5 h-px w-full bg-gradient-to-r from-transparent via-white/80 to-transparent"></div>
 
+                    {/* Botão de IA do Cliente (só exibe se CLIENTE_EXIBE_IA = 1) */}
+                    {exibeBotaoIA && (
+                        <div className="w-full pb-4">
+                            <Link
+                                href="/paginas/ia"
+                                onClick={handleOpenIA}
+                                className={`group relative flex w-full cursor-pointer items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
+                                    pathname === '/paginas/ia'
+                                        ? 'border-teal-400 bg-gradient-to-r from-purple-950 via-indigo-950 to-blue-950 shadow-xl ring-2 shadow-teal-500/30 ring-teal-400/60'
+                                        : 'border border-purple-900 bg-purple-700 shadow-md shadow-black hover:shadow-xl hover:shadow-black'
+                                } ${
+                                    isNavigating && targetRoute === '/paginas/ia'
+                                        ? 'pointer-events-none opacity-60'
+                                        : 'hover:scale-[1.03] active:scale-[0.98]'
+                                }`}
+                            >
+                                {/* Efeito de brilho no hover para botão inativo */}
+                                {pathname !== '/paginas/ia' && (
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
+                                )}
+
+                                <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
+                                    {isNavigating && targetRoute === '/paginas/ia' ? (
+                                        <div className="h-7 w-7 flex-shrink-0 animate-spin rounded-full border-3 border-white/20 border-t-white"></div>
+                                    ) : (
+                                        <IoSparkles
+                                            className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
+                                                pathname === '/paginas/ia'
+                                                    ? 'scale-110 text-white drop-shadow-[0_0_12px_rgba(94,234,212,0.8)]'
+                                                    : 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
+                                            }`}
+                                        />
+                                    )}
+
+                                    <span
+                                        className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-300 select-none ${
+                                            pathname === '/paginas/ia'
+                                                ? 'text-white drop-shadow-[0_0_8px_rgba(94,234,212,0.5)]'
+                                                : 'text-white/70 group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]'
+                                        } ${isMobile || isExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'}`}
+                                    >
+                                        IA
+                                    </span>
+                                </div>
+                            </Link>
+                        </div>
+                    )}
+
                     {/* Botão de Logout */}
                     <div className="w-full pb-4">
                         <button
@@ -459,6 +579,12 @@ export function Sidebar() {
 
             {/* Modal de Saldo de Horas */}
             <ModalSaldoHoras isOpen={isModalSaldoOpen} onClose={() => setIsModalSaldoOpen(false)} />
+
+            {/* Modal de Abrir Chamado */}
+            <ModalAbrirChamado
+                isOpen={isModalAbrirChamadoOpen}
+                onClose={() => setIsModalAbrirChamadoOpen(false)}
+            />
         </>
     );
 }

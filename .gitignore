@@ -56,3 +56,6 @@ next-env.d.ts
 
 # Arquivos de lock temporários
 *.lock
+
+# Playwright MCP (screenshots/snapshots de debug)
+/.playwright-mcp/

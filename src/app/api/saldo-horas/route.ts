@@ -33,6 +33,51 @@ function calcularMesesDiferenca(
     return (anoAtual - anoOrigem) * 12 + (mesAtual - mesOrigem);
 }
 
+// Busca a data mais antiga de início de contrato (VALINI_TAREFA) entre as tarefas do cliente
+async function buscarDataInicioContrato(codCliente: string): Promise<Date | null> {
+    const sql = `
+    SELECT MIN(TAREFA.VALINI_TAREFA) AS DATA_INICIO
+    FROM TAREFA
+    INNER JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
+    INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
+    WHERE CLIENTE.COD_CLIENTE = ?
+      AND TAREFA.EXIBECHAM_TAREFA = 1
+      AND TAREFA.VALINI_TAREFA IS NOT NULL
+  `;
+
+    const result = await firebirdQuery(sql, [parseInt(codCliente)]);
+
+    if (result && result.length > 0 && result[0].DATA_INICIO) {
+        return new Date(result[0].DATA_INICIO);
+    }
+
+    return null;
+}
+
+// Calcula o fator de proporção de horas contratadas para o mês em que o contrato começou
+function calcularProporcaoMes(mes: number, ano: number, dataInicioContrato: Date | null): number {
+    if (!dataInicioContrato) return 1;
+
+    const mesInicio = dataInicioContrato.getMonth() + 1;
+    const anoInicio = dataInicioContrato.getFullYear();
+
+    // Mês inteiro anterior ao início do contrato: não há horas contratadas
+    if (ano < anoInicio || (ano === anoInicio && mes < mesInicio)) {
+        return 0;
+    }
+
+    // Mês em que o contrato começou: proporcional aos dias restantes
+    if (ano === anoInicio && mes === mesInicio) {
+        const diasNoMes = new Date(ano, mes, 0).getDate();
+        const diaInicio = dataInicioContrato.getDate();
+        const diasRestantes = diasNoMes - diaInicio + 1;
+        return Math.max(diasRestantes, 0) / diasNoMes;
+    }
+
+    // Meses posteriores: contrato já vigente o mês inteiro
+    return 1;
+}
+
 async function buscarHorasMes(
     codCliente: string,
     mes: number,
@@ -248,6 +293,9 @@ export async function GET(request: Request) {
 
         const historico: SaldoMensal[] = [];
 
+        // Data de início do contrato do cliente, para prorate do 1º mês
+        const dataInicioContrato = await buscarDataInicioContrato(codCliente);
+
         // Buscar histórico dos últimos N meses
         for (let i = mesesHistorico - 1; i >= 0; i--) {
             let mes = mesAtual - i;
@@ -258,11 +306,16 @@ export async function GET(request: Request) {
                 ano -= 1;
             }
 
-            const { contratadas, executadas, nomeCliente } = await buscarHorasMes(
-                codCliente,
-                mes,
-                ano
-            );
+            const {
+                contratadas: contratadasCheias,
+                executadas,
+                nomeCliente,
+            } = await buscarHorasMes(codCliente, mes, ano);
+
+            // Proporcional: mês do início do contrato conta apenas os dias restantes;
+            // meses anteriores ao início não têm horas contratadas.
+            const proporcao = calcularProporcaoMes(mes, ano, dataInicioContrato);
+            const contratadas = Math.round(contratadasCheias * proporcao * 100) / 100;
 
             const saldoBruto = contratadas - executadas;
             const mesesDesdeApuracao = calcularMesesDiferenca(mes, ano, mesAtual, anoAtual);
