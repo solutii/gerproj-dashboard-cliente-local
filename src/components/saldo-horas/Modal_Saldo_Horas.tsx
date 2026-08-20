@@ -111,7 +111,7 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
             {/* OVERLAY */}
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[2200px] flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
+            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[95vw] flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out lg:w-[2200px]">
                 {/* ========== HEADER ========== */}
                 <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
                     <div className="flex items-center gap-6">

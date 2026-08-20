@@ -1,8 +1,9 @@
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { IoClose } from 'react-icons/io5';
-import { MdCalendarMonth, MdFilterAlt } from 'react-icons/md';
+import { MdCalendarMonth, MdExpandLess, MdExpandMore, MdFilterAlt } from 'react-icons/md';
 import { useDebounce } from 'use-debounce';
 import { corrigirTextoCorrompido } from '../formatters/formatar-texto-corrompido';
 import { useFiltersStore } from '../store/useFiltersStore';
@@ -133,6 +134,10 @@ export function Filtros() {
 
     const { codCliente, tipoUsuario, setAdminCodCliente } = useAuthStore();
     const isAdmin = tipoUsuario === 'ADM';
+
+    const isDesktop = useIsDesktop();
+    const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+    const mostrarFiltros = isDesktop || filtrosAbertos;
 
     const [ano, setAno] = useState(filters.ano);
     const [mes, setMes] = useState(filters.mes);
@@ -378,15 +383,26 @@ export function Filtros() {
     return (
         <div className="flex flex-col gap-2">
             {/* Cabeçalho compacto */}
-            <header className="flex items-center justify-between px-4">
-                <div className="flex items-center gap-3">
-                    <MdFilterAlt className="text-black" size={24} />
-                    <h1 className="text-xl font-extrabold tracking-widest text-black select-none">
-                        FILTROS
-                    </h1>
-                </div>
+            <header className="flex flex-wrap items-center justify-between gap-y-2 px-4">
+                {isDesktop ? (
+                    <div className="flex items-center gap-3">
+                        <MdFilterAlt className="text-black" size={24} />
+                        <h1 className="text-xl font-extrabold tracking-widest text-black select-none">
+                            FILTROS
+                        </h1>
+                    </div>
+                ) : (
+                    <button
+                        onClick={() => setFiltrosAbertos((prev) => !prev)}
+                        className="flex cursor-pointer items-center gap-3 rounded-md border-t border-purple-300 bg-purple-700 px-4 py-1.5 text-base font-extrabold tracking-widest text-white shadow-md shadow-black transition-all duration-200 hover:bg-purple-600 hover:shadow-lg hover:shadow-black active:scale-95"
+                    >
+                        <MdFilterAlt size={20} />
+                        <span>FILTROS</span>
+                        {filtrosAbertos ? <MdExpandLess size={22} /> : <MdExpandMore size={22} />}
+                    </button>
+                )}
 
-                <div className="mr-2 flex items-center gap-6">
+                <div className="mr-2 flex flex-wrap items-center gap-6">
                     <div className="flex items-center gap-2 text-base font-extrabold tracking-widest text-black select-none">
                         <MdCalendarMonth className="text-black" size={24} />
                         {hoje.toLocaleString('pt-BR', {
@@ -400,82 +416,94 @@ export function Filtros() {
             </header>
 
             {/* Filtros compactos */}
-            <div className="grid grid-cols-5 gap-6 px-4">
-                {/* Ano */}
-                <select
-                    value={ano}
-                    onChange={(e) => setAno(Number(e.target.value))}
-                    className={`w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none ${
-                        isAnoAtivo ? 'ring-4 ring-purple-600' : ''
-                    }`}
-                >
-                    {years.map((yearOption) => (
-                        <option
-                            key={yearOption}
-                            value={yearOption}
-                            className="font-semibold tracking-widest select-none"
-                        >
-                            {yearOption}
-                        </option>
-                    ))}
-                </select>
+            {mostrarFiltros && (
+                <div className="mt-4 grid grid-cols-2 gap-3 px-4 lg:mt-0 lg:grid-cols-5 lg:gap-6">
+                    {/* Ano */}
+                    <select
+                        value={ano}
+                        onChange={(e) => setAno(Number(e.target.value))}
+                        className={`w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none ${
+                            isAnoAtivo ? 'ring-4 ring-purple-600' : ''
+                        }`}
+                    >
+                        {years.map((yearOption) => (
+                            <option
+                                key={yearOption}
+                                value={yearOption}
+                                className="font-semibold tracking-widest select-none"
+                            >
+                                {yearOption}
+                            </option>
+                        ))}
+                    </select>
 
-                {/* Mês */}
-                <select
-                    value={mes}
-                    onChange={(e) => setMes(Number(e.target.value))}
-                    className={`w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none ${
-                        isMesAtivo ? 'ring-4 ring-purple-600' : ''
-                    }`}
-                >
-                    {months.map((monthName, i) => (
-                        <option
-                            key={i}
-                            value={i + 1}
-                            className="font-semibold tracking-widest select-none"
-                        >
-                            {monthName}
-                        </option>
-                    ))}
-                </select>
+                    {/* Mês */}
+                    <select
+                        value={mes}
+                        onChange={(e) => setMes(Number(e.target.value))}
+                        className={`w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none ${
+                            isMesAtivo ? 'ring-4 ring-purple-600' : ''
+                        }`}
+                    >
+                        {months.map((monthName, i) => (
+                            <option
+                                key={i}
+                                value={i + 1}
+                                className="font-semibold tracking-widest select-none"
+                            >
+                                {monthName}
+                            </option>
+                        ))}
+                    </select>
 
-                {/* Cliente */}
-                <SelectWithClear
-                    value={clienteSelecionado}
-                    onChange={handleClienteChange}
-                    onClear={() => setClienteSelecionado('')}
-                    disabled={!clientesData.length || (!isAdmin && !!codCliente) || clientesLoading}
-                    options={clientesData.map((c) => ({ value: c.cod, label: c.nome }))}
-                    placeholder={clientesLoading ? 'Carregando...' : 'Selecione o cliente'}
-                    showClear={!codCliente}
-                    isActive={isClienteAtivo}
-                    className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30"
-                />
+                    {/* Cliente */}
+                    <div className="col-span-2 lg:col-span-1">
+                        <SelectWithClear
+                            value={clienteSelecionado}
+                            onChange={handleClienteChange}
+                            onClear={() => setClienteSelecionado('')}
+                            disabled={
+                                !clientesData.length ||
+                                (!isAdmin && !!codCliente) ||
+                                clientesLoading
+                            }
+                            options={clientesData.map((c) => ({ value: c.cod, label: c.nome }))}
+                            placeholder={clientesLoading ? 'Carregando...' : 'Selecione o cliente'}
+                            showClear={!codCliente}
+                            isActive={isClienteAtivo}
+                            className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30"
+                        />
+                    </div>
 
-                {/* Recurso */}
-                <SelectWithClear
-                    value={recursoSelecionado}
-                    onChange={setRecursoSelecionado}
-                    onClear={() => setRecursoSelecionado('')}
-                    disabled={!recursosData.length || isLoading}
-                    options={recursosData.map((r) => ({ value: r.cod, label: r.nome }))}
-                    placeholder={isLoading ? 'Carregando...' : 'Selecione o recurso'}
-                    isActive={isRecursoAtivo}
-                    className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
-                />
+                    {/* Recurso */}
+                    <div className="col-span-2 lg:col-span-1">
+                        <SelectWithClear
+                            value={recursoSelecionado}
+                            onChange={setRecursoSelecionado}
+                            onClear={() => setRecursoSelecionado('')}
+                            disabled={!recursosData.length || isLoading}
+                            options={recursosData.map((r) => ({ value: r.cod, label: r.nome }))}
+                            placeholder={isLoading ? 'Carregando...' : 'Selecione o recurso'}
+                            isActive={isRecursoAtivo}
+                            className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                        />
+                    </div>
 
-                {/* Status */}
-                <SelectWithClear
-                    value={statusSelecionado}
-                    onChange={setStatusSelecionado}
-                    onClear={() => setStatusSelecionado('')}
-                    disabled={!statusData.length || isLoading}
-                    options={statusData.map((s) => ({ value: s, label: s }))}
-                    placeholder={isLoading ? 'Carregando...' : 'Selecione o status'}
-                    isActive={isStatusAtivo}
-                    className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
-                />
-            </div>
+                    {/* Status */}
+                    <div className="col-span-2 lg:col-span-1">
+                        <SelectWithClear
+                            value={statusSelecionado}
+                            onChange={setStatusSelecionado}
+                            onClear={() => setStatusSelecionado('')}
+                            disabled={!statusData.length || isLoading}
+                            options={statusData.map((s) => ({ value: s, label: s }))}
+                            placeholder={isLoading ? 'Carregando...' : 'Selecione o status'}
+                            isActive={isStatusAtivo}
+                            className="w-full cursor-pointer rounded-md border p-2 text-base font-extrabold tracking-widest shadow-md shadow-black transition-all duration-200 select-none hover:shadow-xl hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

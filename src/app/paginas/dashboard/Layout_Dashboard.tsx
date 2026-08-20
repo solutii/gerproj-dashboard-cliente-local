@@ -1,10 +1,12 @@
 'use client';
 
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'next/navigation';
 import { ReactNode, useEffect } from 'react';
 import { Sidebar } from '../../../components/Sidebar';
 import { CardHrsContratadasHrsExecutadas } from './cards/Card_Hrs_Contratadas_Hrs_Executadas';
+import { CardSLAMetricas } from './cards/Card_SLA_Metricas';
 import { CardTotalChamadosOS } from './cards/Card_Total_Chamados_OS';
 import { CardMediaHrsChamadoTarefa } from './cards/CardMediaHrsChamadoTarefa';
 import { Graficos } from './graficos/Graficos';
@@ -28,6 +30,7 @@ const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL; // Calcula automaticamente (ex: 100 
 export function LayoutDashboard({ filters, children }: LayoutProps) {
     const { isLoggedIn } = useAuthStore();
     const router = useRouter();
+    const isDesktop = useIsDesktop();
 
     useEffect(() => {
         if (!isLoggedIn) {
@@ -43,9 +46,9 @@ export function LayoutDashboard({ filters, children }: LayoutProps) {
         <div
             className="flex overflow-hidden bg-white"
             style={{
-                zoom: ZOOM_LEVEL,
+                zoom: isDesktop ? ZOOM_LEVEL : 1,
                 minHeight: '100vh',
-                height: `${ZOOM_COMPENSATION}vh`, // Compensa automaticamente
+                height: isDesktop ? `${ZOOM_COMPENSATION}vh` : '100vh',
             }}
         >
             {/* ========== SIDEBAR ========== */}
@@ -55,7 +58,7 @@ export function LayoutDashboard({ filters, children }: LayoutProps) {
             {/* ===== */}
 
             {/* ========== MAIN ========== */}
-            <main className="flex flex-1 flex-col overflow-hidden p-6">
+            <main className="flex flex-1 flex-col overflow-hidden p-4 pt-20 lg:p-6">
                 <div className="flex h-full flex-col gap-10 overflow-hidden">
                     {/* Área fixa - children (ex: Filtros) sem scroll */}
                     {children && <div className="flex-shrink-0">{children}</div>}
@@ -66,10 +69,11 @@ export function LayoutDashboard({ filters, children }: LayoutProps) {
                             <div className="flex w-full flex-col gap-6 sm:gap-8 lg:gap-10">
                                 {/* Cards de métricas */}
                                 <div className="flex flex-col gap-2">
-                                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 lg:gap-10">
+                                    <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
                                         <CardTotalChamadosOS filters={filters} />
                                         <CardHrsContratadasHrsExecutadas filters={filters} />
                                         <CardMediaHrsChamadoTarefa filters={filters} />
+                                        <CardSLAMetricas filters={filters} />
                                     </div>
                                 </div>
 

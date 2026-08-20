@@ -4,6 +4,7 @@
 
 import { ProtecaoRotas } from '@/components/ProtecaoRotas';
 import { Sidebar } from '@/components/Sidebar';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 // =====================================================
 import { ReactNode } from 'react';
 
@@ -17,14 +18,16 @@ const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL;
 // ================================
 
 export function LayoutPaginaIA({ children }: LayoutProps) {
+    const isDesktop = useIsDesktop();
+
     return (
         <ProtecaoRotas>
             <div
                 className="flex overflow-hidden bg-white"
                 style={{
-                    zoom: ZOOM_LEVEL,
+                    zoom: isDesktop ? ZOOM_LEVEL : 1,
                     minHeight: '100vh',
-                    height: `${ZOOM_COMPENSATION}vh`,
+                    height: isDesktop ? `${ZOOM_COMPENSATION}vh` : '100vh',
                 }}
             >
                 {/* ========== SIDEBAR ========== */}
@@ -34,7 +37,9 @@ export function LayoutPaginaIA({ children }: LayoutProps) {
                 {/* ===== */}
 
                 {/* ========== MAIN ========== */}
-                <main className="flex flex-1 flex-col overflow-hidden p-6">{children}</main>
+                <main className="flex flex-1 flex-col overflow-hidden p-4 pt-20 lg:p-6">
+                    {children}
+                </main>
                 {/* ===== */}
             </div>
         </ProtecaoRotas>

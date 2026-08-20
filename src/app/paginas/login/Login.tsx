@@ -326,7 +326,7 @@ export function Login() {
             {/* ══════════════════════════════════════════════
                 PAINEL ESQUERDO — branding
             ══════════════════════════════════════════════ */}
-            <div className="relative flex w-1/2 overflow-hidden pl-92">
+            <div className="relative hidden w-1/2 overflow-hidden pl-92 lg:flex">
                 <div className="relative z-10 flex flex-col justify-center">
                     <div className="space-y-10">
                         {/* Bloco 1 */}
@@ -425,7 +425,7 @@ export function Login() {
                 PAINEL DIREITO — formulário
             ══════════════════════════════════════════════ */}
             <div
-                className="relative flex w-1/2 flex-col items-center justify-center overflow-hidden pr-60"
+                className="relative flex w-full flex-col items-center justify-center overflow-hidden px-6 lg:w-1/2 lg:px-0 lg:pr-60"
                 onKeyDown={handleKeyDown}
             >
                 <div className="relative z-10 w-full max-w-sm">

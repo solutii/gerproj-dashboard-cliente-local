@@ -11,7 +11,7 @@ import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido'
 import { ColumnDef } from '@tanstack/react-table';
 import React from 'react';
 import { BiSolidLike } from 'react-icons/bi';
-import { MdOpenInNew, MdOutlineStar } from 'react-icons/md';
+import { MdHistory, MdOpenInNew, MdOutlineStar } from 'react-icons/md';
 
 // ========== INTERFACES ==========
 export interface ChamadoRowProps {
@@ -165,6 +165,18 @@ const ActionButton = React.memo(function ActionButton({ onClick, title }: Action
 });
 // ====
 
+const HistoricoButton = React.memo(function HistoricoButton({ onClick, title }: ActionButtonProps) {
+    return (
+        <button onClick={onClick} title={title}>
+            <MdHistory
+                className="cursor-pointer text-teal-600 transition-all duration-200 hover:scale-140 active:scale-95"
+                size={30}
+            />
+        </button>
+    );
+});
+// ====
+
 const CellHeader = React.memo(function CellHeader({ children }: { children: React.ReactNode }) {
     return (
         <div className="text-center text-sm font-bold tracking-widest text-white select-none">
@@ -223,7 +235,8 @@ export const getColunasChamados = (
     getHoras?: (codChamado: number) => HorasMes[],
     isLoadingHoras?: boolean,
     getHorasAdicionais?: (codChamado: number) => HorasAdicionaisChamado | null,
-    isLoadingHorasAdicionais?: boolean
+    isLoadingHorasAdicionais?: boolean,
+    onOpenHistorico?: (chamado: ChamadoRowProps) => void
 ): ColumnDef<ChamadoRowProps>[] => {
     return [
         // ========== CÓDIGO DO CHAMADO ==========
@@ -323,6 +336,28 @@ export const getColunasChamados = (
                         statusChamado={STATUS_CHAMADO}
                         dataInicioAtendimento={DTINI_CHAMADO}
                     />
+                );
+            },
+            enableColumnFilter: false,
+        },
+        // =====
+
+        // ========== HISTÓRICO ==========
+        {
+            id: 'HISTORICO',
+            header: () => <CellHeader>HISTÓRICO</CellHeader>,
+            cell: ({ row }) => {
+                if (!onOpenHistorico) return null;
+                return (
+                    <div className="flex items-center justify-center">
+                        <HistoricoButton
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onOpenHistorico(row.original);
+                            }}
+                            title="Ver histórico do chamado"
+                        />
+                    </div>
                 );
             },
             enableColumnFilter: false,

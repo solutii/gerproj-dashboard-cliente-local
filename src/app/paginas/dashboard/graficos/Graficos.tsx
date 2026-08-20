@@ -626,7 +626,7 @@ export function Graficos({ filters }: FilterProps) {
                         </ComposedChart>
                     </ResponsiveContainer>
 
-                    <div className="mt-4 grid grid-cols-4 gap-6">
+                    <div className="mt-4 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4 lg:gap-6">
                         <div className="flex items-center gap-2 rounded-md border bg-green-100 px-4 py-2 shadow-xs shadow-black">
                             <p className="text-semibold tracking-widest text-green-800 select-none">
                                 Crédito =

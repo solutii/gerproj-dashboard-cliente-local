@@ -8,6 +8,7 @@ import { useFiltrosChamado } from '@/app/paginas/chamados/componentes/Filtros_Ta
 import { RedimensionarColunas } from '@/app/paginas/chamados/componentes/Redimensionar_Colunas';
 import { ModalAssuntoSolicitacaoChamado } from '@/app/paginas/chamados/modais/Modal_Assunto_Solicitacao_Chamado';
 import { ModalAvaliarChamado } from '@/app/paginas/chamados/modais/Modal_Avaliar_Chamado';
+import { ModalHistoricoChamado } from '@/app/paginas/chamados/modais/Modal_Historico_Chamado';
 import { ModalValidarOS } from '@/app/paginas/chamados/modais/Modal_Validar_OS';
 import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { TabelaOS } from '@/app/paginas/chamados/tabelas/Tabela_OS';
@@ -15,6 +16,7 @@ import { IsError } from '@/components/IsError';
 import { IsLoading } from '@/components/IsLoading';
 import { useHorasAdicionais } from '@/hooks/useHorasAdicionais';
 import { useHorasPorMes } from '@/hooks/useHorasPorMes';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
@@ -39,8 +41,12 @@ const ZOOM_LEVEL = 0.67;
 const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL;
 const HEADER_HEIGHT = 293;
 const BASE_MIN_HEIGHT = 400;
-const MAX_HEIGHT = `calc(${ZOOM_COMPENSATION}vh - ${HEADER_HEIGHT}px)`;
-const MIN_HEIGHT = `${(BASE_MIN_HEIGHT * ZOOM_COMPENSATION) / 100}px`;
+// Compensados pro zoom — só fazem sentido em desktop (ver useIsDesktop).
+const MAX_HEIGHT_DESKTOP = `calc(${ZOOM_COMPENSATION}vh - ${HEADER_HEIGHT}px)`;
+const MIN_HEIGHT_DESKTOP = `${(BASE_MIN_HEIGHT * ZOOM_COMPENSATION) / 100}px`;
+// Sem zoom (tablet/mobile), unidades reais — não precisa de compensação.
+const MAX_HEIGHT_MOBILE = 'calc(100vh - 220px)';
+const MIN_HEIGHT_MOBILE = '300px';
 const PAGINATION_LIMIT = 30;
 
 const INITIAL_COLUMN_WIDTHS = {
@@ -49,6 +55,7 @@ const INITIAL_COLUMN_WIDTHS = {
     DTENVIO_CHAMADO: 160,
     DTINI_CHAMADO: 160,
     SLA_INFO: 100,
+    HISTORICO: 100,
     DATA_HISTCHAMADO: 160,
     STATUS_CHAMADO: 240,
     ASSUNTO_CHAMADO: 300,
@@ -223,6 +230,7 @@ const fetchChamados = async ({
 // =====================================================
 export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const { codCliente, isLoggedIn } = useAuthStore();
+    const isDesktop = useIsDesktop();
     const filtros = useFiltrosChamado();
     const {
         ano,
@@ -253,6 +261,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         useState<ChamadoRowProps | null>(null);
     const [isModalAvaliacaoOpen, setIsModalAvaliacaoOpen] = useState(false);
     const [selectedChamadoAvaliacao, setSelectedChamadoAvaliacao] =
+        useState<ChamadoRowProps | null>(null);
+    const [isModalHistoricoOpen, setIsModalHistoricoOpen] = useState(false);
+    const [selectedChamadoHistorico, setSelectedChamadoHistorico] =
         useState<ChamadoRowProps | null>(null);
 
     // Hook de redimensionamento
@@ -323,7 +334,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
 
     const idsComOS = useMemo(
         () => (idsComOSKey ? idsComOSKey.split(',').map(Number) : []),
-        // eslint-disable-next-line react-hooks/exhaustive-deps
+
         [idsComOSKey]
     );
 
@@ -559,6 +570,16 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const handleSaveAvaliacao = useCallback(() => refetch(), [refetch]);
     const clearAllFilters = useCallback(() => setColumnFilters([]), []);
 
+    const handleOpenHistorico = useCallback((chamado: ChamadoRowProps) => {
+        setSelectedChamadoHistorico(chamado);
+        setIsModalHistoricoOpen(true);
+    }, []);
+
+    const handleCloseHistorico = useCallback(() => {
+        setIsModalHistoricoOpen(false);
+        setSelectedChamadoHistorico(null);
+    }, []);
+
     // =====================================================
     // COLUNAS E TABELA
     // =====================================================
@@ -573,7 +594,8 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 getHoras,
                 isLoadingHoras,
                 getHorasAdicionais,
-                isLoadingHorasAdicionais
+                isLoadingHorasAdicionais,
+                handleOpenHistorico
             ),
         [
             handleOpenSolicitacao,
@@ -582,6 +604,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             isLoadingHoras,
             getHorasAdicionais,
             isLoadingHorasAdicionais,
+            handleOpenHistorico,
         ]
     );
 
@@ -632,7 +655,10 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
                     <div
                         className="scrollbar-thin scrollbar-track-purple-100 scrollbar-thumb-purple-600 hover:scrollbar-thumb-purple-800 flex-1 overflow-x-auto overflow-y-auto"
-                        style={{ maxHeight: MAX_HEIGHT, minHeight: MIN_HEIGHT }}
+                        style={{
+                            maxHeight: isDesktop ? MAX_HEIGHT_DESKTOP : MAX_HEIGHT_MOBILE,
+                            minHeight: isDesktop ? MIN_HEIGHT_DESKTOP : MIN_HEIGHT_MOBILE,
+                        }}
                     >
                         <table
                             className="w-full border-separate border-spacing-0"
@@ -703,6 +729,11 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 observacaoChamado={selectedChamadoAvaliacao?.OBSAVAL_CHAMADO || null}
                 onSave={handleSaveAvaliacao}
             />
+            <ModalHistoricoChamado
+                isOpen={isModalHistoricoOpen}
+                codChamado={selectedChamadoHistorico?.COD_CHAMADO || 0}
+                onClose={handleCloseHistorico}
+            />
         </>
     );
 }
@@ -765,7 +796,7 @@ const PaginationControls = React.memo(function PaginationControls({
     }, [currentPage, totalPages]);
 
     return (
-        <div className="flex items-center justify-between border-t border-b border-black bg-gray-200 px-10 py-2 shadow-inner">
+        <div className="flex flex-wrap items-center justify-center gap-y-2 border-t border-b border-black bg-gray-200 px-4 py-2 shadow-inner sm:justify-between sm:px-10">
             <div className="flex items-center gap-2">
                 <span className="text-base font-semibold tracking-widest text-black select-none">
                     Exibindo do{' '}
@@ -909,7 +940,7 @@ const Header = React.memo(function Header({
     }, [status, totalGeralChamadosAPI, totalChamadosNaoFinalizados]);
 
     return (
-        <header className="flex items-center justify-between gap-4 rounded-tl-4xl rounded-tr-4xl bg-purple-900 p-6">
+        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-tl-4xl rounded-tr-4xl bg-purple-900 p-4 sm:p-6">
             <div className="flex items-center gap-4">
                 <IoCall className="text-white" size={50} />
                 <div className="flex items-center gap-10">

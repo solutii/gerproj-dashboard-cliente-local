@@ -2,6 +2,7 @@
 
 'use client';
 
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useEffect, useRef, useState } from 'react';
 import { FaCheckCircle, FaFileExcel, FaFilePdf, FaFileWord, FaImage } from 'react-icons/fa';
@@ -205,6 +206,7 @@ interface ModalAbrirChamadoProps {
 export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
     const { codCliente, loginType, tipoUsuario } = useAuthStore();
     const isAdmin = loginType === 'consultor' && tipoUsuario === 'ADM';
+    const isDesktop = useIsDesktop();
 
     const [solicitante, setSolicitante] = useState('');
     const [email, setEmail] = useState('');
@@ -461,7 +463,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
     if (!isOpen) return null;
 
     return (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ease-out">
+        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out sm:p-4">
             {/* OVERLAY */}
             <div
                 className="absolute inset-0 bg-black/70 backdrop-blur-sm"
@@ -469,17 +471,20 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
             />
 
             <div
-                style={{ height: `${92 / ZOOM_LEVEL}vh` }}
+                style={{ height: isDesktop ? `${92 / ZOOM_LEVEL}vh` : '92vh' }}
                 className="animate-in slide-in-from-bottom-4 relative z-10 flex w-full max-w-6xl flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out"
             >
                 {/* ========== HEADER ========== */}
-                <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-5 shadow-md shadow-black">
-                    <div className="flex items-center gap-4">
-                        <PiTimerFill className="flex-shrink-0 text-white" size={44} />
+                <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-3 shadow-md shadow-black sm:p-5">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                        <PiTimerFill
+                            className="flex-shrink-0 text-white"
+                            size={isDesktop ? 44 : 28}
+                        />
                         <div className="flex flex-col gap-1 tracking-widest text-white select-none">
-                            <h1 className="text-3xl font-extrabold">ABRIR CHAMADO</h1>
+                            <h1 className="text-lg font-extrabold sm:text-3xl">ABRIR CHAMADO</h1>
                             {isAdmin && (
-                                <span className="text-sm font-semibold tracking-wider text-teal-100">
+                                <span className="text-xs font-semibold tracking-wider text-teal-100 sm:text-sm">
                                     {loadingClientesRecursos
                                         ? 'Carregando cliente...'
                                         : (clienteAtual?.nome ?? 'Nenhum cliente selecionado')}
@@ -494,12 +499,12 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                         className="mr-1 flex-shrink-0 cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-red-500 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
                         aria-label="Fechar modal"
                     >
-                        <IoClose className="text-white" size={34} />
+                        <IoClose className="text-white" size={isDesktop ? 34 : 24} />
                     </button>
                 </header>
 
                 {/* ========== CONTEÚDO ========== */}
-                <div className="flex flex-1 flex-col overflow-y-auto px-14 py-10">
+                <div className="flex flex-1 flex-col overflow-y-auto px-4 py-6 sm:px-14 sm:py-10">
                     {codChamadoCriado ? (
                         <div className="flex flex-col items-center justify-center gap-4 py-10">
                             <FaCheckCircle className="text-teal-600" size={56} />

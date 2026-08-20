@@ -311,7 +311,7 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
 
     if (error) {
         return (
-            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[800px] flex-col overflow-hidden rounded-xl bg-white p-8 shadow-md shadow-black">
+            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[95vw] flex-col overflow-hidden rounded-xl bg-white p-8 shadow-md shadow-black sm:w-[800px]">
                 <IsError isError={!!error} error={error as Error} title="Erro ao Carregar OS's" />
                 <button
                     onClick={onClose}
@@ -401,7 +401,7 @@ interface ModalContainerProps {
 
 const ModalContainer = React.memo(function ModalContainer({ children }: ModalContainerProps) {
     return (
-        <div className="animate-in slide-in-from-bottom-4 relative z-10 flex h-auto max-h-[100vh] w-[2400px] flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black transition-all duration-200 ease-out">
+        <div className="animate-in slide-in-from-bottom-4 relative z-10 flex h-auto max-h-[100vh] w-[95vw] flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black transition-all duration-200 ease-out lg:w-[2400px]">
             {children}
         </div>
     );

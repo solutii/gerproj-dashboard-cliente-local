@@ -1,4 +1,4 @@
-// src/app/paginas/chamados/Layout_Pagina_Chamados.tsx
+// src/app/paginas/base-conhecimento/Layout_Pagina_Base_Conhecimento.tsx
 
 'use client';
 
@@ -10,7 +10,6 @@ import { ReactNode } from 'react';
 
 interface LayoutProps {
     children: ReactNode;
-    pageTitle: string;
 }
 
 // ===== CONFIGURAÇÃO DE ZOOM =====
@@ -18,7 +17,7 @@ const ZOOM_LEVEL = 0.67; // Mude apenas este valor
 const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL;
 // ================================
 
-export function LayoutPaginaChamados({ children }: LayoutProps) {
+export function LayoutPaginaBaseConhecimento({ children }: LayoutProps) {
     const isDesktop = useIsDesktop();
 
     return (

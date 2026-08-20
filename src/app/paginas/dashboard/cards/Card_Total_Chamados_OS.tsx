@@ -119,13 +119,15 @@ const StatusCard = ({
     isHighlight = false,
 }: StatusCardProps) => {
     return (
-        <div className="flex w-full flex-col items-center gap-1 rounded-xl p-2">
+        <div className="flex w-full min-w-0 flex-col items-center gap-1 rounded-xl p-2">
             {/* === Ícone e Label === */}
-            <div className="flex items-center justify-center gap-4">
+            <div className="flex w-full min-w-0 items-center justify-center gap-2">
                 {/* Ícone */}
-                <div className={`${gradient} rounded-full border p-2 text-white`}>{icon}</div>
+                <div className={`${gradient} shrink-0 rounded-full border p-2 text-white`}>
+                    {icon}
+                </div>
                 {/* Label */}
-                <span className="text-sm font-semibold tracking-widest text-black uppercase select-none">
+                <span className="min-w-0 truncate text-xs font-semibold tracking-widest text-black uppercase select-none sm:text-sm">
                     {label}
                 </span>
             </div>
@@ -339,14 +341,14 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
             </div>
 
             {/* === Container === */}
-            <div className="group relative flex h-72 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black">
+            <div className="group relative flex h-56 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black sm:h-64 lg:h-72">
                 {/* Borda Superior */}
                 <div className="absolute top-0 right-0 left-0 h-1 bg-lime-500"></div>
 
                 {/* Body do Card */}
-                <div className="flex h-full flex-col justify-between gap-3 p-4">
+                <div className="flex h-full flex-col justify-between gap-3 px-4 pt-4 pb-5">
                     {/* Linha Superior: Finalizados | Total Chamados | Em Atendimento */}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {statusDataTop.map((status, index) => (
                             <StatusCard key={index} {...status} />
                         ))}
@@ -356,7 +358,7 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
                     <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-gray-400 to-transparent"></div>
 
                     {/* Linha Inferior: Standby | Aguard. Validação | Atribuído */}
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {statusDataBottom.map((status, index) => (
                             <StatusCard key={index} {...status} />
                         ))}

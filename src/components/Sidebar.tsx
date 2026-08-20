@@ -4,6 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import type { IconType } from 'react-icons';
+import { FaBook } from 'react-icons/fa';
 import {
     IoAddCircle,
     IoCall,
@@ -22,6 +24,112 @@ import { ModalSaldoHoras } from './saldo-horas/Modal_Saldo_Horas';
 const ABRIR_CHAMADO_DISPONIVEL = true;
 
 // ================================================================================
+// SUBCOMPONENTES
+// ================================================================================
+
+interface NavItemProps {
+    href: string;
+    label: string;
+    icon: IconType;
+    active: boolean;
+    loading: boolean;
+    showLabel: boolean;
+    onClick: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+}
+
+function NavItem({ href, label, icon: Icon, active, loading, showLabel, onClick }: NavItemProps) {
+    return (
+        <Link
+            href={href}
+            onClick={onClick}
+            className={`group relative flex items-center gap-4 rounded-xl border p-4 shadow-sm shadow-black/25 transition-all duration-200 ${
+                active
+                    ? 'border-[oklch(0.75_0.14_200)]/55 bg-[oklch(0.24_0.05_250)] shadow-md shadow-black/35'
+                    : 'border-[oklch(0.30_0.02_250)] bg-[oklch(0.205_0.02_250)] hover:border-[oklch(0.75_0.14_200)]/50 hover:bg-[oklch(0.255_0.025_250)]'
+            } ${loading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}
+        >
+            {active && (
+                <span className="absolute top-1/2 left-0 h-8 w-1 -translate-y-1/2 rounded-r-full bg-[oklch(0.75_0.14_200)]" />
+            )}
+
+            {loading ? (
+                <div className="h-7 w-7 flex-shrink-0 animate-spin rounded-full border-3 border-white/20 border-t-white" />
+            ) : (
+                <Icon
+                    className={`h-7 w-7 flex-shrink-0 ${
+                        active ? 'text-[oklch(0.75_0.14_200)]' : 'text-[oklch(0.72_0.01_250)]'
+                    }`}
+                />
+            )}
+
+            <span
+                className={`overflow-hidden text-left text-base font-extrabold tracking-widest transition-all duration-200 select-none ${
+                    active ? 'text-white' : 'text-[oklch(0.85_0.01_250)] group-hover:text-white'
+                } ${showLabel ? 'w-auto flex-1 opacity-100' : 'w-0 opacity-0'}`}
+            >
+                {label}
+            </span>
+        </Link>
+    );
+}
+
+interface ActionButtonProps {
+    label: string;
+    icon: IconType;
+    onClick: () => void;
+    showLabel: boolean;
+    disabled?: boolean;
+    title?: string;
+    variant?: 'default' | 'danger';
+}
+
+function ActionButton({
+    label,
+    icon: Icon,
+    onClick,
+    showLabel,
+    disabled = false,
+    title,
+    variant = 'default',
+}: ActionButtonProps) {
+    return (
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            title={title}
+            className={`group relative flex w-full items-center gap-4 rounded-xl border p-4 shadow-sm shadow-black/25 transition-all duration-200 ${
+                disabled
+                    ? 'cursor-not-allowed border-[oklch(0.26_0.015_250)] bg-[oklch(0.19_0.015_250)] opacity-50'
+                    : variant === 'danger'
+                      ? 'cursor-pointer border-red-900/50 bg-red-950/40 hover:border-red-500/60 hover:bg-red-950/60'
+                      : 'cursor-pointer border-[oklch(0.30_0.02_250)] bg-[oklch(0.205_0.02_250)] hover:border-[oklch(0.75_0.14_200)]/50 hover:bg-[oklch(0.255_0.025_250)]'
+            }`}
+        >
+            <Icon
+                className={`h-7 w-7 flex-shrink-0 ${
+                    disabled
+                        ? 'text-[oklch(0.72_0.01_250)]'
+                        : variant === 'danger'
+                          ? 'text-red-400'
+                          : 'text-[oklch(0.72_0.01_250)] group-hover:text-white'
+                }`}
+            />
+            <span
+                className={`overflow-hidden text-left text-base font-extrabold tracking-widest transition-all duration-200 select-none ${
+                    disabled
+                        ? 'text-[oklch(0.72_0.01_250)]'
+                        : variant === 'danger'
+                          ? 'text-red-400'
+                          : 'text-[oklch(0.85_0.01_250)] group-hover:text-white'
+                } ${showLabel ? 'w-auto flex-1 opacity-100' : 'w-0 opacity-0'}`}
+            >
+                {label}
+            </span>
+        </button>
+    );
+}
+
+// ================================================================================
 // COMPONENTE PRINCIPAL
 // ================================================================================
 export function Sidebar() {
@@ -34,7 +142,6 @@ export function Sidebar() {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isModalSaldoOpen, setIsModalSaldoOpen] = useState(false);
     const [isModalAbrirChamadoOpen, setIsModalAbrirChamadoOpen] = useState(false);
-    const [loadingProgress, setLoadingProgress] = useState(0);
     const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const { logout, codCliente } = useAuthStore();
@@ -48,23 +155,21 @@ export function Sidebar() {
     const { data: clienteIA } = useClienteIA(codCliente);
     const exibeBotaoIA = clienteIA?.exibe ?? false;
 
+    const showLabel = isMobile || isExpanded;
+
     useEffect(() => {
         if (!isNavigating) return;
 
-        // ✅ Quando pathname muda durante navegação, completa para 100% e reseta
-        setLoadingProgress(100);
-        const timeout = setTimeout(() => {
-            setIsNavigating(false);
-            setTargetRoute(null);
-            setLoadingProgress(0);
-        }, 300);
-
-        return () => clearTimeout(timeout);
+        // Pathname mudou -> a navegação real terminou, fecha o overlay.
+        // Nada de barra fingindo progresso: o indicador some exatamente
+        // quando a página nova está pronta, não antes nem depois.
+        setIsNavigating(false);
+        setTargetRoute(null);
     }, [pathname]);
 
     useEffect(() => {
         const handleResize = () => {
-            const mobile = window.innerWidth < 768;
+            const mobile = window.innerWidth < 1024;
             setIsMobile(mobile);
 
             if (mobile) {
@@ -76,25 +181,6 @@ export function Sidebar() {
         window.addEventListener('resize', handleResize);
         return () => window.removeEventListener('resize', handleResize);
     }, []);
-
-    useEffect(() => {
-        if (!isNavigating) return;
-
-        setLoadingProgress(0);
-        const interval = setInterval(() => {
-            setLoadingProgress((prev) => {
-                // ✅ Trava em 85% — só chega a 100% quando pathname mudar
-                if (prev >= 85) {
-                    clearInterval(interval);
-                    return 85;
-                }
-                const increment = prev < 60 ? 2 : prev < 80 ? 1 : 0.3;
-                return Math.min(prev + increment, 85);
-            });
-        }, 50);
-
-        return () => clearInterval(interval);
-    }, [isNavigating]);
 
     const handleNavigation = (e: React.MouseEvent<HTMLAnchorElement>, route: string) => {
         if (pathname === route) return;
@@ -159,11 +245,23 @@ export function Sidebar() {
             <>
                 <button
                     onClick={toggleSidebar}
-                    className="fixed top-4 left-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-purple-800 shadow-lg shadow-black/40 transition-transform active:scale-90"
+                    className="fixed top-4 left-4 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-black shadow-lg shadow-black/40 transition-transform active:scale-90"
                     aria-label="Abrir menu"
                 >
                     <IoMenu className="h-7 w-7 text-white" />
                 </button>
+
+                {/* Modais precisam continuar montados mesmo com a sidebar
+                    recolhida — handleOpenAbrirChamadoModal/handleOpenSaldoModal
+                    fecham a sidebar (isMobile) no mesmo clique que abre o modal. */}
+                <ModalSaldoHoras
+                    isOpen={isModalSaldoOpen}
+                    onClose={() => setIsModalSaldoOpen(false)}
+                />
+                <ModalAbrirChamado
+                    isOpen={isModalAbrirChamadoOpen}
+                    onClose={() => setIsModalAbrirChamadoOpen(false)}
+                />
             </>
         );
     }
@@ -181,10 +279,10 @@ export function Sidebar() {
             )}
 
             <nav
-                className={`flex h-full flex-col items-center overflow-hidden rounded-xl border border-purple-950 bg-purple-900 text-white transition-all duration-300 ease-in-out ${
+                className={`flex h-full flex-col overflow-hidden rounded-xl bg-black text-white transition-all duration-300 ease-in-out ${
                     isMobile
-                        ? `fixed top-0 left-0 z-50 h-screen ${isOpen ? 'translate-x-0' : '-translate-x-full'} w-64 p-5`
-                        : `relative ${isExpanded ? 'w-64 p-5' : 'w-20 p-3'}`
+                        ? `fixed top-0 left-0 z-50 h-screen ${isOpen ? 'translate-x-0' : '-translate-x-full'} w-64 p-4`
+                        : `relative ${isExpanded ? 'w-60 p-4' : 'w-[72px] p-3'}`
                 }`}
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
@@ -194,226 +292,102 @@ export function Sidebar() {
                 {isMobile && (
                     <button
                         onClick={toggleSidebar}
-                        className="absolute top-4 right-4 z-[100] h-10 w-10 transition-all duration-300"
+                        className="absolute top-4 right-4 z-[100] flex h-9 w-9 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20 active:scale-90"
                         aria-label="Fechar menu"
                     >
-                        <div className="relative flex h-full w-full items-center justify-center">
-                            <div className="absolute inset-0 rounded-full bg-gradient-to-br from-red-500 to-red-700 shadow-lg shadow-black/60 transition-all duration-300 active:scale-90" />
-                            <IoClose className="relative z-10 h-6 w-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]" />
-                        </div>
+                        <IoClose className="h-5 w-5 text-white" />
                     </button>
                 )}
-                {/* Loading Overlay */}
+
+                {/* Loading Overlay — indeterminado: gira enquanto navega, some
+                    exatamente quando a página nova estiver pronta. Sem número
+                    fingindo saber um progresso que o Next.js não expõe. */}
                 {isNavigating && (
-                    <div className="absolute inset-0 z-[9999] flex items-center justify-center rounded-xl bg-gradient-to-br from-purple-900/95 via-indigo-900/95 to-blue-900/95 backdrop-blur-md">
-                        <div className="flex flex-col items-center gap-6">
-                            {/* Barra de Loading Vertical */}
-                            <div className="relative h-96 w-6 overflow-visible rounded-full bg-white/10 shadow-inner">
-                                {/* Barra de progresso */}
-                                <div
-                                    className="absolute inset-x-0 bottom-0 w-full rounded-full bg-gradient-to-t from-purple-500 via-blue-400 to-cyan-300 shadow-lg shadow-purple-500/50 transition-all duration-300 ease-out"
-                                    style={{ height: `${loadingProgress}%` }}
-                                >
-                                    <div className="absolute inset-0 animate-pulse rounded-full bg-gradient-to-t from-transparent via-white/30 to-transparent"></div>
-                                </div>
-
-                                {/* Bolinha com percentual */}
-                                <div
-                                    className="absolute left-1/2 w-16 -translate-x-1/2 transition-all duration-300 ease-out"
-                                    style={{ bottom: `calc(${loadingProgress}% - 32px)` }}
-                                >
-                                    <div className="absolute inset-0 animate-pulse rounded-full bg-cyan-400/50 blur-xl"></div>
-
-                                    <div className="relative flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 via-blue-500 to-purple-600 shadow-2xl ring-4 shadow-cyan-500/50 ring-white/30">
-                                        <div className="absolute inset-2 rounded-full bg-gradient-to-br from-white/40 to-transparent"></div>
-                                        <span className="relative z-10 text-sm font-black text-white drop-shadow-lg">
-                                            {Math.round(loadingProgress)}%
-                                        </span>
-                                    </div>
-
-                                    {loadingProgress > 0 && (
-                                        <div className="absolute top-full left-1/2 h-24 w-1 -translate-x-1/2 bg-gradient-to-b from-cyan-400/60 to-transparent blur-sm"></div>
-                                    )}
-                                </div>
+                    <div className="absolute inset-0 z-[9999] flex items-center justify-center rounded-xl bg-black/95 backdrop-blur-md">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="relative h-12 w-12">
+                                <div className="absolute inset-0 animate-spin rounded-full border-3 border-transparent border-t-[oklch(0.75_0.14_200)]" />
                             </div>
-
-                            {/* Texto */}
-                            {/* <div className="flex flex-col items-center gap-2 px-4">
-                                <h3 className="text-xl font-extrabold tracking-widest text-white select-none">
-                                    Carregando
-                                </h3>
-                                <p className="text-center text-sm font-semibold tracking-wider text-white/80 select-none">
-                                    {targetRoute === '/paginas/dashboard' && 'Dashboard'}
-                                    {targetRoute === '/paginas/chamados' && 'Chamados'}
-                                </p>
-                            </div> */}
+                            <span className="text-xs font-bold tracking-widest text-white/80 select-none">
+                                Carregando...
+                            </span>
                         </div>
                     </div>
                 )}
+
                 {/* Conteúdo da sidebar */}
                 <div
-                    className={`relative z-10 flex h-full w-full flex-col items-center ${
-                        isMobile ? 'pt-20' : 'pt-8'
-                    }`}
+                    className={`relative z-10 flex h-full w-full flex-col ${isMobile ? 'pt-14' : ''}`}
                 >
                     {/* Logo */}
-                    <div className="group relative mt-5 mb-8 transition-all duration-500">
-                        {/* Brilho de fundo animado */}
-                        <div className="absolute inset-0 animate-pulse rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 opacity-60 blur-xl"></div>
-                        <div className="animate-spin-slow bg-gradient-conic absolute inset-0 rounded-full from-blue-400 via-purple-400 to-blue-400 opacity-40 blur-md"></div>
-
-                        {/* Container do logo */}
-                        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-white/60 via-purple-200/40 to-blue-200/40 p-[3px] shadow-2xl ring-2 shadow-purple-500/50 ring-white/30 transition-all duration-500 group-hover:scale-110 group-hover:ring-4 group-hover:shadow-purple-400/60 group-hover:ring-purple-400/70">
-                            {/* Efeito de brilho giratório */}
-                            <div className="animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
-
-                            {/* Fundo interno com gradiente */}
-                            <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-900/90 via-indigo-900/90 to-blue-900/90 p-2 backdrop-blur-sm">
-                                {/* Partículas de brilho */}
-                                <div className="absolute top-0 left-0 h-2 w-2 animate-ping rounded-full bg-white/60"></div>
-                                <div className="animation-delay-300 absolute right-0 bottom-0 h-2 w-2 animate-ping rounded-full bg-blue-400/60"></div>
-                                <div className="absolute top-1/2 left-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 animate-pulse rounded-full bg-purple-400/40 blur-sm"></div>
-
-                                <Image
-                                    src="/logo-solutii.png"
-                                    alt="Logo Solutii"
-                                    width={isMobile ? 70 : 40}
-                                    height={isMobile ? 70 : 40}
-                                    className={`relative z-10 rounded-xl transition-all duration-700 group-hover:rotate-[360deg] group-hover:drop-shadow-[0_0_20px_rgba(168,85,247,0.8)] ${isExpanded ? 'h-[70px] w-[70px]' : ''}`}
-                                    priority
-                                />
+                    <div
+                        className={`mb-6 flex items-center gap-3 ${isMobile ? '' : 'justify-center'}`}
+                    >
+                        <div className="relative flex-shrink-0 overflow-hidden rounded-xl bg-[oklch(0.75_0.14_200)] p-1.5">
+                            <Image
+                                src="/logo-solutii.png"
+                                alt="Logo Solutii"
+                                width={isMobile ? 44 : 32}
+                                height={isMobile ? 44 : 32}
+                                className="rounded-lg"
+                                priority
+                            />
+                        </div>
+                        {showLabel && (
+                            <div className="flex flex-col overflow-hidden">
+                                <span className="truncate text-sm font-extrabold tracking-widest text-white select-none">
+                                    SOLUTII
+                                </span>
+                                <span className="truncate text-[11px] font-semibold tracking-widest text-[oklch(0.65_0.01_250)] select-none">
+                                    Portal Cliente
+                                </span>
                             </div>
-                        </div>
-
-                        {/* Raios de luz */}
-                        <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
-                            <div className="absolute top-1/2 left-1/2 h-[150%] w-1 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-gradient-to-b from-transparent via-white/30 to-transparent blur-sm"></div>
-                            <div className="absolute top-1/2 left-1/2 h-[150%] w-1 -translate-x-1/2 -translate-y-1/2 -rotate-45 bg-gradient-to-b from-transparent via-white/30 to-transparent blur-sm"></div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Divisor */}
-                    <div className="mb-8 h-px w-full bg-gradient-to-r from-transparent via-white/80 to-transparent"></div>
+                    <div className="mb-4 h-px w-full bg-[oklch(0.28_0.02_250)]" />
 
                     {/* Links de Navegação */}
-                    <div className="flex w-full flex-1 flex-col gap-10">
-                        {/* Dashboard Link */}
-                        <Link
+                    <div className="flex w-full flex-1 flex-col gap-3 overflow-y-auto">
+                        <NavItem
                             href="/paginas/dashboard"
+                            label="Dashboard"
+                            icon={IoHome}
+                            active={pathname === '/paginas/dashboard'}
+                            loading={isNavigating && targetRoute === '/paginas/dashboard'}
+                            showLabel={showLabel}
                             onClick={(e) => handleNavigation(e, '/paginas/dashboard')}
-                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
-                                pathname === '/paginas/dashboard'
-                                    ? 'border-teal-400 bg-gradient-to-r from-purple-950 via-indigo-950 to-blue-950 shadow-xl ring-2 shadow-teal-500/30 ring-teal-400/60'
-                                    : 'border border-purple-900 bg-purple-700 shadow-md shadow-black hover:shadow-xl hover:shadow-black'
-                            } ${
-                                isNavigating && targetRoute === '/paginas/dashboard'
-                                    ? 'pointer-events-none opacity-60'
-                                    : 'hover:scale-[1.03] active:scale-[0.98]'
-                            }`}
-                        >
-                            {/* Brilho animado para botão ativo */}
-                            {pathname === '/paginas/dashboard' && (
-                                <>
-                                    <div className="animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                                    <div className="absolute top-1/2 -left-1 h-3 w-3 -translate-y-1/2 animate-pulse rounded-full bg-teal-400 opacity-100 shadow-lg shadow-teal-400/70 transition-opacity md:opacity-0 md:group-hover/sidebar:opacity-100"></div>
-                                    <div className="absolute top-1/2 -left-1 h-3 w-3 -translate-y-1/2 animate-ping rounded-full bg-teal-400 opacity-75"></div>
-                                </>
-                            )}
+                        />
 
-                            {/* Efeito de brilho no hover para botões inativos */}
-                            {pathname !== '/paginas/dashboard' && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
-                            )}
-
-                            <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
-                                {isNavigating && targetRoute === '/paginas/dashboard' ? (
-                                    <div className="h-7 w-7 flex-shrink-0 animate-spin rounded-full border-3 border-white/20 border-t-white"></div>
-                                ) : (
-                                    <IoHome
-                                        className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
-                                            pathname === '/paginas/dashboard'
-                                                ? 'scale-110 text-white drop-shadow-[0_0_12px_rgba(94,234,212,0.8)]'
-                                                : 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
-                                        }`}
-                                    />
-                                )}
-
-                                <span
-                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-300 select-none ${
-                                        pathname === '/paginas/dashboard'
-                                            ? 'text-white drop-shadow-[0_0_8px_rgba(94,234,212,0.5)]'
-                                            : 'text-white/70 group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]'
-                                    } ${
-                                        isMobile || isExpanded
-                                            ? 'w-auto opacity-100'
-                                            : 'w-0 opacity-0'
-                                    }`}
-                                >
-                                    Dashboard
-                                </span>
-                            </div>
-                        </Link>
-
-                        {/* Chamados Link */}
-                        <Link
+                        <NavItem
                             href="/paginas/chamados"
+                            label="Chamados"
+                            icon={IoCall}
+                            active={pathname === '/paginas/chamados'}
+                            loading={isNavigating && targetRoute === '/paginas/chamados'}
+                            showLabel={showLabel}
                             onClick={(e) => handleNavigation(e, '/paginas/chamados')}
-                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
-                                pathname === '/paginas/chamados'
-                                    ? 'border-teal-400 bg-gradient-to-r from-purple-950 via-indigo-950 to-blue-950 shadow-xl ring-2 shadow-teal-500/30 ring-teal-400/60'
-                                    : 'border border-purple-900 bg-purple-700 shadow-md shadow-black hover:shadow-xl hover:shadow-black'
-                            } ${
-                                isNavigating && targetRoute === '/paginas/chamados'
-                                    ? 'pointer-events-none opacity-60'
-                                    : 'hover:scale-[1.03] active:scale-[0.98]'
-                            }`}
-                        >
-                            {/* Brilho animado para botão ativo */}
-                            {pathname === '/paginas/chamados' && (
-                                <>
-                                    <div className="animate-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>
-                                    <div className="absolute top-1/2 -left-1 h-3 w-3 -translate-y-1/2 animate-pulse rounded-full bg-teal-400 opacity-100 shadow-lg shadow-teal-400/70 transition-opacity md:opacity-0 md:group-hover/sidebar:opacity-100"></div>
-                                    <div className="absolute top-1/2 -left-1 h-3 w-3 -translate-y-1/2 animate-ping rounded-full bg-teal-400 opacity-75"></div>
-                                </>
-                            )}
+                        />
 
-                            {/* Efeito de brilho no hover para botões inativos */}
-                            {pathname !== '/paginas/chamados' && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
-                            )}
+                        <NavItem
+                            href="/paginas/base-conhecimento"
+                            label="Base de Conhecimento"
+                            icon={FaBook}
+                            active={pathname === '/paginas/base-conhecimento'}
+                            loading={isNavigating && targetRoute === '/paginas/base-conhecimento'}
+                            showLabel={showLabel}
+                            onClick={(e) => handleNavigation(e, '/paginas/base-conhecimento')}
+                        />
 
-                            <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
-                                {isNavigating && targetRoute === '/paginas/chamados' ? (
-                                    <div className="h-7 w-7 flex-shrink-0 animate-spin rounded-full border-3 border-white/20 border-t-white"></div>
-                                ) : (
-                                    <IoCall
-                                        className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
-                                            pathname === '/paginas/chamados'
-                                                ? 'scale-110 text-white drop-shadow-[0_0_12px_rgba(94,234,212,0.8)]'
-                                                : 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
-                                        }`}
-                                    />
-                                )}
+                        {/* Divisor entre navegação e ações */}
+                        <div className="my-3 h-px w-full bg-[oklch(0.28_0.02_250)]" />
 
-                                <span
-                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-300 select-none ${
-                                        pathname === '/paginas/chamados'
-                                            ? 'text-white drop-shadow-[0_0_8px_rgba(94,234,212,0.5)]'
-                                            : 'text-white/70 group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]'
-                                    } ${
-                                        isMobile || isExpanded
-                                            ? 'w-auto opacity-100'
-                                            : 'w-0 opacity-0'
-                                    }`}
-                                >
-                                    Chamados
-                                </span>
-                            </div>
-                        </Link>
-
-                        {/* Botão Abrir Chamado — temporariamente indisponível */}
-                        <button
+                        <ActionButton
+                            label="Abrir Chamado"
+                            icon={IoAddCircle}
                             onClick={handleOpenAbrirChamadoModal}
+                            showLabel={showLabel}
                             disabled={!ABRIR_CHAMADO_DISPONIVEL || !codCliente}
                             title={
                                 !ABRIR_CHAMADO_DISPONIVEL
@@ -422,163 +396,48 @@ export function Sidebar() {
                                       ? 'Selecione um cliente para abrir um chamado'
                                       : 'Abrir novo chamado'
                             }
-                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
-                                ABRIR_CHAMADO_DISPONIVEL && codCliente
-                                    ? 'cursor-pointer border border-purple-900 bg-purple-700 shadow-md shadow-black hover:scale-[1.03] hover:shadow-xl hover:shadow-black active:scale-[0.98]'
-                                    : 'cursor-not-allowed border-gray-700/30 bg-white/30 opacity-40 shadow-md shadow-black'
-                            }`}
-                        >
-                            {/* Efeito de brilho no hover (apenas quando habilitado) */}
-                            {ABRIR_CHAMADO_DISPONIVEL && codCliente && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
-                            )}
+                        />
 
-                            <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
-                                <IoAddCircle
-                                    className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
-                                        ABRIR_CHAMADO_DISPONIVEL && codCliente
-                                            ? 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
-                                            : 'text-white/70'
-                                    }`}
-                                />
-
-                                <span
-                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-300 select-none ${
-                                        codCliente
-                                            ? 'text-white/70 group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]'
-                                            : 'text-white/70'
-                                    } ${
-                                        isMobile || isExpanded
-                                            ? 'w-auto opacity-100'
-                                            : 'w-0 opacity-0'
-                                    }`}
-                                >
-                                    Abrir Chamado
-                                </span>
-                            </div>
-                        </button>
-
-                        {/* Botão Saldo de Horas */}
-                        <button
+                        <ActionButton
+                            label="Saldo de Horas"
+                            icon={PiTimerFill}
                             onClick={handleOpenSaldoModal}
+                            showLabel={showLabel}
                             disabled={!hasClienteSelecionado}
                             title={
                                 !hasClienteSelecionado
                                     ? 'Selecione um cliente nos filtros para visualizar o saldo'
                                     : 'Visualizar saldo de horas'
                             }
-                            className={`group relative flex items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
-                                hasClienteSelecionado
-                                    ? 'cursor-pointer border border-purple-900 bg-purple-700 shadow-md shadow-black hover:scale-[1.03] hover:shadow-xl hover:shadow-black active:scale-[0.98]'
-                                    : 'cursor-not-allowed border-gray-700/30 bg-white/30 opacity-40 shadow-md shadow-black'
-                            }`}
-                        >
-                            {/* Efeito de brilho no hover (apenas quando habilitado) */}
-                            {hasClienteSelecionado && (
-                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
-                            )}
+                        />
 
-                            <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
-                                <PiTimerFill
-                                    className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
-                                        hasClienteSelecionado
-                                            ? 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
-                                            : 'text-white/70'
-                                    }`}
+                        {exibeBotaoIA && (
+                            <>
+                                <div className="my-3 h-px w-full bg-[oklch(0.28_0.02_250)]" />
+                                <NavItem
+                                    href="/paginas/ia"
+                                    label="IA"
+                                    icon={IoSparkles}
+                                    active={pathname === '/paginas/ia'}
+                                    loading={isNavigating && targetRoute === '/paginas/ia'}
+                                    showLabel={showLabel}
+                                    onClick={handleOpenIA}
                                 />
-
-                                <span
-                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-300 select-none ${
-                                        hasClienteSelecionado
-                                            ? 'text-white/70 group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]'
-                                            : 'text-white/70'
-                                    } ${
-                                        isMobile || isExpanded
-                                            ? 'w-auto opacity-100'
-                                            : 'w-0 opacity-0'
-                                    }`}
-                                >
-                                    Saldo
-                                </span>
-                            </div>
-                        </button>
+                            </>
+                        )}
                     </div>
 
                     {/* Divisor antes do logout */}
-                    <div className="my-5 h-px w-full bg-gradient-to-r from-transparent via-white/80 to-transparent"></div>
-
-                    {/* Botão de IA do Cliente (só exibe se CLIENTE_EXIBE_IA = 1) */}
-                    {exibeBotaoIA && (
-                        <div className="w-full pb-4">
-                            <Link
-                                href="/paginas/ia"
-                                onClick={handleOpenIA}
-                                className={`group relative flex w-full cursor-pointer items-center overflow-hidden rounded-xl border-b-2 p-3 transition-all duration-300 ${
-                                    pathname === '/paginas/ia'
-                                        ? 'border-teal-400 bg-gradient-to-r from-purple-950 via-indigo-950 to-blue-950 shadow-xl ring-2 shadow-teal-500/30 ring-teal-400/60'
-                                        : 'border border-purple-900 bg-purple-700 shadow-md shadow-black hover:shadow-xl hover:shadow-black'
-                                } ${
-                                    isNavigating && targetRoute === '/paginas/ia'
-                                        ? 'pointer-events-none opacity-60'
-                                        : 'hover:scale-[1.03] active:scale-[0.98]'
-                                }`}
-                            >
-                                {/* Efeito de brilho no hover para botão inativo */}
-                                {pathname !== '/paginas/ia' && (
-                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-purple-300/0 to-transparent transition-all duration-300 group-hover:via-purple-300/20"></div>
-                                )}
-
-                                <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
-                                    {isNavigating && targetRoute === '/paginas/ia' ? (
-                                        <div className="h-7 w-7 flex-shrink-0 animate-spin rounded-full border-3 border-white/20 border-t-white"></div>
-                                    ) : (
-                                        <IoSparkles
-                                            className={`h-7 w-7 flex-shrink-0 transition-all duration-300 ${
-                                                pathname === '/paginas/ia'
-                                                    ? 'scale-110 text-white drop-shadow-[0_0_12px_rgba(94,234,212,0.8)]'
-                                                    : 'text-white/70 group-hover:scale-110 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'
-                                            }`}
-                                        />
-                                    )}
-
-                                    <span
-                                        className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap transition-all duration-300 select-none ${
-                                            pathname === '/paginas/ia'
-                                                ? 'text-white drop-shadow-[0_0_8px_rgba(94,234,212,0.5)]'
-                                                : 'text-white/70 group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.3)]'
-                                        } ${isMobile || isExpanded ? 'w-auto opacity-100' : 'w-0 opacity-0'}`}
-                                    >
-                                        IA
-                                    </span>
-                                </div>
-                            </Link>
-                        </div>
-                    )}
+                    <div className="mt-3 mb-1 h-px w-full bg-[oklch(0.28_0.02_250)]" />
 
                     {/* Botão de Logout */}
-                    <div className="w-full pb-4">
-                        <button
-                            onClick={handleLogout}
-                            className="group relative flex w-full cursor-pointer items-center overflow-hidden rounded-xl border border-purple-900 bg-purple-700 p-3 shadow-md shadow-black transition-all duration-300 hover:scale-103 hover:shadow-xl hover:shadow-black active:scale-95"
-                        >
-                            {/* Efeito de brilho no hover */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-red-300/0 to-transparent transition-all duration-300 group-hover:via-red-300/20"></div>
-
-                            <div className="relative flex w-full items-center justify-center gap-4 md:justify-start">
-                                <IoLogOut className="h-7 w-7 flex-shrink-0 text-white/70 transition-all duration-300 group-hover:scale-125 group-hover:text-white group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
-
-                                <span
-                                    className={`overflow-hidden text-base font-extrabold tracking-widest whitespace-nowrap text-white/70 transition-all duration-300 select-none group-hover:text-white group-hover:drop-shadow-[0_0_4px_rgba(255,255,255,0.4)] ${
-                                        isMobile || isExpanded
-                                            ? 'w-auto opacity-100'
-                                            : 'w-0 opacity-0'
-                                    }`}
-                                >
-                                    Sair
-                                </span>
-                            </div>
-                        </button>
-                    </div>
+                    <ActionButton
+                        label="Sair"
+                        icon={IoLogOut}
+                        onClick={handleLogout}
+                        showLabel={showLabel}
+                        variant="danger"
+                    />
                 </div>
             </nav>
 

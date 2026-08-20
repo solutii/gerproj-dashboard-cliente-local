@@ -1068,8 +1068,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     return (
         <FiltrosContext.Provider value={filtrosAtuais}>
             <div className="flex flex-col gap-10">
-                <header className="flex items-center justify-between px-4">
-                    <div className="flex items-center gap-6">
+                <header className="flex flex-wrap items-center justify-between gap-y-3 px-4">
+                    <div className="flex flex-wrap items-center gap-6">
                         <div className="flex items-center gap-6">
                             <button
                                 onClick={() => setDropdownAberto(!dropdownAberto)}
@@ -1109,7 +1109,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                         )}
                     </div>
 
-                    <div className="mr-2 flex items-center justify-center gap-6">
+                    <div className="mr-2 flex flex-wrap items-center justify-center gap-6">
                         <div className="flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
                             <MdCalendarMonth className="text-black" size={28} />
                             {hoje.toLocaleString('pt-BR', {
@@ -1124,7 +1124,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
 
                 {dropdownAberto && (
                     <div className="mx-4 rounded-md border-t border-gray-300 bg-white p-6 shadow-md shadow-black">
-                        <div className="grid grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
                             {/* COLUNA 1 */}
                             <div className="flex flex-col gap-1">
                                 <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">

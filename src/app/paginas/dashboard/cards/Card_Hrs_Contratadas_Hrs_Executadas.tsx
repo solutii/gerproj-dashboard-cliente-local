@@ -295,7 +295,7 @@ export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
             </div>
 
             {/* === Container === */}
-            <div className="group relative flex h-72 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black">
+            <div className="group relative flex h-56 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black sm:h-64 lg:h-72">
                 {/* Borda Superior */}
                 <div className="absolute top-0 right-0 left-0 h-1 bg-cyan-500"></div>
 
