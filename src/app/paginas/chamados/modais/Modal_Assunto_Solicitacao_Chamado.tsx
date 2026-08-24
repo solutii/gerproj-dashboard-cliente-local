@@ -4,7 +4,6 @@
 
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 // =====================================================
 import { useState } from 'react';
 import { FaCheck } from 'react-icons/fa';
@@ -33,11 +32,8 @@ export function ModalAssuntoSolicitacaoChamado({
 }: ModalAssuntoSolicitacaoChamadoProps) {
     const [copied, setCopied] = useState(false);
 
-    const solicitacaoCorrigida = corrigirTextoCorrompido(solicitacao);
-    const assuntoCorrigido = corrigirTextoCorrompido(assunto);
-
     const handleCopy = () => {
-        const textToCopy = `ASSUNTO:\n${assuntoCorrigido}\n\nSOLICITAÇÃO:\n${solicitacaoCorrigida}`;
+        const textToCopy = `ASSUNTO:\n${assunto}\n\nSOLICITAÇÃO:\n${solicitacao}`;
         navigator.clipboard.writeText(textToCopy);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
@@ -82,14 +78,12 @@ export function ModalAssuntoSolicitacaoChamado({
                     <div className="flex flex-col gap-6">
                         <div className="rounded-md border bg-white p-6 text-justify tracking-widest text-black shadow-md shadow-black select-none">
                             <p className="font-bold">Assunto:</p>
-                            <p className="ml-4 text-sm font-semibold">
-                                {assuntoCorrigido || 'Sem assunto'}
-                            </p>
+                            <p className="ml-4 text-sm font-semibold">{assunto || 'Sem assunto'}</p>
                         </div>
                         <div className="rounded-md border bg-white p-6 text-justify tracking-widest text-black shadow-md shadow-black select-none">
                             <p className="font-bold">Solicitação:</p>
                             <p className="ml-4 text-sm font-semibold">
-                                {solicitacaoCorrigida || 'Sem solicitação'}
+                                {solicitacao || 'Sem solicitação'}
                             </p>
                         </div>
                     </div>

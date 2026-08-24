@@ -7,7 +7,6 @@ import type { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_O
 import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { renderizarDoisPrimeirosNomes } from '@/formatters/remover-acentuacao';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -640,10 +639,10 @@ function gerarAbaChamados(
             slaText,
             finalizacao,
             coluna.STATUS_CHAMADO,
-            corrigirTextoCorrompido(coluna.ASSUNTO_CHAMADO).substring(0, 50),
+            (coluna.ASSUNTO_CHAMADO ?? '').substring(0, 50),
             coluna.EMAIL_CHAMADO || '---',
-            corrigirTextoCorrompido(coluna.NOME_CLASSIFICACAO).substring(0, 25),
-            renderizarDoisPrimeirosNomes(corrigirTextoCorrompido(coluna.NOME_RECURSO) || '---'),
+            (coluna.NOME_CLASSIFICACAO ?? '').substring(0, 25),
+            renderizarDoisPrimeirosNomes(coluna.NOME_RECURSO || '---'),
             `P-${coluna.PRIOR_CHAMADO}`,
             formatarHorasTotaisSufixo(coluna.TOTAL_HORAS_OS),
         ];
@@ -829,8 +828,8 @@ function gerarAbaOS(
                     formatarHora(os.HRINI_OS),
                     formatarHora(os.HRFIM_OS),
                     formatarHorasTotaisSufixo(os.TOTAL_HORAS_OS),
-                    corrigirTextoCorrompido(os.OBS) || '---',
-                    renderizarDoisPrimeirosNomes(corrigirTextoCorrompido(os.NOME_RECURSO) || '---'),
+                    os.OBS || '---',
+                    renderizarDoisPrimeirosNomes(os.NOME_RECURSO || '---'),
                     os.VALCLI_OS || '---',
                 ];
 

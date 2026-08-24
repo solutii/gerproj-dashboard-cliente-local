@@ -8,7 +8,6 @@ import { IsError } from '@/components/IsError';
 import { IsLoading } from '@/components/IsLoading';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
 import { useFiltersStore } from '@/store/useFiltersStore';
 import { useQuery } from '@tanstack/react-query';
@@ -267,9 +266,7 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
             dataOS: selectedOSForObs?.DTINI_OS
                 ? formatarDataParaBR(selectedOSForObs.DTINI_OS)
                 : undefined,
-            consultor: selectedOSForObs?.NOME_RECURSO
-                ? corrigirTextoCorrompido(selectedOSForObs.NOME_RECURSO)
-                : undefined,
+            consultor: selectedOSForObs?.NOME_RECURSO ?? undefined,
         }),
         [selectedOSForObs]
     );

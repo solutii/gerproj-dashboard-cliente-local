@@ -3,7 +3,6 @@
 'use client';
 
 import { formatarDataHoraChamado } from '@/formatters/formatar-data';
-import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { useQuery } from '@tanstack/react-query';
 import { IoClose } from 'react-icons/io5';
 import { MdHistory } from 'react-icons/md';
@@ -105,7 +104,7 @@ export function ModalHistoricoChamado({ isOpen, codChamado, onClose }: ModalHist
                                             {formatarDataHoraChamado(item.data, item.hora)}
                                         </p>
                                         <p className="text-sm font-semibold tracking-wider text-black select-none">
-                                            {corrigirTextoCorrompido(item.descricao)}
+                                            {item.descricao}
                                         </p>
                                     </div>
                                 </li>

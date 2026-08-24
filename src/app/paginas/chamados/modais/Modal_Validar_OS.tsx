@@ -7,8 +7,6 @@ import { LoadingButton } from '@/components/Loading_Button';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
-import { removerAcentos } from '@/formatters/remover-acentuacao';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 // =====================================================
 import { memo, useCallback, useEffect, useState } from 'react';
@@ -226,7 +224,7 @@ const saveValidationApi = async ({
         body: JSON.stringify({
             cod_os,
             concordaPagar,
-            observacao: observacao ? removerAcentos(observacao) : null,
+            observacao: observacao || null,
         }),
     });
 
@@ -426,7 +424,7 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                             <InfoCard
                                 icon={FaUser}
                                 label="Cliente"
-                                value={corrigirTextoCorrompido(selectedRow.NOME_CLIENTE)}
+                                value={selectedRow.NOME_CLIENTE}
                             />
                         )}
 
@@ -457,11 +455,9 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                         <InfoCard
                             icon={FaUser}
                             label="Consultor(a)"
-                            value={corrigirTextoCorrompido(
-                                getPrimeirosDoisNomes(selectedRow.NOME_RECURSO ?? '')
-                            )}
+                            value={getPrimeirosDoisNomes(selectedRow.NOME_RECURSO ?? '')}
                             tooltip={true}
-                            fullValue={corrigirTextoCorrompido(selectedRow.NOME_RECURSO ?? '')}
+                            fullValue={selectedRow.NOME_RECURSO ?? ''}
                         />
 
                         <InfoCard
@@ -476,12 +472,10 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                         <InfoCard
                             icon={BsChatSquareTextFill}
                             label="Descrição da OS"
-                            value={corrigirTextoCorrompido(selectedRow.OBS ?? '---------------')}
+                            value={selectedRow.OBS ?? '---------------'}
                             fullWidth
                             tooltip={true}
-                            fullValue={corrigirTextoCorrompido(
-                                selectedRow.OBS ?? '---------------'
-                            )}
+                            fullValue={selectedRow.OBS ?? '---------------'}
                             minHeight="150px"
                             maxHeight="400px"
                         />

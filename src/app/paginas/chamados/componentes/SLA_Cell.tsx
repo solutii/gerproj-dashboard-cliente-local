@@ -2,7 +2,7 @@
 
 'use client';
 
-import { formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
+import { formatarHorasRelogio } from '@/formatters/formatar-hora';
 import { useSLADinamico } from '@/hooks/useSLADinamico';
 import React from 'react';
 
@@ -44,7 +44,7 @@ export const SLACell: React.FC<SLACellProps> = ({
 
     if (!dataInicioAtendimento) {
         return (
-            <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+            <div className="text-center text-base font-extrabold tracking-wide text-black select-none">
                 ==========
             </div>
         );
@@ -52,7 +52,7 @@ export const SLACell: React.FC<SLACellProps> = ({
 
     if (!sla) {
         return (
-            <div className="text-center text-sm font-semibold tracking-widest text-black select-none">
+            <div className="text-center text-base font-extrabold tracking-wide text-black select-none">
                 ==========
             </div>
         );
@@ -63,10 +63,10 @@ export const SLACell: React.FC<SLACellProps> = ({
     return (
         <div className="flex items-center justify-center">
             <div
-                className={`w-full cursor-help rounded py-1.5 text-center text-sm font-extrabold tracking-widest select-none ${badgeStyles}`}
+                className={`w-full cursor-help rounded py-1.5 text-center text-base font-extrabold tracking-wide select-none ${badgeStyles}`}
                 title="Tempo decorrido, do momento que o chamado é aberto, até o início do atendimento."
             >
-                {formatarHorasTotaisSufixo(sla.tempoDecorrido)}
+                {formatarHorasRelogio(sla.tempoDecorrido)}
             </div>
         </div>
     );

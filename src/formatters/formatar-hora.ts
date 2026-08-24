@@ -218,6 +218,31 @@ const formatTimeOutput = (hours: number, minutes: number): string => {
 };
 // ====================================================================================================
 
+// Formata horas decimais como "HHh:MMm" (ex: 7.8 -> "07h:48m") —
+// usado onde o sufixo "hs"/"min" de formatarHorasTotaisSufixo não é
+// desejado (ex: colunas de Horas e SLA da tabela de chamados).
+export const formatarHorasRelogio = (value: number | null | undefined): string => {
+    if (value == null || isNaN(value)) return '-';
+
+    const isNegative = value < 0;
+    const absoluteValue = Math.abs(value);
+
+    const hours = Math.floor(absoluteValue);
+    let minutes = Math.round((absoluteValue - hours) * 60);
+
+    let horasFinais = hours;
+    if (minutes === 60) {
+        horasFinais += 1;
+        minutes = 0;
+    }
+
+    const horasFormatadas = horasFinais.toString().padStart(2, '0');
+    const minutosFormatados = minutes.toString().padStart(2, '0');
+
+    return `${isNegative ? '-' : ''}${horasFormatadas}h:${minutosFormatados}m`;
+};
+// ====================================================================================================
+
 export const formatarDiferencaHoras = (diferenca: number): string => {
     // Se a diferença for muito pequena (menos de 0.5h), retorna "No prazo"
     if (Math.abs(diferenca) < 0.5) {

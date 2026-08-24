@@ -18,11 +18,6 @@ interface ModalAvaliacaoChamadoProps {
     onSave: () => void;
 }
 
-// Função para remover acentos
-export const removerAcentos = (texto: string): string => {
-    return texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-};
-
 // Função para capitalizar a primeira letra
 const capitalizarPrimeiraLetra = (texto: string): string => {
     if (!texto) return texto;
@@ -63,10 +58,7 @@ export function ModalAvaliarChamado({
         setError(null);
 
         try {
-            // Remove acentos da observação antes de enviar
-            const observacaoSemAcentos = observacao.trim()
-                ? removerAcentos(observacao.trim())
-                : null;
+            const observacaoTratada = observacao.trim() ? observacao.trim() : null;
 
             const response = await fetch(`/api/chamados/${codChamado}/avaliacao`, {
                 method: 'POST',
@@ -75,7 +67,7 @@ export function ModalAvaliarChamado({
                 },
                 body: JSON.stringify({
                     avaliacao: nota,
-                    observacao: observacaoSemAcentos,
+                    observacao: observacaoTratada,
                 }),
             });
 

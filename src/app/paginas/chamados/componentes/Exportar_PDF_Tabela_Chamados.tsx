@@ -7,7 +7,6 @@ import type { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_O
 import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { renderizarDoisPrimeirosNomes } from '@/formatters/remover-acentuacao';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -544,10 +543,10 @@ function adicionarSecaoChamados(doc: jsPDF, yPos: number, chamados: ChamadoRowPr
             slaText,
             finalizacao,
             c.STATUS_CHAMADO,
-            corrigirTextoCorrompido(c.ASSUNTO_CHAMADO),
+            c.ASSUNTO_CHAMADO ?? '',
             c.EMAIL_CHAMADO || '---',
-            corrigirTextoCorrompido(c.NOME_CLASSIFICACAO).substring(0, 20),
-            renderizarDoisPrimeirosNomes(corrigirTextoCorrompido(c.NOME_RECURSO) || '---'),
+            (c.NOME_CLASSIFICACAO ?? '').substring(0, 20),
+            renderizarDoisPrimeirosNomes(c.NOME_RECURSO || '---'),
             `P-${c.PRIOR_CHAMADO}`,
             formatarHorasTotaisSufixo(c.TOTAL_HORAS_OS),
         ];
@@ -689,8 +688,8 @@ function gerarPaginaOS(
                 formatarHora(os.HRINI_OS),
                 formatarHora(os.HRFIM_OS),
                 formatarHorasTotaisSufixo(os.TOTAL_HORAS_OS),
-                corrigirTextoCorrompido(os.OBS || '---'),
-                renderizarDoisPrimeirosNomes(corrigirTextoCorrompido(os.NOME_RECURSO) || '---'),
+                os.OBS || '---',
+                renderizarDoisPrimeirosNomes(os.NOME_RECURSO || '---'),
                 os.VALCLI_OS || '---',
             ]);
         });

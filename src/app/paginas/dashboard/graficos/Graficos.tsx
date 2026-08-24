@@ -20,7 +20,6 @@ import {
     formatarHorasArredondadas,
     formatarHorasTotaisSufixo,
 } from '../../../../formatters/formatar-hora';
-import { corrigirTextoCorrompido } from '../../../../formatters/formatar-texto-corrompido';
 import {
     renderizarDoisPrimeirosNomes,
     renderizarPrimeiroNome,
@@ -822,9 +821,7 @@ export function Graficos({ filters }: FilterProps) {
                                 content={
                                     <CustomTooltip
                                         labelFormatter={(label) =>
-                                            renderizarDoisPrimeirosNomes(
-                                                corrigirTextoCorrompido(label)
-                                            )
+                                            renderizarDoisPrimeirosNomes(label)
                                         }
                                         valueFormatter={(value) =>
                                             `${formatarHorasTotaisSufixo(value)}`

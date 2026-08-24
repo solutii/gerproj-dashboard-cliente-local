@@ -30,7 +30,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { BsEraserFill } from 'react-icons/bs';
 import { FaEraser } from 'react-icons/fa';
 import { IoCall } from 'react-icons/io5';
-import { MdNavigateBefore, MdNavigateNext } from 'react-icons/md';
+import {
+    MdArrowDownward,
+    MdArrowUpward,
+    MdChecklist,
+    MdNavigateBefore,
+    MdNavigateNext,
+    MdUnfoldMore,
+} from 'react-icons/md';
 import { TbMoodEmptyFilled } from 'react-icons/tb';
 import { ChamadoRowProps, getColunasChamados } from './Colunas_Tabela_Chamados';
 
@@ -63,9 +70,7 @@ const INITIAL_COLUMN_WIDTHS = {
     NOME_CLASSIFICACAO: 180,
     NOME_RECURSO: 180,
     PRIOR_CHAMADO: 100,
-    TOTAL_HORAS_OS: 120,
-    HR_ADICIONAL_OS: 120,
-    TOTAL_HRS_OS: 120,
+    HORAS: 140,
 } as const;
 
 // =====================================================
@@ -96,10 +101,50 @@ interface FetchChamadosParams {
     codCliente: string | null;
     cliente?: string;
     status?: string;
+    recurso?: string;
+    chamado?: string;
+    prioridade?: string;
+    classificacao?: string;
+    entrada?: string;
+    atribuicao?: string;
+    inicio?: string;
+    finalizacao?: string;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
     page: number;
     limit: number;
     columnFilters?: ColumnFiltersState;
 }
+
+// Colunas ordenáveis no servidor — mesma allowlist de src/app/api/chamados/route.ts
+// (SORT_COLUMN_MAP). Nunca adicionar um id aqui sem adicionar lá também.
+const SORTABLE_COLUMNS = new Set([
+    'COD_CHAMADO',
+    'DATA_CHAMADO',
+    'DTENVIO_CHAMADO',
+    'DTINI_CHAMADO',
+    'ASSUNTO_CHAMADO',
+    'STATUS_CHAMADO',
+    'PRIOR_CHAMADO',
+    'EMAIL_CHAMADO',
+    'NOME_RECURSO',
+    'NOME_CLASSIFICACAO',
+]);
+
+interface SortState {
+    id: string;
+    desc: boolean;
+}
+
+// As 6 colunas essenciais nunca podem ser ocultadas pelo botão "Colunas".
+const COLUNAS_SEMPRE_VISIVEIS = new Set([
+    'COD_CHAMADO',
+    'STATUS_CHAMADO',
+    'ASSUNTO_CHAMADO',
+    'DATA_CHAMADO',
+    'NOME_RECURSO',
+    'PRIOR_CHAMADO',
+]);
 
 declare module '@tanstack/react-table' {
     interface TableMeta<TData> {
@@ -126,56 +171,6 @@ const serializeColumnFilters = (filters: ColumnFiltersState): string => {
     );
 };
 
-const formatarDataParaComparacao = (
-    data: string | Date | number | null | undefined
-): string | null => {
-    if (!data) return null;
-
-    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4}$/.test(data)) return data;
-
-    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} - \d{2}:\d{2}/.test(data))
-        return data.split(' - ')[0];
-
-    if (typeof data === 'string' && /^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}/.test(data))
-        return data.split(' ')[0];
-
-    if (typeof data === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(data)) {
-        const dataObj = new Date(data);
-        if (isNaN(dataObj.getTime())) return null;
-        const dia = dataObj.getDate().toString().padStart(2, '0');
-        const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
-        const ano = dataObj.getFullYear();
-        return `${dia}/${mes}/${ano}`;
-    }
-
-    if (typeof data === 'string') {
-        const isoMatch = data.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (isoMatch) {
-            const [, ano, mes, dia] = isoMatch;
-            return `${dia}/${mes}/${ano}`;
-        }
-    }
-
-    if (data instanceof Date) {
-        if (isNaN(data.getTime())) return null;
-        const dia = data.getDate().toString().padStart(2, '0');
-        const mes = (data.getMonth() + 1).toString().padStart(2, '0');
-        const ano = data.getFullYear();
-        return `${dia}/${mes}/${ano}`;
-    }
-
-    if (typeof data === 'number') {
-        const dataObj = new Date(data);
-        if (isNaN(dataObj.getTime())) return null;
-        const dia = dataObj.getDate().toString().padStart(2, '0');
-        const mes = (dataObj.getMonth() + 1).toString().padStart(2, '0');
-        const ano = dataObj.getFullYear();
-        return `${dia}/${mes}/${ano}`;
-    }
-
-    return null;
-};
-
 // =====================================================
 // API - FETCH DE DADOS
 // =====================================================
@@ -185,6 +180,16 @@ const fetchChamados = async ({
     codCliente,
     cliente,
     status,
+    recurso,
+    chamado,
+    prioridade,
+    classificacao,
+    entrada,
+    atribuicao,
+    inicio,
+    finalizacao,
+    sortBy,
+    sortDir,
     page,
     limit,
     columnFilters,
@@ -197,14 +202,31 @@ const fetchChamados = async ({
 
     if (cliente) params.append('codClienteFilter', cliente);
 
-    const statusUpper = status?.trim().toUpperCase();
-    if (statusUpper === 'FINALIZADO') params.append('statusFilter', status!);
-    if (statusUpper === 'TODOS') params.append('statusFilter', 'TODOS');
+    // Qualquer status selecionado vai pro servidor — antes só FINALIZADO/TODOS
+    // eram enviados, e os demais valores (ex. "ATRIBUIDO") ficavam só no
+    // filtro client-side da página atual (mesmo bug dos filtros abaixo).
+    if (status && status.trim()) params.append('statusFilter', status.trim());
 
     if (codCliente) {
         params.append('codCliente', codCliente);
         if (ano) params.append('ano', ano);
         if (mes) params.append('mes', mes);
+    }
+
+    // Filtros do painel — enviados pro servidor pra valerem sobre o resultado
+    // inteiro, não só a página de 30 já carregada.
+    if (recurso) params.append('codRecursoFilter', recurso);
+    if (chamado) params.append('codChamado', chamado);
+    if (prioridade) params.append('filter_PRIOR_CHAMADO', prioridade);
+    if (classificacao) params.append('filter_NOME_CLASSIFICACAO', classificacao);
+    if (entrada) params.append('filter_DATA_CHAMADO', entrada);
+    if (atribuicao) params.append('filter_DTENVIO_CHAMADO', atribuicao);
+    if (inicio) params.append('filter_DTINI_CHAMADO', inicio);
+    if (finalizacao) params.append('filter_DATA_HISTCHAMADO', finalizacao);
+
+    if (sortBy) {
+        params.append('sortBy', sortBy);
+        params.append('sortDir', sortDir === 'asc' ? 'asc' : 'desc');
     }
 
     columnFilters?.forEach((filter) => {
@@ -250,6 +272,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // Estados principais
     const [page, setPage] = useState(1);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+    const [sorting, setSorting] = useState<SortState | null>(null);
+    const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
+    const aplicouPadraoResponsivoRef = useRef(false);
 
     // Estados dos modais
     const [isModalListaOSOpen, setIsModalListaOSOpen] = useState(false);
@@ -294,10 +319,20 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             mes,
             cliente ?? '',
             status ?? '',
+            recurso ?? '',
+            chamado ?? '',
+            prioridade ?? '',
+            classificacao ?? '',
+            entrada ?? '',
+            atribuicao ?? '',
+            inicio ?? '',
+            finalizacao ?? '',
             codCliente ?? '',
             page,
             PAGINATION_LIMIT,
             columnFiltersKey,
+            sorting?.id ?? '',
+            sorting?.desc ?? '',
         ],
         queryFn: () =>
             fetchChamados({
@@ -306,6 +341,16 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 codCliente,
                 cliente: cliente ?? '',
                 status: status ?? '',
+                recurso: recurso ?? '',
+                chamado: chamado ?? '',
+                prioridade: prioridade ?? '',
+                classificacao: classificacao ?? '',
+                entrada: entrada ?? '',
+                atribuicao: atribuicao ?? '',
+                inicio: inicio ?? '',
+                finalizacao: finalizacao ?? '',
+                sortBy: sorting?.id,
+                sortDir: sorting ? (sorting.desc ? 'desc' : 'asc') : undefined,
                 page,
                 limit: PAGINATION_LIMIT,
                 columnFilters,
@@ -351,83 +396,16 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // =====================================================
     // FILTRAGENS E TRANSFORMAÇÕES DE DADOS
     // =====================================================
-    const dadosFiltradosPorStatus = useMemo(() => {
-        const chamados = apiData?.data ?? [];
-        if (!status || status.trim() === '') return chamados;
-
-        const statusUpper = status.trim().toUpperCase();
-        if (statusUpper === 'FINALIZADO' || statusUpper === 'TODOS') return chamados;
-
-        return chamados.filter((chamado) =>
-            chamado.STATUS_CHAMADO?.toUpperCase().includes(statusUpper)
-        );
-    }, [apiData?.data, status]);
-
-    const dadosFiltradosPorRecurso = useMemo(() => {
-        if (!recurso) return dadosFiltradosPorStatus;
-        return dadosFiltradosPorStatus.filter((chamado) => {
-            const codRecurso = chamado.COD_RECURSO?.toString().trim();
-            const nomeRecurso = chamado.NOME_RECURSO?.toString().trim();
-            return codRecurso === recurso || nomeRecurso === recurso;
-        });
-    }, [dadosFiltradosPorStatus, recurso]);
-
-    const dadosFiltradosPorChamado = useMemo(() => {
-        if (!chamado) return dadosFiltradosPorRecurso;
-        return dadosFiltradosPorRecurso.filter(
-            (chamadoItem) => chamadoItem.COD_CHAMADO?.toString() === chamado.toString()
-        );
-    }, [dadosFiltradosPorRecurso, chamado]);
-
-    const dadosFiltradosPorEntrada = useMemo(() => {
-        if (!entrada) return dadosFiltradosPorChamado;
-        return dadosFiltradosPorChamado.filter((chamadoItem) => {
-            const dataFormatada = formatarDataParaComparacao(chamadoItem.DATA_CHAMADO);
-            return dataFormatada === entrada;
-        });
-    }, [dadosFiltradosPorChamado, entrada]);
-
-    const dadosFiltradosPorPrioridade = useMemo(() => {
-        if (!prioridade) return dadosFiltradosPorEntrada;
-        return dadosFiltradosPorEntrada.filter(
-            (chamadoItem) => chamadoItem.PRIOR_CHAMADO?.toString() === prioridade.toString()
-        );
-    }, [dadosFiltradosPorEntrada, prioridade]);
-
-    const dadosFiltradosPorClassificacao = useMemo(() => {
-        if (!classificacao) return dadosFiltradosPorPrioridade;
-        return dadosFiltradosPorPrioridade.filter(
-            (chamadoItem) => chamadoItem.NOME_CLASSIFICACAO?.trim() === classificacao.trim()
-        );
-    }, [dadosFiltradosPorPrioridade, classificacao]);
-
-    const dadosFiltradosPorAtribuicao = useMemo(() => {
-        if (!atribuicao) return dadosFiltradosPorClassificacao;
-        return dadosFiltradosPorClassificacao.filter((chamadoItem) => {
-            const dataFormatada = formatarDataParaComparacao(chamadoItem.DTENVIO_CHAMADO);
-            return dataFormatada === atribuicao;
-        });
-    }, [dadosFiltradosPorClassificacao, atribuicao]);
-
-    const dadosFiltradosPorInicio = useMemo(() => {
-        if (!inicio) return dadosFiltradosPorAtribuicao;
-        return dadosFiltradosPorAtribuicao.filter((chamadoItem) => {
-            const dataFormatada = formatarDataParaComparacao(chamadoItem.DTINI_CHAMADO);
-            return dataFormatada === inicio;
-        });
-    }, [dadosFiltradosPorAtribuicao, inicio]);
-
-    const dadosFiltradosPorFinalizacao = useMemo(() => {
-        if (!finalizacao) return dadosFiltradosPorInicio;
-        return dadosFiltradosPorInicio.filter((chamadoItem) => {
-            const dataFormatada = formatarDataParaComparacao(chamadoItem.DATA_HISTCHAMADO);
-            return dataFormatada === finalizacao;
-        });
-    }, [dadosFiltradosPorInicio, finalizacao]);
-
+    // Status, Consultor, Nº Chamado, Prioridade, Classificação, Entrada,
+    // Atribuição, Início e Finalização agora são todos filtrados no servidor
+    // (ver fetchChamados) — a página já chega filtrada. `columnFilters` (do
+    // próprio TanStack Table) também é enviado pro servidor, mas mantemos
+    // esse filtro extra no cliente como reforço, já que é idempotente sobre
+    // dados já filtrados.
     const dadosCompletosFiltrados = useMemo(() => {
-        if (columnFilters.length === 0) return dadosFiltradosPorFinalizacao;
-        return dadosFiltradosPorFinalizacao.filter((row) => {
+        const chamados = apiData?.data ?? [];
+        if (columnFilters.length === 0) return chamados;
+        return chamados.filter((row) => {
             return columnFilters.every((filter) => {
                 if (!filter.value || (typeof filter.value === 'string' && !filter.value.trim()))
                     return true;
@@ -436,7 +414,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 return String(cellValue).toUpperCase().includes(String(filter.value).toUpperCase());
             });
         });
-    }, [dadosFiltradosPorFinalizacao, columnFilters]);
+    }, [apiData?.data, columnFilters]);
 
     // =====================================================
     // TOTALIZADORES
@@ -478,8 +456,8 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     });
 
     useEffect(() => {
-        if (onDataChangeRef.current) onDataChangeRef.current(dadosFiltradosPorFinalizacao);
-    }, [dadosFiltradosPorFinalizacao]);
+        if (onDataChangeRef.current) onDataChangeRef.current(dadosCompletosFiltrados);
+    }, [dadosCompletosFiltrados]);
 
     useEffect(() => {
         setPage(1);
@@ -494,11 +472,36 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         finalizacao,
         inicio,
         columnFiltersKey,
+        sorting?.id,
+        sorting?.desc,
     ]);
+
+    // Padrão de visibilidade de colunas responsivo: em desktop, todas
+    // visíveis (comportamento de sempre); abaixo disso, só as 6 essenciais.
+    // Aplica só uma vez (não briga com uma escolha manual do usuário se a
+    // janela for redimensionada depois).
+    useEffect(() => {
+        if (aplicouPadraoResponsivoRef.current) return;
+        aplicouPadraoResponsivoRef.current = true;
+        if (isDesktop) return;
+
+        const colunasOpcionais = Object.keys(INITIAL_COLUMN_WIDTHS).filter(
+            (id) => !COLUNAS_SEMPRE_VISIVEIS.has(id)
+        );
+        setColumnVisibility(Object.fromEntries(colunasOpcionais.map((id) => [id, false])));
+    }, [isDesktop]);
 
     // =====================================================
     // CALLBACKS
     // =====================================================
+    const handleSortColumn = useCallback((columnId: string) => {
+        if (!SORTABLE_COLUMNS.has(columnId)) return;
+        setSorting((prev) => {
+            if (!prev || prev.id !== columnId) return { id: columnId, desc: false };
+            if (!prev.desc) return { id: columnId, desc: true };
+            return null;
+        });
+    }, []);
     const handleNextPage = useCallback(() => {
         if (paginacaoServidor?.hasNextPage) setPage((prev) => prev + 1);
     }, [paginacaoServidor?.hasNextPage]);
@@ -534,17 +537,26 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         setSelectedOS(null);
     }, []);
 
-    // ✅ OT4: cleanup do setTimeout para evitar vazamento se componente desmontar
+    // Cleanup de verdade: guarda o id do timeout numa ref e limpa tanto antes
+    // de agendar um novo quanto no unmount — o closure que era retornado
+    // antes nunca era chamado por ninguém (a função não roda num useEffect).
+    const reabrirListaOSTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        return () => {
+            if (reabrirListaOSTimerRef.current) clearTimeout(reabrirListaOSTimerRef.current);
+        };
+    }, []);
+
     const handleSaveValidation = useCallback((_updatedRow: OSRowProps) => {
         setIsModalOSOpen(false);
         setSelectedOS(null);
         setIsModalListaOSOpen(false);
 
-        const timer = setTimeout(() => {
+        if (reabrirListaOSTimerRef.current) clearTimeout(reabrirListaOSTimerRef.current);
+        reabrirListaOSTimerRef.current = setTimeout(() => {
             setIsModalListaOSOpen(true);
         }, 50);
-
-        return () => clearTimeout(timer);
     }, []);
 
     const handleOpenSolicitacao = useCallback((chamado: ChamadoRowProps) => {
@@ -612,8 +624,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         data: dadosCompletosFiltrados,
         columns,
         getCoreRowModel: getCoreRowModel(),
-        state: { columnFilters },
+        state: { columnFilters, columnVisibility },
         onColumnFiltersChange: setColumnFilters,
+        onColumnVisibilityChange: setColumnVisibility,
         meta: { handleChamadoClick },
         enableColumnFilters: true,
         manualFiltering: false,
@@ -650,6 +663,8 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                     totalChamadosNaoFinalizados={totalChamadosNaoFinalizados}
                     totalGeralChamadosAPI={apiData?.totalChamados ?? 0}
                     status={status}
+                    table={table}
+                    columnVisibility={columnVisibility}
                 />
 
                 <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
@@ -666,13 +681,17 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                         >
                             <TableHeader
                                 table={table}
+                                columnVisibility={columnVisibility}
                                 columnWidths={columnWidths}
                                 handleMouseDown={handleMouseDown}
                                 handleDoubleClick={handleDoubleClick}
                                 resizingColumn={resizingColumn}
+                                sorting={sorting}
+                                onSortColumn={handleSortColumn}
                             />
                             <TableBody
                                 table={table}
+                                columnVisibility={columnVisibility}
                                 columns={columns}
                                 clearAllFilters={clearAllFilters}
                                 columnWidths={columnWidths}
@@ -681,7 +700,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                     </div>
                 </div>
 
-                {paginacaoServidor && paginacaoServidor.totalPages >= PAGINATION_LIMIT && (
+                {paginacaoServidor && paginacaoServidor.totalPages > 1 && (
                     <PaginationControls
                         currentPage={paginacaoServidor.page}
                         totalPages={paginacaoServidor.totalPages}
@@ -888,6 +907,71 @@ const PaginationControls = React.memo(function PaginationControls({
     );
 });
 
+// Rótulos das colunas opcionais, pro menu "Colunas" — mesmo texto usado nos
+// cabeçalhos da tabela (ver Colunas_Tabela_Chamados.tsx).
+const COLUNA_LABELS: Record<string, string> = {
+    DTENVIO_CHAMADO: 'Atribuição',
+    DTINI_CHAMADO: 'Início',
+    SLA_INFO: 'SLA',
+    HISTORICO: 'Histórico',
+    DATA_HISTCHAMADO: 'Finalização',
+    EMAIL_CHAMADO: 'Email',
+    NOME_CLASSIFICACAO: 'Classificação',
+    HORAS: 'Horas',
+};
+
+function ColumnVisibilityMenu({ table }: { table: any }) {
+    const [isOpen, setIsOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isOpen]);
+
+    const colunasOpcionais = table
+        .getAllLeafColumns()
+        .filter((col: any) => !COLUNAS_SEMPRE_VISIVEIS.has(col.id) && COLUNA_LABELS[col.id]);
+
+    return (
+        <div ref={menuRef} className="relative">
+            <button
+                onClick={() => setIsOpen((prev) => !prev)}
+                title="Mostrar/ocultar colunas"
+                className="group flex flex-shrink-0 cursor-pointer items-center gap-2 rounded-full border border-purple-300 bg-white px-3 py-2 text-sm font-extrabold tracking-widest text-black transition-all hover:scale-105 active:scale-95 lg:px-4 lg:py-3"
+            >
+                <MdChecklist size={16} className="transition-all group-hover:scale-110" />
+                <span className="hidden sm:inline">Colunas</span>
+            </button>
+
+            {isOpen && (
+                <div className="absolute top-full right-0 z-30 mt-2 w-56 rounded-md border border-gray-300 bg-white p-2 shadow-lg shadow-black/40">
+                    {colunasOpcionais.map((col: any) => (
+                        <label
+                            key={col.id}
+                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm font-semibold tracking-wide text-black select-none hover:bg-gray-100"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={col.getIsVisible()}
+                                onChange={col.getToggleVisibilityHandler()}
+                                className="cursor-pointer"
+                            />
+                            {COLUNA_LABELS[col.id]}
+                        </label>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 interface HeaderProps {
     totalChamadosFiltrados: number;
     totalOSFiltrados: number;
@@ -901,6 +985,13 @@ interface HeaderProps {
     totalChamadosNaoFinalizados: number;
     totalGeralChamadosAPI: number;
     status: string;
+    table: any;
+    // Não usado diretamente aqui — só existe pra forçar o React.memo a
+    // perceber a mudança quando o usuário marca/desmarca uma coluna
+    // (o objeto `table` do TanStack mantém a mesma referência entre
+    // renders, então sem isso o menu "Colunas" ficava com o checkbox
+    // desatualizado até o dropdown ser reaberto).
+    columnVisibility: Record<string, boolean>;
 }
 
 const Header = React.memo(function Header({
@@ -916,6 +1007,7 @@ const Header = React.memo(function Header({
     totalChamadosNaoFinalizados,
     totalGeralChamadosAPI,
     status,
+    table,
 }: HeaderProps) {
     const { contagemExibida, labelContagem } = useMemo(() => {
         const statusUpper = status?.trim().toUpperCase();
@@ -969,6 +1061,8 @@ const Header = React.memo(function Header({
                     </button>
                 )}
 
+                <ColumnVisibilityMenu table={table} />
+
                 <ExportarExcelTabelaChamados
                     data={filteredData}
                     codCliente={codCliente}
@@ -989,10 +1083,15 @@ const Header = React.memo(function Header({
 
 interface TableHeaderProps {
     table: any;
+    // Não usado no corpo — só força o React.memo a perceber quando
+    // colunas são mostradas/ocultadas (ver nota em HeaderProps).
+    columnVisibility: Record<string, boolean>;
     columnWidths: Record<string, number>;
     handleMouseDown: (e: React.MouseEvent, columnId: string) => void;
     handleDoubleClick: (columnId: string) => void;
     resizingColumn: string | null;
+    sorting: SortState | null;
+    onSortColumn: (columnId: string) => void;
 }
 
 const TableHeader = React.memo(function TableHeader({
@@ -1001,31 +1100,59 @@ const TableHeader = React.memo(function TableHeader({
     handleMouseDown,
     handleDoubleClick,
     resizingColumn,
+    sorting,
+    onSortColumn,
 }: TableHeaderProps) {
     return (
         <thead className="sticky top-0 z-20">
             {table.getHeaderGroups().map((headerGroup: any) => (
                 <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header: any, idx: number) => (
-                        <th
-                            key={header.id}
-                            className="relative bg-teal-600 p-4 shadow-md shadow-black"
-                            style={{ width: `${columnWidths[header.id]}px` }}
-                        >
-                            {header.isPlaceholder
-                                ? null
-                                : flexRender(header.column.columnDef.header, header.getContext())}
+                    {headerGroup.headers.map((header: any, idx: number) => {
+                        const isSortable = SORTABLE_COLUMNS.has(header.id);
+                        const isSorted = sorting?.id === header.id;
 
-                            {idx < headerGroup.headers.length - 1 && (
-                                <RedimensionarColunas
-                                    columnId={header.id}
-                                    onMouseDown={handleMouseDown}
-                                    onDoubleClick={handleDoubleClick}
-                                    isResizing={resizingColumn === header.id}
-                                />
-                            )}
-                        </th>
-                    ))}
+                        return (
+                            <th
+                                key={header.id}
+                                className="relative bg-teal-600 p-4 shadow-md shadow-black"
+                                style={{ width: `${columnWidths[header.id]}px` }}
+                            >
+                                {header.isPlaceholder ? null : isSortable ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => onSortColumn(header.id)}
+                                        className="flex w-full cursor-pointer items-center justify-center gap-1"
+                                        title="Ordenar"
+                                    >
+                                        {flexRender(
+                                            header.column.columnDef.header,
+                                            header.getContext()
+                                        )}
+                                        {isSorted ? (
+                                            sorting?.desc ? (
+                                                <MdArrowDownward size={16} className="text-white" />
+                                            ) : (
+                                                <MdArrowUpward size={16} className="text-white" />
+                                            )
+                                        ) : (
+                                            <MdUnfoldMore size={16} className="text-white/50" />
+                                        )}
+                                    </button>
+                                ) : (
+                                    flexRender(header.column.columnDef.header, header.getContext())
+                                )}
+
+                                {idx < headerGroup.headers.length - 1 && (
+                                    <RedimensionarColunas
+                                        columnId={header.id}
+                                        onMouseDown={handleMouseDown}
+                                        onDoubleClick={handleDoubleClick}
+                                        isResizing={resizingColumn === header.id}
+                                    />
+                                )}
+                            </th>
+                        );
+                    })}
                 </tr>
             ))}
         </thead>
@@ -1034,6 +1161,9 @@ const TableHeader = React.memo(function TableHeader({
 
 interface TableBodyProps {
     table: any;
+    // Não usado no corpo — só força o React.memo a perceber quando
+    // colunas são mostradas/ocultadas (ver nota em HeaderProps).
+    columnVisibility: Record<string, boolean>;
     columns: any;
     clearAllFilters: () => void;
     columnWidths: Record<string, number>;
@@ -1061,11 +1191,13 @@ const TableBody = React.memo(function TableBody({
 
     return (
         <tbody className="relative">
-            {rows.map((row: any) => (
+            {rows.map((row: any, rowIndex: number) => (
                 <tr
                     key={row.id}
                     data-chamado-id={row.original.COD_CHAMADO}
-                    className="transition-all hover:bg-teal-200"
+                    className={`transition-all hover:bg-teal-200 ${
+                        rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                    }`}
                 >
                     {row.getVisibleCells().map((cell: any, cellIndex: number) => (
                         <td

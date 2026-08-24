@@ -3,7 +3,6 @@
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { HorasAdicionaisResult } from '@/lib/os/calcular-horas-adicionais';
 import { ColumnDef } from '@tanstack/react-table';
 import React from 'react';
@@ -82,8 +81,7 @@ const setupTruncationTooltip = (el: HTMLDivElement | null, text: string) => {
 };
 
 const formatNomeRecurso = (value: string): string => {
-    const correctedText = corrigirTextoCorrompido(value);
-    const parts = correctedText.trim().split(/\s+/).filter(Boolean);
+    const parts = value.trim().split(/\s+/).filter(Boolean);
     return parts.length <= 2 ? parts.join(' ') : parts.slice(0, 2).join(' ');
 };
 
@@ -335,7 +333,6 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
             header: () => <CellHeaderOS>OBSERVAÇÃO</CellHeaderOS>,
             cell: ({ getValue, row, table }) => {
                 const value = getValue() as string | null;
-                const correctedText = corrigirTextoCorrompido(value);
                 const hasObservacao = value && value !== EMPTY_VALUE;
                 const handleOpenModalObs = table.options.meta?.handleOpenModalObs;
 
@@ -350,7 +347,7 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
                                 title="Visualizar observação completa"
                             />
                         )}
-                        <TruncatedCellOS value={correctedText} />
+                        <TruncatedCellOS value={value ?? ''} />
                     </div>
                 );
             },
@@ -376,7 +373,7 @@ export const getColunasOS = (): ColumnDef<OSRowProps>[] => {
             cell: ({ getValue }) => {
                 const value = (getValue() as string) ?? EMPTY_VALUE;
                 if (value === EMPTY_VALUE) return <CellTextOS value={value} />;
-                return <TruncatedCellOS value={corrigirTextoCorrompido(value)} />;
+                return <TruncatedCellOS value={value} />;
             },
         },
 

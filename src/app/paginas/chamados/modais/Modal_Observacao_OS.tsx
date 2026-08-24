@@ -3,7 +3,6 @@
 'use client';
 
 import { formatarNumeros } from '@/formatters/formatar-numeros';
-import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 // =====================================================
 import { useState } from 'react';
 import { FaCheck } from 'react-icons/fa';
@@ -32,10 +31,8 @@ export function ModalObservacaoOS({
 }: ModalObservacaoOSProps) {
     const [copied, setCopied] = useState(false);
 
-    const observacaoCorrigida = corrigirTextoCorrompido(observacao);
-
     const handleCopy = () => {
-        navigator.clipboard.writeText(observacaoCorrigida);
+        navigator.clipboard.writeText(observacao);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -78,7 +75,7 @@ export function ModalObservacaoOS({
                     <div className="rounded-md border bg-white p-6 text-justify tracking-widest text-black shadow-md shadow-black select-none">
                         <p className="mb-2 font-bold">Observação:</p>
                         <p className="ml-4 text-sm font-semibold">
-                            {observacaoCorrigida || 'Sem observação'}
+                            {observacao || 'Sem observação'}
                         </p>
                     </div>
                     {/* = */}

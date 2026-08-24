@@ -5,7 +5,6 @@ import { useEffect, useState } from 'react';
 import { IoClose } from 'react-icons/io5';
 import { MdCalendarMonth, MdExpandLess, MdExpandMore, MdFilterAlt } from 'react-icons/md';
 import { useDebounce } from 'use-debounce';
-import { corrigirTextoCorrompido } from '../formatters/formatar-texto-corrompido';
 import { useFiltersStore } from '../store/useFiltersStore';
 import { Relogio } from './Relogio';
 
@@ -29,11 +28,10 @@ function limitarNome(nome: string, maxPalavras: number = 2): string {
     return palavras.slice(0, maxPalavras).join(' ');
 }
 
-// Processa o nome corrigindo texto corrompido e limitando palavras
+// Processa o nome limitando o número de palavras exibidas
 function processarNome(nome: string, maxPalavras: number = 2): string {
     if (!nome || typeof nome !== 'string') return '';
-    const nomeCorrigido = corrigirTextoCorrompido(nome);
-    return limitarNome(nomeCorrigido, maxPalavras);
+    return limitarNome(nome, maxPalavras);
 }
 
 // ==================== FUNÇÕES DE FETCH ====================

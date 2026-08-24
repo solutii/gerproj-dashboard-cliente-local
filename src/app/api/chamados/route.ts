@@ -21,6 +21,7 @@ export interface Chamado {
     EMAIL_CHAMADO: string | null;
     PRIOR_CHAMADO: number;
     COD_CLASSIFICACAO: number;
+    COD_RECURSO?: number | null;
     NOME_CLIENTE?: string | null;
     NOME_RECURSO?: string | null;
     NOME_CLASSIFICACAO?: string | null;
@@ -54,6 +55,8 @@ interface QueryParams {
     page: number;
     limit: number;
     columnFilters?: Record<string, string>;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
 }
 
 interface ChamadoRaw {
@@ -69,6 +72,7 @@ interface ChamadoRaw {
     EMAIL_CHAMADO: string | null;
     PRIOR_CHAMADO: number;
     COD_CLASSIFICACAO: number;
+    COD_RECURSO?: number | null;
     NOME_CLIENTE?: string | null;
     NOME_RECURSO?: string | null;
     NOME_CLASSIFICACAO?: string | null;
@@ -171,6 +175,7 @@ const CAMPOS_CHAMADO_BASE_SELECT = `CHAMADO.COD_CHAMADO,
     CHAMADO.EMAIL_CHAMADO,
     CHAMADO.PRIOR_CHAMADO,
     CHAMADO.COD_CLASSIFICACAO,
+    CHAMADO.COD_RECURSO,
     CLIENTE.NOME_CLIENTE,
     RECURSO.NOME_RECURSO,
     CLASSIFICACAO.NOME_CLASSIFICACAO,
@@ -191,6 +196,7 @@ const CAMPOS_CHAMADO_BASE_GROUPBY = `CHAMADO.COD_CHAMADO,
     CHAMADO.EMAIL_CHAMADO,
     CHAMADO.PRIOR_CHAMADO,
     CHAMADO.COD_CLASSIFICACAO,
+    CHAMADO.COD_RECURSO,
     CLIENTE.NOME_CLIENTE,
     RECURSO.NOME_RECURSO,
     CLASSIFICACAO.NOME_CLASSIFICACAO,
@@ -198,6 +204,55 @@ const CAMPOS_CHAMADO_BASE_GROUPBY = `CHAMADO.COD_CHAMADO,
     HISTCHAMADO.HORA_HISTCHAMADO,
     HISTCHAMADO_INICIO.DATA_HISTCHAMADO,
     HISTCHAMADO_INICIO.HORA_HISTCHAMADO`;
+
+// ==================== ORDENAÇÃO (allowlist — nunca interpolar nome de coluna vindo do cliente) ====================
+// Mapeia o id de coluna do front-end pra expressão SQL real. `buscarChamadosTodos`
+// (status=TODOS) usa um subconjunto — só colunas que já vivem direto em CHAMADO,
+// sem exigir join extra na query leve de IDs (ver SORT_COLUMNS_TODOS).
+const SORT_COLUMN_MAP: Record<string, string> = {
+    COD_CHAMADO: 'CHAMADO.COD_CHAMADO',
+    DATA_CHAMADO: 'CHAMADO.DATA_CHAMADO',
+    DTENVIO_CHAMADO: 'CHAMADO.DTENVIO_CHAMADO',
+    DTINI_CHAMADO: 'CHAMADO.DTINI_CHAMADO',
+    ASSUNTO_CHAMADO: 'CHAMADO.ASSUNTO_CHAMADO',
+    STATUS_CHAMADO: 'CHAMADO.STATUS_CHAMADO',
+    PRIOR_CHAMADO: 'CHAMADO.PRIOR_CHAMADO',
+    EMAIL_CHAMADO: 'CHAMADO.EMAIL_CHAMADO',
+    NOME_RECURSO: 'RECURSO.NOME_RECURSO',
+    NOME_CLASSIFICACAO: 'CLASSIFICACAO.NOME_CLASSIFICACAO',
+};
+
+const SORT_COLUMNS_TODOS = new Set([
+    'COD_CHAMADO',
+    'DATA_CHAMADO',
+    'DTENVIO_CHAMADO',
+    'DTINI_CHAMADO',
+    'ASSUNTO_CHAMADO',
+    'STATUS_CHAMADO',
+    'PRIOR_CHAMADO',
+    'EMAIL_CHAMADO',
+]);
+
+// ==================== FILTRO POR DATA (dia único) ====================
+// Recebe "DD/MM/AAAA" (mesmo formato que o front-end já usa em toda a tela)
+// e devolve um intervalo [início, fim) no formato "DD.MM.AAAA" usado pelas
+// comparações >=/< já existentes neste arquivo contra colunas TIMESTAMP.
+const construirRangeDataUnico = (dataBR: string): { inicio: string; fim: string } | null => {
+    const match = dataBR.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (!match) return null;
+
+    const [, dia, mes, ano] = match;
+    const dataObj = new Date(Number(ano), Number(mes) - 1, Number(dia));
+    if (isNaN(dataObj.getTime())) return null;
+
+    const proximoDia = new Date(dataObj);
+    proximoDia.setDate(proximoDia.getDate() + 1);
+
+    const fmt = (d: Date) =>
+        `${d.getDate().toString().padStart(2, '0')}.${(d.getMonth() + 1).toString().padStart(2, '0')}.${d.getFullYear()}`;
+
+    return { inicio: fmt(dataObj), fim: fmt(proximoDia) };
+};
 
 const CAMPOS_AVALIACAO_SELECT = `,
     CHAMADO.AVALIA_CHAMADO,
@@ -273,6 +328,13 @@ const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
         }
     }
 
+    // Ordenação: só aceita coluna presente na allowlist — qualquer outro
+    // valor é ignorado silenciosamente (cai no ORDER BY padrão), nunca
+    // gera erro nem é interpolado direto na SQL.
+    const sortByRaw = sp.get('sortBy')?.trim();
+    const sortBy = sortByRaw && SORT_COLUMN_MAP[sortByRaw] ? sortByRaw : undefined;
+    const sortDir = sp.get('sortDir') === 'asc' ? 'asc' : 'desc';
+
     return {
         codCliente,
         mes,
@@ -284,6 +346,8 @@ const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
         page,
         limit,
         columnFilters,
+        sortBy,
+        sortDir,
     };
 };
 
@@ -376,14 +440,10 @@ const construirWherePrincipal = (
         }
 
         if (cf.DATA_CHAMADO) {
-            const v = cf.DATA_CHAMADO.replace(/\D/g, '');
-            if (v) {
-                whereClauses.push(`(
-                    CAST(EXTRACT(DAY FROM CHAMADO.DATA_CHAMADO) AS VARCHAR(2)) ||
-                    CAST(EXTRACT(MONTH FROM CHAMADO.DATA_CHAMADO) AS VARCHAR(2)) ||
-                    CAST(EXTRACT(YEAR FROM CHAMADO.DATA_CHAMADO) AS VARCHAR(4))
-                ) LIKE ?`);
-                whereParams.push(`%${v}%`);
+            const range = construirRangeDataUnico(cf.DATA_CHAMADO);
+            if (range) {
+                whereClauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
+                whereParams.push(range.inicio, range.fim);
             }
         }
 
@@ -411,14 +471,33 @@ const construirWherePrincipal = (
         }
 
         if (cf.DTENVIO_CHAMADO) {
-            const v = cf.DTENVIO_CHAMADO.replace(/\D/g, '');
-            if (v) {
-                whereClauses.push(`(
-                    CAST(EXTRACT(DAY FROM CHAMADO.DTENVIO_CHAMADO) AS VARCHAR(2)) ||
-                    CAST(EXTRACT(MONTH FROM CHAMADO.DTENVIO_CHAMADO) AS VARCHAR(2)) ||
-                    CAST(EXTRACT(YEAR FROM CHAMADO.DTENVIO_CHAMADO) AS VARCHAR(4))
-                ) LIKE ?`);
-                whereParams.push(`%${v}%`);
+            // DTENVIO_CHAMADO é VARCHAR "DD/MM/AAAA HH:MM" (não TIMESTAMP) —
+            // comparação direta de prefixo, sem EXTRACT.
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(cf.DTENVIO_CHAMADO)) {
+                whereClauses.push(`CHAMADO.DTENVIO_CHAMADO LIKE ?`);
+                whereParams.push(`${cf.DTENVIO_CHAMADO}%`);
+            }
+        }
+
+        if (cf.DTINI_CHAMADO) {
+            const range = construirRangeDataUnico(cf.DTINI_CHAMADO);
+            if (range) {
+                whereClauses.push(`(CHAMADO.DTINI_CHAMADO >= ? AND CHAMADO.DTINI_CHAMADO < ?)`);
+                whereParams.push(range.inicio, range.fim);
+            }
+        }
+
+        if (cf.DATA_HISTCHAMADO) {
+            // Compara direto contra o HISTCHAMADO já resolvido pelo join
+            // HIST_MAX (sempre presente em sqlChamados e, agora, também em
+            // buildCountQuery — ver histMaxJoin). Uma subquery correlacionada
+            // aqui (testada e revertida) deu timeout no banco de produção.
+            const range = construirRangeDataUnico(cf.DATA_HISTCHAMADO);
+            if (range) {
+                whereClauses.push(
+                    `(HISTCHAMADO.DATA_HISTCHAMADO >= ? AND HISTCHAMADO.DATA_HISTCHAMADO < ?)`
+                );
+                whereParams.push(range.inicio, range.fim);
             }
         }
 
@@ -495,12 +574,55 @@ const buscarChamadosTodos = async (
             p.push(parseInt(params.codChamadoFilter));
         }
 
-        const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+        // Filtros do painel de Filtros — mesmos campos que `construirWherePrincipal`
+        // já suporta no caminho normal (não-TODOS), replicados aqui pro modo TODOS.
+        const cf = params.columnFilters;
+        if (cf?.PRIOR_CHAMADO) {
+            const v = cf.PRIOR_CHAMADO.replace(/\D/g, '');
+            if (v) {
+                clauses.push(`CHAMADO.PRIOR_CHAMADO = ?`);
+                p.push(parseInt(v));
+            }
+        }
 
+        if (cf?.DATA_CHAMADO) {
+            const range = construirRangeDataUnico(cf.DATA_CHAMADO);
+            if (range) {
+                clauses.push(`(CHAMADO.DATA_CHAMADO >= ? AND CHAMADO.DATA_CHAMADO < ?)`);
+                p.push(range.inicio, range.fim);
+            }
+        }
+
+        if (cf?.DTENVIO_CHAMADO && /^\d{2}\/\d{2}\/\d{4}$/.test(cf.DTENVIO_CHAMADO)) {
+            clauses.push(`CHAMADO.DTENVIO_CHAMADO LIKE ?`);
+            p.push(`${cf.DTENVIO_CHAMADO}%`);
+        }
+
+        if (cf?.DTINI_CHAMADO) {
+            const range = construirRangeDataUnico(cf.DTINI_CHAMADO);
+            if (range) {
+                clauses.push(`(CHAMADO.DTINI_CHAMADO >= ? AND CHAMADO.DTINI_CHAMADO < ?)`);
+                p.push(range.inicio, range.fim);
+            }
+        }
+
+        // NOME_CLASSIFICACAO precisa de join — só adicionado quando o filtro está ativo
+        const classificacaoJoin = cf?.NOME_CLASSIFICACAO
+            ? `LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO`
+            : '';
+        if (cf?.NOME_CLASSIFICACAO) {
+            clauses.push(`CLASSIFICACAO.NOME_CLASSIFICACAO = ?`);
+            p.push(cf.NOME_CLASSIFICACAO);
+        }
+
+        // Em 'finalizados' este join sempre roda (TODOS exige mes/ano, logo
+        // dataInicio/dataFim sempre presentes) — dá pra comparar a data de
+        // finalização direto contra ele, sem subquery correlacionada (uma
+        // tentativa anterior com IN(SELECT...) deu timeout no banco real).
         const histJoin =
             modo === 'finalizados' && dataInicio && dataFim
                 ? `INNER JOIN (
-                SELECT COD_CHAMADO
+                SELECT COD_CHAMADO, MAX(DATA_HISTCHAMADO) AS DATA_HISTCHAMADO_FINAL
                 FROM HISTCHAMADO
                 WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
                 AND DATA_HISTCHAMADO >= '${dataInicio}'
@@ -509,10 +631,34 @@ const buscarChamadosTodos = async (
             ) HIST_MAX_JOIN ON CHAMADO.COD_CHAMADO = HIST_MAX_JOIN.COD_CHAMADO`
                 : '';
 
+        if (cf?.DATA_HISTCHAMADO) {
+            if (modo === 'finalizados' && histJoin) {
+                const range = construirRangeDataUnico(cf.DATA_HISTCHAMADO);
+                if (range) {
+                    clauses.push(
+                        `(HIST_MAX_JOIN.DATA_HISTCHAMADO_FINAL >= ? AND HIST_MAX_JOIN.DATA_HISTCHAMADO_FINAL < ?)`
+                    );
+                    p.push(range.inicio, range.fim);
+                }
+            } else if (modo === 'nao_finalizados') {
+                // Chamado não finalizado nunca tem data de finalização —
+                // filtro por essa data exclui o modo inteiro, sem custo.
+                clauses.push(`1=0`);
+            }
+        }
+
+        const where = clauses.length > 0 ? `WHERE ${clauses.join(' AND ')}` : '';
+
+        // Campos extras de ordenação: todos vivem direto em CHAMADO (ver
+        // SORT_COLUMNS_TODOS), então dá pra selecionar sempre sem custo — a
+        // query já é leve (só ids), sem agregações.
         const sql = `
-            SELECT CHAMADO.COD_CHAMADO, CHAMADO.DATA_CHAMADO, CHAMADO.HORA_CHAMADO
+            SELECT CHAMADO.COD_CHAMADO, CHAMADO.DATA_CHAMADO, CHAMADO.HORA_CHAMADO,
+                CHAMADO.DTENVIO_CHAMADO, CHAMADO.DTINI_CHAMADO, CHAMADO.ASSUNTO_CHAMADO,
+                CHAMADO.STATUS_CHAMADO, CHAMADO.PRIOR_CHAMADO, CHAMADO.EMAIL_CHAMADO
             FROM CHAMADO
             ${histJoin}
+            ${classificacaoJoin}
             ${where}
         `;
 
@@ -525,22 +671,28 @@ const buscarChamadosTodos = async (
         buildIdParams('nao_finalizados'),
     ];
 
+    interface IdRow {
+        COD_CHAMADO: number;
+        DATA_CHAMADO: Date;
+        HORA_CHAMADO: string;
+        DTENVIO_CHAMADO?: string | null;
+        DTINI_CHAMADO?: Date | null;
+        ASSUNTO_CHAMADO?: string | null;
+        STATUS_CHAMADO?: string | null;
+        PRIOR_CHAMADO?: number | null;
+        EMAIL_CHAMADO?: string | null;
+    }
+
     const [idsFin, idsNaoFin] = await Promise.all([
-        firebirdQuery<{ COD_CHAMADO: number; DATA_CHAMADO: Date; HORA_CHAMADO: string }>(
-            sqlFin,
-            pFin
-        ),
-        firebirdQuery<{ COD_CHAMADO: number; DATA_CHAMADO: Date; HORA_CHAMADO: string }>(
-            sqlNaoFin,
-            pNaoFin
-        ),
+        firebirdQuery<IdRow>(sqlFin, pFin),
+        firebirdQuery<IdRow>(sqlNaoFin, pNaoFin),
     ]);
 
     // ── PASSO 2: merge, dedup, ordena e pagina em memória ───────────────
     // (só IDs/datas, custo desprezível mesmo com 2.000 registros)
 
     const vistos = new Set<number>();
-    const merged: { COD_CHAMADO: number; DATA_CHAMADO: Date; HORA_CHAMADO: string }[] = [];
+    const merged: IdRow[] = [];
 
     for (const c of [...idsFin, ...idsNaoFin]) {
         if (!vistos.has(c.COD_CHAMADO)) {
@@ -549,7 +701,34 @@ const buscarChamadosTodos = async (
         }
     }
 
+    // Ordenação pedida (só colunas em SORT_COLUMNS_TODOS — as demais, como
+    // Consultor/Classificação, exigiriam join na query leve de IDs e ficam
+    // de fora deste modo por ora) — sempre com o desempate por
+    // data/hora de abertura como no comportamento padrão.
+    const sortDirMult = params.sortDir === 'asc' ? 1 : -1;
+    const compararPorCampo = (a: IdRow, b: IdRow, campo: string): number => {
+        if (campo === 'DATA_CHAMADO' || campo === 'DTENVIO_CHAMADO' || campo === 'DTINI_CHAMADO') {
+            const av = a[campo as 'DATA_CHAMADO']
+                ? new Date(a[campo as 'DATA_CHAMADO']!).getTime()
+                : 0;
+            const bv = b[campo as 'DATA_CHAMADO']
+                ? new Date(b[campo as 'DATA_CHAMADO']!).getTime()
+                : 0;
+            return av - bv;
+        }
+        if (campo === 'COD_CHAMADO' || campo === 'PRIOR_CHAMADO') {
+            return (Number(a[campo]) || 0) - (Number(b[campo]) || 0);
+        }
+        return String(a[campo as 'ASSUNTO_CHAMADO'] ?? '').localeCompare(
+            String(b[campo as 'ASSUNTO_CHAMADO'] ?? '')
+        );
+    };
+
     merged.sort((a, b) => {
+        if (params.sortBy && SORT_COLUMNS_TODOS.has(params.sortBy)) {
+            const diff = compararPorCampo(a, b, params.sortBy) * sortDirMult;
+            if (diff !== 0) return diff;
+        }
         const diff = new Date(b.DATA_CHAMADO).getTime() - new Date(a.DATA_CHAMADO).getTime();
         if (diff !== 0) return diff;
         return (b.HORA_CHAMADO ?? '').localeCompare(a.HORA_CHAMADO ?? '');
@@ -667,6 +846,11 @@ const buscarChamados = async (
     const { whereClauses, whereParams } = construirWherePrincipal(params, dataInicio, dataFim);
     const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
+    const sortColumn = params.sortBy ? SORT_COLUMN_MAP[params.sortBy] : undefined;
+    const orderByClause = sortColumn
+        ? `ORDER BY ${sortColumn} ${params.sortDir === 'asc' ? 'ASC' : 'DESC'}`
+        : `ORDER BY CHAMADO.DATA_CHAMADO DESC, CHAMADO.HORA_CHAMADO DESC`;
+
     const offset = (params.page - 1) * params.limit;
 
     const osJoinType = dataInicio && dataFim ? 'INNER' : 'LEFT';
@@ -731,10 +915,10 @@ const buscarChamados = async (
     LEFT JOIN HISTCHAMADO HISTCHAMADO_INICIO ON HISTCHAMADO_INICIO.COD_HISTCHAMADO = HIST_INICIO.MAX_COD
     ${whereClause}
     GROUP BY ${camposGroupBy}
-    ORDER BY CHAMADO.DATA_CHAMADO DESC, CHAMADO.HORA_CHAMADO DESC
+    ${orderByClause}
     ROWS ${offset + 1} TO ${offset + params.limit}`;
 
-    const sqlCount = buildCountQuery(params, whereClause, osJoinType, dataInicio, dataFim);
+    const sqlCount = buildCountQuery(params, whereClause, osJoinType, histMaxJoin);
 
     const [chamados, countResult] = await Promise.all([
         firebirdQuery<ChamadoRaw>(sqlChamados, [...whereParams]),
@@ -751,8 +935,7 @@ const buildCountQuery = (
     params: QueryParams,
     whereClause: string,
     osJoinType: string,
-    dataInicio: string | null,
-    dataFim: string | null
+    histMaxJoin: string
 ): string => {
     let joins = `${osJoinType} JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))\n`;
     joins += `${osJoinType} JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1\n`;
@@ -765,9 +948,12 @@ const buildCountQuery = (
         joins += `LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO\n`;
     }
 
-    if (params.statusFilter?.toUpperCase() === 'FINALIZADO' && dataInicio && dataFim) {
-        joins += `INNER JOIN (SELECT COD_CHAMADO FROM HISTCHAMADO WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO' AND DATA_HISTCHAMADO >= '${dataInicio}' AND DATA_HISTCHAMADO < '${dataFim}' GROUP BY COD_CHAMADO) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO\n`;
-    }
+    // Mesmo join (mesmo alias HIST_MAX/HISTCHAMADO) que `sqlChamados` usa —
+    // recebido pronto do chamador pra garantir que o `whereClause`
+    // compartilhado (que pode referenciar HISTCHAMADO.DATA_HISTCHAMADO, ver
+    // cf.DATA_HISTCHAMADO em construirWherePrincipal) resolva igual nas duas
+    // queries, sem duplicar a lógica nem arriscar um alias divergente.
+    joins += `${histMaxJoin}\nLEFT JOIN HISTCHAMADO ON HISTCHAMADO.COD_HISTCHAMADO = HIST_MAX.MAX_COD\n`;
 
     return `SELECT COUNT(DISTINCT CHAMADO.COD_CHAMADO) AS TOTAL
 FROM CHAMADO
@@ -968,6 +1154,7 @@ const processarChamados = (chamados: ChamadoRaw[], incluirSLA: boolean): Chamado
             EMAIL_CHAMADO: c.EMAIL_CHAMADO || null,
             PRIOR_CHAMADO: c.PRIOR_CHAMADO ?? 100,
             COD_CLASSIFICACAO: c.COD_CLASSIFICACAO ?? 0,
+            COD_RECURSO: c.COD_RECURSO ?? null,
             NOME_CLIENTE: c.NOME_CLIENTE || null,
             NOME_RECURSO: c.NOME_RECURSO || null,
             NOME_CLASSIFICACAO: c.NOME_CLASSIFICACAO || null,

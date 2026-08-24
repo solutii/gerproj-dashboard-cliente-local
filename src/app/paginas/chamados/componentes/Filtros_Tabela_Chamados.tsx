@@ -3,7 +3,6 @@
 'use client';
 
 import { Relogio } from '@/components/Relogio';
-import { corrigirTextoCorrompido } from '@/formatters/formatar-texto-corrompido';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -118,8 +117,7 @@ function limitarNome(nome: string, maxPalavras: number = 2): string {
 
 function processarNome(nome: string, maxPalavras: number = 2): string {
     if (!nome || typeof nome !== 'string') return '';
-    const nomeCorrigido = corrigirTextoCorrompido(nome);
-    return limitarNome(nomeCorrigido, maxPalavras);
+    return limitarNome(nome, maxPalavras);
 }
 
 function extrairAnoDeData(dataChamado: string | Date | number | null | undefined): number | null {
