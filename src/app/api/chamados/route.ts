@@ -1,10 +1,21 @@
 // app/api/chamados/route.ts
 
+import { safeErrorMessage } from '@/lib/api-error';
 import { firebirdExecute, firebirdQuery } from '@/lib/firebird/firebird-client';
 import { sendMail } from '@/lib/mail/mailer';
-import { templateConfirmacaoChamado, templateNotificacaoSuporte } from '@/lib/mail/templates';
+import {
+    templateChamadoAtribuido,
+    templateChamadoEmAnalise,
+    templateChamadoRecebido,
+} from '@/lib/mail/templates';
+import { excedeuLimite, obterIp } from '@/lib/rate-limit';
 import { calcularStatusSLA, SLA_CONFIGS } from '@/lib/sla/sla-utils';
-import { enviarWhatsApp, montarMensagemChamado } from '@/lib/whatsapp/zap';
+import {
+    enviarWhatsApp,
+    montarMensagemChamadoAtribuido,
+    montarMensagemChamadoEmAnalise,
+    montarMensagemChamadoRecebido,
+} from '@/lib/whatsapp/zap';
 import { NextRequest, NextResponse } from 'next/server';
 
 // ==================== TIPOS ====================
@@ -604,6 +615,11 @@ const buscarChamadosTodos = async (
                 clauses.push(`(CHAMADO.DTINI_CHAMADO >= ? AND CHAMADO.DTINI_CHAMADO < ?)`);
                 p.push(range.inicio, range.fim);
             }
+        }
+
+        if (cf?.ASSUNTO_CHAMADO) {
+            clauses.push(`UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?)`);
+            p.push(`%${cf.ASSUNTO_CHAMADO}%`);
         }
 
         // NOME_CLASSIFICACAO precisa de join — só adicionado quando o filtro está ativo
@@ -1285,8 +1301,7 @@ export async function GET(request: NextRequest) {
             {
                 success: false,
                 error: 'Erro interno do servidor',
-                message: error instanceof Error ? error.message : 'Erro desconhecido',
-                details: process.env.NODE_ENV === 'development' ? error : undefined,
+                message: safeErrorMessage(error),
             },
             { status: 500 }
         );
@@ -1418,12 +1433,21 @@ async function inserirChamado(params: {
 // ─── POST: abre novo chamado em nome do cliente logado ────────────────────────
 export async function POST(request: NextRequest) {
     try {
+        const ip = obterIp(request);
+        if (excedeuLimite(`abrir-chamado:${ip}`, 10, 10 * 60 * 1000)) {
+            return NextResponse.json(
+                { error: 'Muitas solicitações. Tente novamente em alguns minutos.' },
+                { status: 429 }
+            );
+        }
+
         const {
             assunto,
             solicitacao,
             codCliente,
             solicitante,
             email,
+            emailLogin,
             telefone,
             codDepartamento,
             codArea,
@@ -1451,7 +1475,14 @@ export async function POST(request: NextRequest) {
         const codDepartamentoNum = Number(codDepartamento);
         const codAreaNum = Number(codArea);
         const codClassificacaoNum = Number(codClassificacao);
-        if (!codDepartamentoNum || !codAreaNum || !codClassificacaoNum) {
+        if (
+            codDepartamento == null ||
+            Number.isNaN(codDepartamentoNum) ||
+            codArea == null ||
+            Number.isNaN(codAreaNum) ||
+            codClassificacao == null ||
+            Number.isNaN(codClassificacaoNum)
+        ) {
             return NextResponse.json(
                 { error: 'Departamento, módulo e tipo de solicitação são obrigatórios.' },
                 { status: 400 }
@@ -1483,9 +1514,15 @@ export async function POST(request: NextRequest) {
         }
 
         let codRecursoFinal: number | null = null;
+        let emailRecurso = '';
+        let celRecurso = '';
         if (codRecursoSelecionado) {
-            const recursoValido = await firebirdQuery(
-                `SELECT COD_RECURSO FROM RECURSO WHERE COD_RECURSO = ? AND ATIVO_RECURSO = 1`,
+            const recursoValido = await firebirdQuery<{
+                COD_RECURSO: number;
+                EMAIL_RECURSO: string | null;
+                CEL_RECURSO: string | null;
+            }>(
+                `SELECT COD_RECURSO, EMAIL_RECURSO, CEL_RECURSO FROM RECURSO WHERE COD_RECURSO = ? AND ATIVO_RECURSO = 1`,
                 [Number(codRecursoSelecionado)]
             );
             if (recursoValido.length === 0) {
@@ -1495,6 +1532,8 @@ export async function POST(request: NextRequest) {
                 );
             }
             codRecursoFinal = Number(codRecursoSelecionado);
+            emailRecurso = (recursoValido[0].EMAIL_RECURSO ?? '').trim().toLowerCase();
+            celRecurso = (recursoValido[0].CEL_RECURSO ?? '').trim();
         }
 
         const codTarefaFinal = codTarefaSelecionada ? Number(codTarefaSelecionada) : null;
@@ -1502,7 +1541,7 @@ export async function POST(request: NextRequest) {
         const corpoHtml = montarCorpoHtml(solicitacao);
 
         const clienteRows = await firebirdQuery(
-            `SELECT SLA_CLIENTE, CEL_CLIENTE, ZAP_CLIENTE, NOME_CLIENTE FROM CLIENTE WHERE COD_CLIENTE = ?`,
+            `SELECT CEL_CLIENTE, ZAP_CLIENTE, NOME_CLIENTE FROM CLIENTE WHERE COD_CLIENTE = ?`,
             [codClienteFinal]
         );
         const cliente = clienteRows[0] as Record<string, unknown> | undefined;
@@ -1510,7 +1549,6 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Cliente não encontrado.' }, { status: 404 });
         }
 
-        const slaCliente = (cliente.SLA_CLIENTE as number) ?? 0;
         const celCliente = ((cliente.CEL_CLIENTE as string) ?? '').trim();
         const zapCliente = ((cliente.ZAP_CLIENTE as string) ?? 'NAO').trim().toUpperCase();
         const nomeCliente = ((cliente.NOME_CLIENTE as string) ?? '').trim();
@@ -1553,11 +1591,13 @@ export async function POST(request: NextRequest) {
                 envelopeFrom: emailSuporte,
                 to: emailSuporte,
                 subject: assuntoEmail,
-                html: templateNotificacaoSuporte({
+                html: templateChamadoRecebido({
                     codChamado: novoCod,
-                    assunto: assuntoLimpo,
-                    emailSolicitante,
                     nomeCliente,
+                    solicitante: solicitanteLimpo,
+                    emailSolicitante,
+                    telefoneSolicitante: telefoneLimpo,
+                    assunto: assuntoLimpo,
                     descricaoChamado: corpoHtml,
                 }),
                 replyTo: emailSolicitante || undefined,
@@ -1574,11 +1614,14 @@ export async function POST(request: NextRequest) {
                 await sendMail({
                     to: emailSolicitante,
                     subject: assuntoEmail,
-                    html: templateConfirmacaoChamado({
+                    html: templateChamadoEmAnalise({
                         codChamado: novoCod,
-                        assunto: assuntoLimpo,
+                        nomeCliente,
+                        solicitante: solicitanteLimpo,
                         emailSolicitante,
-                        slaCliente,
+                        telefoneSolicitante: telefoneLimpo,
+                        assunto: assuntoLimpo,
+                        descricaoChamado: corpoHtml,
                     }),
                 });
             } catch (mailErr) {
@@ -1589,49 +1632,151 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // WhatsApp para a equipe (CELCHAMADO do banco de parâmetros)
-        try {
-            const celRows = await firebirdQuery(
-                `SELECT VALOR_PARAMETRO FROM PARAMETROS WHERE DESCR_PARAMETRO = 'CELCHAMADO'`,
-                []
-            );
-            const celEquipe = (
-                (celRows[0] as Record<string, unknown>)?.VALOR_PARAMETRO as string
-            )?.trim();
-
-            if (celEquipe) {
-                await enviarWhatsApp(
-                    celEquipe,
-                    montarMensagemChamado({
+        // Confirmação também para o e-mail de login, se for diferente do e-mail
+        // digitado no formulário (podem ser a mesma pessoa usando um e-mail
+        // diferente pra contato) e do e-mail do suporte.
+        const emailLoginLimpo = ((emailLogin as string | undefined) ?? '').trim().toLowerCase();
+        if (
+            emailLoginLimpo &&
+            emailLoginLimpo !== emailSolicitante &&
+            emailLoginLimpo !== emailSuporte
+        ) {
+            try {
+                await sendMail({
+                    to: emailLoginLimpo,
+                    subject: assuntoEmail,
+                    html: templateChamadoEmAnalise({
                         codChamado: novoCod,
-                        emailCliente: emailSolicitante,
+                        nomeCliente,
+                        solicitante: solicitanteLimpo,
+                        emailSolicitante: emailLoginLimpo,
+                        telefoneSolicitante: telefoneLimpo,
                         assunto: assuntoLimpo,
-                        responsavel: solicitanteLimpo || undefined,
-                        telefone: telefoneLimpo || undefined,
-                        nomeEmpresa: nomeCliente || undefined,
+                        descricaoChamado: corpoHtml,
+                    }),
+                });
+            } catch (mailErr) {
+                console.error(
+                    '[chamados] Falha ao enviar confirmação para o e-mail de login:',
+                    mailErr
+                );
+            }
+        }
+
+        // E-mail para o recurso escolhido (só quando ADM abre o chamado já
+        // atribuindo um recurso responsável). Quem "atribui" é o suporte, não
+        // o solicitante — por isso o remetente aqui é o suporte, diferente da
+        // notificação para o próprio suporte (que usa o e-mail do cliente).
+        if (emailRecurso && emailRecurso !== emailSuporte) {
+            try {
+                await sendMail({
+                    from: emailSuporte,
+                    envelopeFrom: emailSuporte,
+                    to: emailRecurso,
+                    subject: assuntoEmail,
+                    html: templateChamadoAtribuido({
+                        codChamado: novoCod,
+                        assunto: assuntoLimpo,
+                        nomeCliente,
+                        solicitante: solicitanteLimpo,
+                        emailSolicitante,
+                        telefoneSolicitante: telefoneLimpo,
+                        descricaoChamado: corpoHtml,
+                    }),
+                    references: idMail,
+                    inReplyTo: idMail,
+                });
+            } catch (mailErr) {
+                console.error('[chamados] Falha ao enviar e-mail para o recurso:', mailErr);
+            }
+        }
+
+        // WhatsApp para o suporte (WHATSAPP_CEL_SUPORTE do .env)
+        try {
+            const celSuporte = (process.env.WHATSAPP_CEL_SUPORTE ?? '').trim();
+
+            if (celSuporte) {
+                await enviarWhatsApp(
+                    celSuporte,
+                    montarMensagemChamadoRecebido({
+                        codChamado: novoCod,
+                        nomeCliente,
+                        solicitante: solicitanteLimpo,
+                        emailSolicitante,
+                        telefoneSolicitante: telefoneLimpo,
+                        assunto: assuntoLimpo,
                     })
                 );
             }
         } catch (zapErr) {
-            console.error('[chamados] Erro ao enviar WhatsApp para a equipe:', zapErr);
+            console.error('[chamados] Erro ao enviar WhatsApp para o suporte:', zapErr);
         }
 
-        // WhatsApp para o cliente (somente se ZAP_CLIENTE = 'SIM')
-        if (zapCliente === 'SIM' && celCliente) {
+        // WhatsApp para o telefone digitado no formulário (sempre, se preenchido)
+        if (telefoneLimpo) {
+            try {
+                await enviarWhatsApp(
+                    telefoneLimpo,
+                    montarMensagemChamadoEmAnalise({
+                        codChamado: novoCod,
+                        nomeCliente,
+                        solicitante: solicitanteLimpo,
+                        emailSolicitante,
+                        telefoneSolicitante: telefoneLimpo,
+                        assunto: assuntoLimpo,
+                    })
+                );
+            } catch (zapErr) {
+                console.error(
+                    '[chamados] Erro ao enviar WhatsApp para o telefone do formulário:',
+                    zapErr
+                );
+            }
+        }
+
+        // WhatsApp também para o telefone cadastrado no cliente — só quando é um
+        // número DIFERENTE do digitado no formulário (evita duplicar a mesma
+        // mensagem) e o cliente tem ZAP_CLIENTE = 'SIM'. Se for o mesmo número,
+        // o envio acima já cobre; se ZAP_CLIENTE = 'NAO', dispara só pro formulário.
+        const somenteDigitos = (v: string) => v.replace(/\D/g, '');
+        const mesmoNumeroDoFormulario =
+            !!celCliente && somenteDigitos(celCliente) === somenteDigitos(telefoneLimpo);
+
+        if (celCliente && !mesmoNumeroDoFormulario && zapCliente === 'SIM') {
             try {
                 await enviarWhatsApp(
                     celCliente,
-                    montarMensagemChamado({
+                    montarMensagemChamadoEmAnalise({
                         codChamado: novoCod,
-                        emailCliente: emailSolicitante,
+                        nomeCliente,
+                        solicitante: solicitanteLimpo,
+                        emailSolicitante,
+                        telefoneSolicitante: telefoneLimpo,
                         assunto: assuntoLimpo,
-                        responsavel: solicitanteLimpo || undefined,
-                        telefone: telefoneLimpo || undefined,
-                        nomeEmpresa: nomeCliente || undefined,
                     })
                 );
             } catch (zapErr) {
                 console.error('[chamados] Erro ao enviar WhatsApp para o cliente:', zapErr);
+            }
+        }
+
+        // WhatsApp para o recurso escolhido (só quando ADM abre o chamado já
+        // atribuindo um recurso responsável).
+        if (celRecurso) {
+            try {
+                await enviarWhatsApp(
+                    celRecurso,
+                    montarMensagemChamadoAtribuido({
+                        codChamado: novoCod,
+                        nomeCliente,
+                        solicitante: solicitanteLimpo,
+                        emailSolicitante,
+                        telefoneSolicitante: telefoneLimpo,
+                        assunto: assuntoLimpo,
+                    })
+                );
+            } catch (zapErr) {
+                console.error('[chamados] Erro ao enviar WhatsApp para o recurso:', zapErr);
             }
         }
 

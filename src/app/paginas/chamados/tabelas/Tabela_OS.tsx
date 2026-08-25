@@ -7,14 +7,23 @@ import { ModalObservacaoOS } from '@/app/paginas/chamados/modais/Modal_Observaca
 import { IsError } from '@/components/IsError';
 import { IsLoading } from '@/components/IsLoading';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
+import { formatarHorasRelogio } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
+import { HorasAdicionaisResult } from '@/lib/os/calcular-horas-adicionais';
 import { useFiltersStore } from '@/store/useFiltersStore';
 import { useQuery } from '@tanstack/react-query';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import {
+    flexRender,
+    getCoreRowModel,
+    getSortedRowModel,
+    SortingState,
+    useReactTable,
+} from '@tanstack/react-table';
 // =====================================================
 import { useAuthStore } from '@/store/useAuthStore';
 import React, { useCallback, useMemo, useState } from 'react';
+import { FaSort, FaSortDown, FaSortUp } from 'react-icons/fa';
 import { IoClose } from 'react-icons/io5';
 import { TbFileInvoice } from 'react-icons/tb';
 import { getColunasOS, OSRowProps } from './Colunas_Tabela_OS';
@@ -34,9 +43,8 @@ const INITIAL_COLUMN_WIDTHS = {
     DTINI_OS: 130,
     HRINI_OS: 120,
     HRFIM_OS: 120,
-    TOTAL_HORAS_OS: 120,
     HORAS_ADICIONAL: 250,
-    OBS: 250,
+    OBS: 150,
     NOME_RECURSO: 250,
     NOME_TAREFA: 250,
     VALCLI_OS: 150,
@@ -56,6 +64,7 @@ interface ApiResponseOS {
     totais: {
         quantidade_OS: number;
         total_horas_chamado: number;
+        horas_adicional: HorasAdicionaisResult;
     };
     data: OSRowProps[];
 }
@@ -82,7 +91,6 @@ const createAuthHeaders = () => ({
     'Content-Type': 'application/json',
     'x-is-logged-in': localStorage.getItem('isLoggedIn') || 'false',
     'x-user-email': localStorage.getItem('userEmail') || '',
-    'x-cod-cliente': localStorage.getItem('codCliente') || '',
 });
 
 // ✅ NOVA FUNÇÃO: Extrair mês e ano da data do chamado
@@ -140,27 +148,16 @@ const fetchOSByChamado = async ({
         params.append('codCliente', codCliente);
     }
 
-    console.log('🔍 Fetchando OS:', {
-        codChamado,
-        codCliente,
-        mes,
-        ano,
-        url: `/api/chamados/${codChamado}/os?${params.toString()}`,
-    });
-
     const response = await fetch(`/api/chamados/${codChamado}/os?${params.toString()}`, {
         headers: createAuthHeaders(),
     });
 
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Erro na resposta da API:', errorData);
-        throw new Error(errorData.error || 'Erro ao carregar OS');
+        throw new Error(errorData.error || `Erro ao carregar OS (HTTP ${response.status})`);
     }
 
-    const data = await response.json();
-    console.log('✅ OS carregadas:', data);
-    return data;
+    return response.json();
 };
 
 // =====================================================
@@ -175,11 +172,9 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
     // Se não tiver dataChamado, usa os filtros ou data atual
     const { mes: mesExtraido, ano: anoExtraido } = useMemo(() => {
         if (dataChamado) {
-            console.log('📅 Usando data do chamado:', dataChamado);
             return extrairMesAnoDeData(dataChamado);
         }
 
-        console.log('📅 Usando filtros:', { mes: mesFiltro, ano: anoFiltro });
         return {
             mes: mesFiltro ?? new Date().getMonth() + 1,
             ano: anoFiltro ?? new Date().getFullYear(),
@@ -189,24 +184,11 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
     // Estados
     const [isModalObsOpen, setIsModalObsOpen] = useState(false);
     const [selectedOSForObs, setSelectedOSForObs] = useState<OSRowProps | null>(null);
+    const [sorting, setSorting] = useState<SortingState>([]);
 
     // Hook de redimensionamento
     const { columnWidths, handleMouseDown, handleDoubleClick, resizingColumn } =
         useRedimensionarColunas(INITIAL_COLUMN_WIDTHS);
-
-    // ✅ DEBUG: Log dos parâmetros quando o modal abre
-    React.useEffect(() => {
-        if (isOpen && codChamado) {
-            console.log('🔍 TabelaOS aberta com parâmetros:', {
-                isOpen,
-                codChamado,
-                dataChamado,
-                codCliente,
-                mes: mesExtraido,
-                ano: anoExtraido,
-            });
-        }
-    }, [isOpen, codChamado, dataChamado, codCliente, mesExtraido, anoExtraido]);
 
     // =====================================================
     // REACT QUERY
@@ -220,22 +202,10 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
                 mes: mesExtraido,
                 ano: anoExtraido,
             }),
-        enabled: isOpen && codChamado !== null,
+        enabled: isOpen && codChamado !== null && !!codCliente,
         staleTime: 5 * 60 * 1000,
         retry: 2,
     });
-
-    // ✅ DEBUG: Log do estado da query
-    React.useEffect(() => {
-        if (isOpen && codChamado) {
-            console.log('📊 Estado da Query:', {
-                isLoading,
-                error: error?.message,
-                hasData: !!data,
-                dataLength: data?.data?.length,
-            });
-        }
-    }, [isOpen, codChamado, isLoading, error, data]);
 
     // =====================================================
     // MEMOIZAÇÕES
@@ -290,7 +260,10 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
     const table = useReactTable<OSRowProps>({
         data: osData,
         columns,
+        state: { sorting },
+        onSortingChange: setSorting,
         getCoreRowModel: getCoreRowModel(),
+        getSortedRowModel: getSortedRowModel(),
         meta: {
             handleOpenModalObs,
             onSelectOS,
@@ -320,11 +293,6 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
         );
     }
 
-    // ✅ DEBUG: Verificar se não há dados
-    if (osData.length === 0) {
-        console.warn('⚠️ Nenhuma OS encontrada para o chamado', codChamado);
-    }
-
     // =====================================================
     // RENDERIZAÇÃO PRINCIPAL
     // =====================================================
@@ -335,6 +303,7 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
                     <ModalHeader
                         codChamado={codChamado}
                         dataChamado={dataChamadoFormatada}
+                        totais={data?.totais}
                         onClose={onClose}
                     />
 
@@ -385,7 +354,7 @@ interface ModalOverlayProps {
 
 const ModalOverlay = React.memo(function ModalOverlay({ children }: ModalOverlayProps) {
     return (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ease-out">
+        <div className="animate-in fade-in fixed inset-0 z-[110] flex items-center justify-center transition-all duration-200 ease-out">
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
             {children}
         </div>
@@ -407,34 +376,107 @@ const ModalContainer = React.memo(function ModalContainer({ children }: ModalCon
 interface ModalHeaderProps {
     codChamado: number;
     dataChamado: string;
+    totais?: ApiResponseOS['totais'];
     onClose: () => void;
 }
 
 const ModalHeader = React.memo(function ModalHeader({
     codChamado,
     dataChamado,
+    totais,
     onClose,
 }: ModalHeaderProps) {
     return (
-        <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
-            <div className="flex items-center gap-6">
-                <TbFileInvoice className="flex-shrink-0 text-white" size={60} />
-                <div className="flex flex-col gap-1 tracking-widest text-white select-none">
-                    <h1 className="text-3xl font-extrabold">OS CHAMADO</h1>
-                    <p className="text-lg font-semibold">
-                        Chamado #{formatarNumeros(codChamado)} - {dataChamado}
-                    </p>
+        <header className="relative flex flex-shrink-0 flex-col gap-4 bg-teal-700 p-4 shadow-md shadow-black">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                    <TbFileInvoice className="flex-shrink-0 text-white" size={60} />
+                    <div className="flex flex-col gap-1 tracking-widest text-white select-none">
+                        <h1 className="text-3xl font-extrabold">OS CHAMADO</h1>
+                        <p className="text-lg font-semibold">
+                            Chamado #{formatarNumeros(codChamado)} - {dataChamado}
+                        </p>
+                    </div>
                 </div>
+
+                <button
+                    onClick={onClose}
+                    className="mr-2 flex-shrink-0 cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-red-500 hover:shadow-xl hover:shadow-black active:scale-95"
+                    aria-label="Fechar modal"
+                >
+                    <IoClose className="text-white" size={36} />
+                </button>
             </div>
 
-            <button
-                onClick={onClose}
-                className="mr-2 flex-shrink-0 cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 shadow-md shadow-black transition-all duration-200 hover:scale-125 hover:bg-red-500 hover:shadow-xl hover:shadow-black active:scale-95"
-                aria-label="Fechar modal"
-            >
-                <IoClose className="text-white" size={36} />
-            </button>
+            {totais && totais.quantidade_OS > 0 && (
+                <div className="flex flex-wrap items-center gap-3">
+                    <TotalPill
+                        color="black"
+                        label="Qtd. OS"
+                        value={formatarNumeros(totais.quantidade_OS)}
+                    />
+                    {totais.horas_adicional.horasSemAdicional > 0 && (
+                        <TotalPill
+                            color="green"
+                            label="Total Horas Comerciais"
+                            value={formatarHorasRelogio(
+                                totais.horas_adicional.horasSemAdicional
+                            )}
+                        />
+                    )}
+                    {totais.horas_adicional.horasComAdicional > 0 && (
+                        <TotalPill
+                            color="orange"
+                            label="Total Horas Não Comerciais"
+                            value={formatarHorasRelogio(
+                                totais.horas_adicional.horasComAdicional
+                            )}
+                        />
+                    )}
+                    {totais.horas_adicional.horasAdicionalGerado > 0 && (
+                        <TotalPill
+                            color="yellow"
+                            label="Total Horas Adicionais"
+                            value={formatarHorasRelogio(
+                                totais.horas_adicional.horasAdicionalGerado
+                            )}
+                        />
+                    )}
+                    <TotalPill
+                        color="purple"
+                        label="Total de Horas"
+                        value={formatarHorasRelogio(
+                            totais.horas_adicional.totalHorasEquivalente
+                        )}
+                    />
+                </div>
+            )}
         </header>
+    );
+});
+
+const TOTAL_PILL_COLORS = {
+    black: 'border-gray-700 bg-gray-900 text-white',
+    green: 'border-green-300 bg-green-100 text-green-700',
+    orange: 'border-orange-300 bg-orange-100 text-orange-700',
+    yellow: 'border-yellow-300 bg-yellow-100 text-yellow-700',
+    purple: 'border-purple-300 bg-purple-100 text-purple-700',
+} as const;
+
+interface TotalPillProps {
+    label: string;
+    value: string;
+    color: keyof typeof TOTAL_PILL_COLORS;
+}
+
+const TotalPill = React.memo(function TotalPill({ label, value, color }: TotalPillProps) {
+    return (
+        <div
+            className={`flex items-center gap-2 rounded-full border px-4 py-1.5 shadow-sm shadow-black select-none ${TOTAL_PILL_COLORS[color]}`}
+        >
+            <span className="text-xs font-bold tracking-wide uppercase">{label}</span>
+            <span className="text-sm font-extrabold tracking-wide">{value}</span>
+        </div>
     );
 });
 
@@ -518,28 +560,51 @@ const OSTableHeader = React.memo(function OSTableHeader({
         <thead className="sticky top-0 z-20">
             {table.getHeaderGroups().map((headerGroup: any) => (
                 <tr key={headerGroup.id}>
-                    {headerGroup.headers.map((header: any, idx: number) => (
-                        <th
-                            key={header.id}
-                            className={`relative bg-purple-600 p-4 shadow-md shadow-black ${
-                                idx === 0 ? 'rounded-tl-2xl' : ''
-                            } ${idx === headerGroup.headers.length - 1 ? 'rounded-tr-2xl' : ''}`}
-                            style={{
-                                width: `${columnWidths[header.id]}px`,
-                            }}
-                        >
-                            {flexRender(header.column.columnDef.header, header.getContext())}
+                    {headerGroup.headers.map((header: any, idx: number) => {
+                        const canSort = header.column.getCanSort();
+                        const sortDirection = header.column.getIsSorted();
 
-                            {idx < headerGroup.headers.length - 1 && (
-                                <RedimensionarColunas
-                                    columnId={header.id}
-                                    onMouseDown={handleMouseDown}
-                                    onDoubleClick={handleDoubleClick}
-                                    isResizing={resizingColumn === header.id}
-                                />
-                            )}
-                        </th>
-                    ))}
+                        return (
+                            <th
+                                key={header.id}
+                                className={`relative bg-purple-600 p-4 shadow-md shadow-black ${
+                                    idx === 0 ? 'rounded-tl-2xl' : ''
+                                } ${idx === headerGroup.headers.length - 1 ? 'rounded-tr-2xl' : ''} ${
+                                    canSort ? 'cursor-pointer select-none' : ''
+                                }`}
+                                style={{
+                                    width: `${columnWidths[header.id]}px`,
+                                }}
+                                onClick={
+                                    canSort ? header.column.getToggleSortingHandler() : undefined
+                                }
+                            >
+                                <div className="flex items-center justify-center gap-1.5">
+                                    {flexRender(
+                                        header.column.columnDef.header,
+                                        header.getContext()
+                                    )}
+                                    {canSort &&
+                                        (sortDirection === 'asc' ? (
+                                            <FaSortUp className="text-white/90" size={20} />
+                                        ) : sortDirection === 'desc' ? (
+                                            <FaSortDown className="text-white/90" size={20} />
+                                        ) : (
+                                            <FaSort className="text-white/50" size={17} />
+                                        ))}
+                                </div>
+
+                                {idx < headerGroup.headers.length - 1 && (
+                                    <RedimensionarColunas
+                                        columnId={header.id}
+                                        onMouseDown={handleMouseDown}
+                                        onDoubleClick={handleDoubleClick}
+                                        isResizing={resizingColumn === header.id}
+                                    />
+                                )}
+                            </th>
+                        );
+                    })}
                 </tr>
             ))}
         </thead>
@@ -560,7 +625,7 @@ const OSTableBody = React.memo(function OSTableBody({ table, columnWidths }: OST
                 <tr
                     key={row.id}
                     className={`transition-all ${
-                        idx % 2 === 0 ? 'bg-white' : 'bg-white'
+                        idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
                     } hover:bg-teal-200`}
                 >
                     {row.getVisibleCells().map((cell: any, cellIndex: number) => (

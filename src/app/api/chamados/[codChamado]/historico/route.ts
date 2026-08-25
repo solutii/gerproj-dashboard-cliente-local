@@ -1,4 +1,5 @@
 // app/api/chamados/[codChamado]/historico/route.ts
+import { safeErrorMessage } from '@/lib/api-error';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -69,7 +70,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json(
             {
                 error: 'Erro ao buscar histórico do chamado',
-                message: error instanceof Error ? error.message : 'Erro desconhecido',
+                message: safeErrorMessage(error),
             },
             { status: 500 }
         );

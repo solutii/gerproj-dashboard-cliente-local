@@ -1,7 +1,7 @@
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
-import { FaExclamationTriangle } from 'react-icons/fa';
+import { FaChartBar, FaExclamationTriangle } from 'react-icons/fa';
 import {
     Bar,
     BarChart,
@@ -110,6 +110,17 @@ const ChartCard: React.FC<ChartCardProps> = ({ title, children, variant = 'prima
             {title}
         </h3>
         {children}
+    </div>
+);
+
+// Estado vazio dentro do ChartCard — evita o gráfico simplesmente sumir da
+// tela sem explicação quando não há dados no período filtrado.
+const ChartEmptyState = () => (
+    <div className="flex h-[300px] flex-col items-center justify-center gap-2 sm:h-[320px] lg:h-[350px]">
+        <FaChartBar className="text-gray-300" size={28} />
+        <span className="text-sm font-semibold tracking-widest text-gray-400 select-none">
+            Nenhum dado no período selecionado
+        </span>
     </div>
 );
 
@@ -325,7 +336,7 @@ export function Graficos({ filters }: FilterProps) {
     return (
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2 lg:gap-10">
             {/* Gráfico: Horas totais por Mês */}
-            {horasPorMes && horasPorMes.length > 0 && (
+            {horasPorMes && horasPorMes.length > 0 ? (
                 <ChartCard title={`Horas Totais por Mês - ${filters.ano}`} variant="primary">
                     <ResponsiveContainer
                         width="100%"
@@ -433,10 +444,14 @@ export function Graficos({ filters }: FilterProps) {
                         </div>
                     </div>
                 </ChartCard>
+            ) : (
+                <ChartCard title={`Horas Totais por Mês - ${filters.ano}`} variant="primary">
+                    <ChartEmptyState />
+                </ChartCard>
             )}
 
             {/* Gráfico: Evolução de Saldo */}
-            {dadosSaldo && dadosSaldo.historico && dadosSaldo.historico.length > 0 && (
+            {dadosSaldo && dadosSaldo.historico && dadosSaldo.historico.length > 0 ? (
                 <ChartCard
                     title={`Evolução de Saldo - ${dadosSaldo.nomeCliente}`}
                     variant="secondary"
@@ -688,10 +703,17 @@ export function Graficos({ filters }: FilterProps) {
                         </div>
                     </div>
                 </ChartCard>
+            ) : (
+                <ChartCard
+                    title={`Evolução de Saldo - ${dadosSaldo?.nomeCliente ?? ''}`}
+                    variant="secondary"
+                >
+                    <ChartEmptyState />
+                </ChartCard>
             )}
 
             {/* Gráfico: Evolução Diária de Horas */}
-            {horasPorDia && horasPorDia.length > 0 && (
+            {horasPorDia && horasPorDia.length > 0 ? (
                 <ChartCard
                     title={`Evolução Diária de Horas - ${filters.mes}/${filters.ano}`}
                     variant="quaternary"
@@ -769,10 +791,17 @@ export function Graficos({ filters }: FilterProps) {
                         </p>
                     </div>
                 </ChartCard>
+            ) : (
+                <ChartCard
+                    title={`Evolução Diária de Horas - ${filters.mes}/${filters.ano}`}
+                    variant="quaternary"
+                >
+                    <ChartEmptyState />
+                </ChartCard>
             )}
 
             {/* Gráfico: Horas por Recurso */}
-            {horasPorRecurso && horasPorRecurso.length > 0 && (
+            {horasPorRecurso && horasPorRecurso.length > 0 ? (
                 <ChartCard
                     title={`Horas por Recurso - ${filters.mes}/${filters.ano}`}
                     variant="quinary"
@@ -863,6 +892,13 @@ export function Graficos({ filters }: FilterProps) {
                             )}
                         </p>
                     </div>
+                </ChartCard>
+            ) : (
+                <ChartCard
+                    title={`Horas por Recurso - ${filters.mes}/${filters.ano}`}
+                    variant="quinary"
+                >
+                    <ChartEmptyState />
                 </ChartCard>
             )}
         </div>

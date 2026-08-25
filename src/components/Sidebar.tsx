@@ -15,6 +15,7 @@ import {
     IoChevronForward,
     IoClose,
     IoHome,
+    IoKey,
     IoLogOut,
     IoMenu,
     IoSparkles,
@@ -22,6 +23,7 @@ import {
 import { PiTimerFill } from 'react-icons/pi';
 import { useFiltersStore } from '../store/useFiltersStore';
 import { ModalAbrirChamado } from './abrir-chamado/Modal_Abrir_Chamado';
+import { ModalAlterarSenha } from './alterar-senha/Modal_Alterar_Senha';
 import { ModalSaldoHoras } from './saldo-horas/Modal_Saldo_Horas';
 
 // Chave única para reativar o botão "Abrir Chamado" quando o fluxo for liberado.
@@ -51,8 +53,8 @@ function NavItem({ href, label, icon: Icon, active, loading, showLabel, onClick 
                 showLabel ? 'justify-start gap-4' : 'justify-center gap-0'
             } ${
                 active
-                    ? '-translate-y-0.5 border-purple-400 bg-gradient-to-b from-purple-200 to-purple-100 shadow-[0_6px_14px_rgba(126,34,206,0.35),0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.7)]'
-                    : 'border-gray-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-gradient-to-b hover:from-cyan-50 hover:to-cyan-100/50 hover:shadow-md hover:shadow-cyan-900/10'
+                    ? '-translate-y-0.5 border-purple-500 bg-gradient-to-b from-purple-300 to-purple-200 shadow-[0_6px_14px_rgba(126,34,206,0.35),0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.7)]'
+                    : 'border-gray-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-purple-300 hover:bg-gradient-to-b hover:from-purple-50 hover:to-purple-100/50 hover:shadow-md hover:shadow-purple-900/10'
             } ${loading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}
         >
             {active && (
@@ -69,7 +71,7 @@ function NavItem({ href, label, icon: Icon, active, loading, showLabel, onClick 
                     <Icon className="h-6 w-6 text-purple-700" />
                 </div>
             ) : (
-                <Icon className="h-7 w-7 flex-shrink-0 text-gray-500 transition-colors duration-200 group-hover:text-cyan-700" />
+                <Icon className="h-7 w-7 flex-shrink-0 text-gray-500 transition-colors duration-200 group-hover:text-purple-700" />
             )}
 
             <span
@@ -113,8 +115,8 @@ function ActionButton({
                 disabled
                     ? 'cursor-not-allowed border-gray-200 bg-gray-100 opacity-50'
                     : variant === 'danger'
-                      ? 'cursor-pointer border-red-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-red-300 hover:bg-gradient-to-b hover:from-red-50 hover:to-red-100/60 hover:shadow-md hover:shadow-red-900/10'
-                      : 'cursor-pointer border-gray-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-cyan-300 hover:bg-gradient-to-b hover:from-cyan-50 hover:to-cyan-100/50 hover:shadow-md hover:shadow-cyan-900/10'
+                      ? 'cursor-pointer border-red-400 bg-red-100 shadow-sm hover:-translate-y-0.5 hover:border-red-500 hover:bg-gradient-to-b hover:from-red-200 hover:to-red-300/60 hover:shadow-md hover:shadow-red-900/10'
+                      : 'cursor-pointer border-gray-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-purple-300 hover:bg-gradient-to-b hover:from-purple-50 hover:to-purple-100/50 hover:shadow-md hover:shadow-purple-900/10'
             }`}
         >
             <Icon
@@ -123,7 +125,7 @@ function ActionButton({
                         ? 'text-gray-400'
                         : variant === 'danger'
                           ? 'text-red-600 group-hover:text-red-700'
-                          : 'text-gray-500 group-hover:text-cyan-700'
+                          : 'text-gray-500 group-hover:text-purple-700'
                 }`}
             />
             <span
@@ -154,8 +156,12 @@ export function Sidebar() {
     const [isExpanded, setIsExpanded] = useState(false);
     const [isModalSaldoOpen, setIsModalSaldoOpen] = useState(false);
     const [isModalAbrirChamadoOpen, setIsModalAbrirChamadoOpen] = useState(false);
+    const [isModalAlterarSenhaOpen, setIsModalAlterarSenhaOpen] = useState(false);
 
-    const { logout, codCliente } = useAuthStore();
+    const { logout, codCliente, loginType, tipoUsuario } = useAuthStore();
+    const podeAlterarSenha = loginType === 'cliente';
+    // Abrir chamado é restrito a clientes e consultores do tipo ADM.
+    const podeAbrirChamado = loginType === 'cliente' || tipoUsuario === 'ADM';
 
     const clearFilters = useFiltersStore((state) => state.clearFilters);
     const cliente = useFiltersStore((state) => state.filters.cliente);
@@ -257,7 +263,7 @@ export function Sidebar() {
     };
 
     const handleOpenAbrirChamadoModal = () => {
-        if (!codCliente) return;
+        if (!codCliente || !podeAbrirChamado) return;
 
         setIsModalAbrirChamadoOpen(true);
         if (isMobile) {
@@ -291,6 +297,12 @@ export function Sidebar() {
                     isOpen={isModalAbrirChamadoOpen}
                     onClose={() => setIsModalAbrirChamadoOpen(false)}
                 />
+                {podeAlterarSenha && (
+                    <ModalAlterarSenha
+                        isOpen={isModalAlterarSenhaOpen}
+                        onClose={() => setIsModalAlterarSenhaOpen(false)}
+                    />
+                )}
             </>
         );
     }
@@ -308,7 +320,7 @@ export function Sidebar() {
             )}
 
             <nav
-                className={`flex h-full flex-col rounded-2xl border border-purple-400 bg-purple-50 text-gray-900 shadow-[0_2px_4px_rgba(0,0,0,0.08),0_8px_16px_rgba(0,0,0,0.10),0_24px_48px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(0,0,0,0.06)] transition-all duration-300 ease-in-out ${
+                className={`flex h-full flex-col rounded-2xl border border-purple-400 bg-purple-100 text-gray-900 shadow-[0_2px_4px_rgba(0,0,0,0.08),0_8px_16px_rgba(0,0,0,0.10),0_24px_48px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(0,0,0,0.06)] transition-all duration-300 ease-in-out ${
                     isMobile
                         ? `fixed top-0 left-0 z-50 h-screen ${isOpen ? 'translate-x-0' : '-translate-x-full'} w-64 p-4`
                         : `relative ${isExpanded ? 'w-60 p-4' : 'w-[72px] p-3'}`
@@ -330,7 +342,7 @@ export function Sidebar() {
                 {!isMobile && (
                     <button
                         onClick={toggleExpanded}
-                        className="absolute top-8 right-0 z-[100] flex h-16 w-6 translate-x-full cursor-pointer items-center justify-center rounded-r-lg border border-l-0 border-cyan-600 bg-cyan-600 text-white shadow-lg shadow-black/25 transition-all duration-150 hover:w-7 hover:bg-cyan-700 active:scale-95"
+                        className="absolute top-8 right-0 z-[100] flex h-16 w-6 translate-x-full cursor-pointer items-center justify-center rounded-r-lg border border-l-0 border-purple-800 bg-purple-800 text-white shadow-lg shadow-black/25 transition-all duration-150 hover:w-7 hover:bg-purple-900 active:scale-95"
                         aria-label={isExpanded ? 'Recolher menu' : 'Expandir menu'}
                         title={isExpanded ? 'Recolher menu' : 'Expandir menu'}
                     >
@@ -395,7 +407,7 @@ export function Sidebar() {
                     </div>
 
                     {/* Divisor */}
-                    <div className="mb-4 h-px w-full bg-gray-200" />
+                    <div className="mb-4 h-px w-full bg-purple-300" />
 
                     {/* Links de Navegação */}
                     <div className="flex w-full flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto pt-1">
@@ -430,20 +442,22 @@ export function Sidebar() {
                         />
 
                         {/* Divisor entre navegação e ações */}
-                        <div className="my-3 h-px w-full bg-gray-200" />
+                        <div className="my-3 h-px w-full bg-purple-300" />
 
                         <ActionButton
                             label="Abrir Chamado"
                             icon={IoAddCircle}
                             onClick={handleOpenAbrirChamadoModal}
                             showLabel={showLabel}
-                            disabled={!ABRIR_CHAMADO_DISPONIVEL || !codCliente}
+                            disabled={!ABRIR_CHAMADO_DISPONIVEL || !codCliente || !podeAbrirChamado}
                             title={
                                 !ABRIR_CHAMADO_DISPONIVEL
                                     ? 'Indisponível no momento'
-                                    : !codCliente
-                                      ? 'Selecione um cliente para abrir um chamado'
-                                      : 'Abrir novo chamado'
+                                    : !podeAbrirChamado
+                                      ? 'Disponível apenas para clientes e consultores ADM'
+                                      : !codCliente
+                                        ? 'Selecione um cliente para abrir um chamado'
+                                        : 'Abrir novo chamado'
                             }
                         />
 
@@ -462,7 +476,7 @@ export function Sidebar() {
 
                         {exibeBotaoIA && (
                             <>
-                                <div className="my-3 h-px w-full bg-gray-200" />
+                                <div className="my-3 h-px w-full bg-purple-300" />
                                 <NavItem
                                     href="/paginas/ia"
                                     label="IA"
@@ -526,17 +540,31 @@ export function Sidebar() {
                         )}
                     </div>
 
+                    {/* Alterar Senha — só para usuários cliente */}
+                    {podeAlterarSenha && (
+                        <div className="mt-4">
+                            <ActionButton
+                                label="Alterar Senha"
+                                icon={IoKey}
+                                onClick={() => setIsModalAlterarSenhaOpen(true)}
+                                showLabel={showLabel}
+                            />
+                        </div>
+                    )}
+
                     {/* Divisor antes do logout */}
-                    <div className="mt-3 mb-1 h-px w-full bg-gray-200" />
+                    <div className="mt-4 mb-1 h-px w-full bg-purple-300" />
 
                     {/* Botão de Logout */}
-                    <ActionButton
-                        label="Sair"
-                        icon={IoLogOut}
-                        onClick={handleLogout}
-                        showLabel={showLabel}
-                        variant="danger"
-                    />
+                    <div className="mt-4">
+                        <ActionButton
+                            label="Sair"
+                            icon={IoLogOut}
+                            onClick={handleLogout}
+                            showLabel={showLabel}
+                            variant="danger"
+                        />
+                    </div>
                 </div>
             </nav>
 
@@ -548,6 +576,14 @@ export function Sidebar() {
                 isOpen={isModalAbrirChamadoOpen}
                 onClose={() => setIsModalAbrirChamadoOpen(false)}
             />
+
+            {/* Modal de Alterar Senha */}
+            {podeAlterarSenha && (
+                <ModalAlterarSenha
+                    isOpen={isModalAlterarSenhaOpen}
+                    onClose={() => setIsModalAlterarSenhaOpen(false)}
+                />
+            )}
         </>
     );
 }

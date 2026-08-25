@@ -57,27 +57,47 @@ export async function enviarWhatsApp(
     return text;
 }
 
-/**
- * Monta a mensagem de notificação de novo chamado,
- * equivalente ao sZapMsg do Delphi.
- */
-export function montarMensagemChamado(params: {
+interface MensagemChamadoParams {
     codChamado: number;
-    emailCliente: string;
+    nomeCliente: string;
+    solicitante: string;
+    emailSolicitante: string;
+    telefoneSolicitante: string;
     assunto: string;
-    responsavel?: string;
-    telefone?: string;
-    nomeEmpresa?: string;
-}): string {
-    const { codChamado, emailCliente, assunto, responsavel, telefone, nomeEmpresa } = params;
+}
+
+// Layout único reaproveitado pelas 3 mensagens — só o título de abertura muda
+// (mesmo padrão dos e-mails: mesma estrutura, texto diferente por destinatário).
+function montarMensagemChamado(titulo: string, params: MensagemChamadoParams): string {
+    const { codChamado, nomeCliente, solicitante, emailSolicitante, telefoneSolicitante, assunto } =
+        params;
     return (
-        `NOVO CHAMADO TÉCNICO ABERTO\n` +
-        `(Aberto pelo portal Solutii)\n\n` +
+        `${titulo}\n` +
+        `(Aberto pelo Portal Solutii)\n\n` +
         `Número: ${codChamado}\n` +
-        `Assunto: ${assunto}\n` +
-        (nomeEmpresa ? `Cliente: ${nomeEmpresa}\n` : '') +
-        (responsavel ? `Responsável: ${responsavel}\n` : '') +
-        `E-Mail: ${emailCliente}` +
-        (telefone ? `\nTel: ${telefone}` : '')
+        `Cliente: ${nomeCliente}\n` +
+        `Solicitante: ${solicitante}\n` +
+        `Email do solicitante: ${emailSolicitante}\n` +
+        `Telefone do solicitante: ${telefoneSolicitante || '-'}\n` +
+        `Assunto: ${assunto}\n\n` +
+        `Por favor, verifique seu email para mais informações`
     );
+}
+
+/** Mensagem de WhatsApp para o suporte — novo chamado recebido. */
+export function montarMensagemChamadoRecebido(params: MensagemChamadoParams): string {
+    return montarMensagemChamado('NOVO CHAMADO ABERTO', params);
+}
+
+/** Mensagem de WhatsApp para o cliente — confirmação de chamado em análise. */
+export function montarMensagemChamadoEmAnalise(params: MensagemChamadoParams): string {
+    return montarMensagemChamado('NOVO CHAMADO ABERTO', params);
+}
+
+/**
+ * Mensagem de WhatsApp para o recurso responsável, quando um ADM já abre o
+ * chamado atribuindo diretamente a ele.
+ */
+export function montarMensagemChamadoAtribuido(params: MensagemChamadoParams): string {
+    return montarMensagemChamado('NOVO CHAMADO ATRIBUÍDO', params);
 }

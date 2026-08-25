@@ -41,7 +41,7 @@ export function ModalObservacaoOS({
 
     // ==================== RENDERIZAÇÃO PRINCIPAL ====================
     return (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ease-out">
+        <div className="animate-in fade-in fixed inset-0 z-[120] flex items-center justify-center transition-all duration-200 ease-out">
             {/* OVERLAY */}
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 

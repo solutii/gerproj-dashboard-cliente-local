@@ -1,3 +1,4 @@
+import { safeErrorMessage } from '@/lib/api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { firebirdExecute } from '../../../lib/firebird/firebird-client';
 
@@ -68,7 +69,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
             {
                 error: 'Erro ao salvar validação no banco de dados',
-                details: error instanceof Error ? error.message : 'Erro desconhecido',
+                details: safeErrorMessage(error),
             },
             { status: 500 }
         );

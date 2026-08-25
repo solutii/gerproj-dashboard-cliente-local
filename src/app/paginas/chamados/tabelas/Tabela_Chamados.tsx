@@ -28,8 +28,8 @@ import {
 } from '@tanstack/react-table';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BsEraserFill } from 'react-icons/bs';
-import { FaEraser } from 'react-icons/fa';
-import { IoCall } from 'react-icons/io5';
+import { FaEraser, FaSearch } from 'react-icons/fa';
+import { IoCall, IoClose } from 'react-icons/io5';
 import {
     MdArrowDownward,
     MdArrowUpward,
@@ -155,6 +155,20 @@ declare module '@tanstack/react-table' {
 // =====================================================
 // FUNÇÕES UTILITÁRIAS
 // =====================================================
+const COLUMN_VISIBILITY_STORAGE_KEY = 'tabela-chamados:column-visibility';
+
+// Lê a preferência salva do usuário — undefined quando não há nenhuma ainda
+// (primeira visita) ou em SSR (sem acesso a localStorage).
+function lerColumnVisibilitySalva(): Record<string, boolean> | undefined {
+    if (typeof window === 'undefined') return undefined;
+    try {
+        const raw = window.localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
 const createAuthHeaders = () => ({
     'Content-Type': 'application/json',
     'x-is-logged-in': localStorage.getItem('isLoggedIn') || 'false',
@@ -273,8 +287,11 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     const [page, setPage] = useState(1);
     const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
     const [sorting, setSorting] = useState<SortState | null>(null);
-    const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>({});
-    const aplicouPadraoResponsivoRef = useRef(false);
+    const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(
+        () => lerColumnVisibilitySalva() ?? {}
+    );
+    // Se já existe preferência salva, não sobrescreve com o padrão responsivo.
+    const aplicouPadraoResponsivoRef = useRef(lerColumnVisibilitySalva() !== undefined);
 
     // Estados dos modais
     const [isModalListaOSOpen, setIsModalListaOSOpen] = useState(false);
@@ -491,6 +508,18 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         setColumnVisibility(Object.fromEntries(colunasOpcionais.map((id) => [id, false])));
     }, [isDesktop]);
 
+    // Persiste a escolha de colunas visíveis — sobrevive a reload/nova sessão.
+    useEffect(() => {
+        try {
+            window.localStorage.setItem(
+                COLUMN_VISIBILITY_STORAGE_KEY,
+                JSON.stringify(columnVisibility)
+            );
+        } catch {
+            // localStorage indisponível (modo privado, quota etc.) — ignora.
+        }
+    }, [columnVisibility]);
+
     // =====================================================
     // CALLBACKS
     // =====================================================
@@ -664,6 +693,8 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                     totalGeralChamadosAPI={apiData?.totalChamados ?? 0}
                     status={status}
                     table={table}
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
                     columnVisibility={columnVisibility}
                 />
 
@@ -986,6 +1017,8 @@ interface HeaderProps {
     totalGeralChamadosAPI: number;
     status: string;
     table: any;
+    columnFilters: ColumnFiltersState;
+    setColumnFilters: React.Dispatch<React.SetStateAction<ColumnFiltersState>>;
     // Não usado diretamente aqui — só existe pra forçar o React.memo a
     // perceber a mudança quando o usuário marca/desmarca uma coluna
     // (o objeto `table` do TanStack mantém a mesma referência entre
@@ -1008,7 +1041,32 @@ const Header = React.memo(function Header({
     totalGeralChamadosAPI,
     status,
     table,
+    columnFilters,
+    setColumnFilters,
 }: HeaderProps) {
+    // Busca por Assunto — texto local com debounce antes de refletir no
+    // columnFilters (que dispara a query pro servidor a cada mudança).
+    const buscaAssuntoAtual =
+        (columnFilters.find((f) => f.id === 'ASSUNTO_CHAMADO')?.value as string | undefined) ?? '';
+    const [buscaAssunto, setBuscaAssunto] = useState(buscaAssuntoAtual);
+
+    useEffect(() => {
+        setBuscaAssunto(buscaAssuntoAtual);
+    }, [buscaAssuntoAtual]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setColumnFilters((prev) => {
+                const semAssunto = prev.filter((f) => f.id !== 'ASSUNTO_CHAMADO');
+                const termo = buscaAssunto.trim();
+                return termo
+                    ? [...semAssunto, { id: 'ASSUNTO_CHAMADO', value: termo }]
+                    : semAssunto;
+            });
+        }, 400);
+        return () => clearTimeout(timer);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [buscaAssunto]);
     const { contagemExibida, labelContagem } = useMemo(() => {
         const statusUpper = status?.trim().toUpperCase();
         const filtrandoPorFinalizado = statusUpper === 'FINALIZADO';
@@ -1032,7 +1090,7 @@ const Header = React.memo(function Header({
     }, [status, totalGeralChamadosAPI, totalChamadosNaoFinalizados]);
 
     return (
-        <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 rounded-tl-4xl rounded-tr-4xl bg-purple-900 p-4 sm:p-6">
+        <header className="grid grid-cols-1 items-center gap-x-4 gap-y-3 rounded-tl-4xl rounded-tr-4xl bg-purple-900 p-4 sm:p-6 lg:grid-cols-[auto_1fr_auto]">
             <div className="flex items-center gap-4">
                 <IoCall className="text-white" size={50} />
                 <div className="flex items-center gap-10">
@@ -1047,7 +1105,33 @@ const Header = React.memo(function Header({
                 </div>
             </div>
 
-            <div className="flex items-center gap-6">
+            <div className="flex justify-center">
+                <div className="relative w-full max-w-xl">
+                    <FaSearch
+                        className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-gray-400"
+                        size={16}
+                    />
+                    <input
+                        type="text"
+                        value={buscaAssunto}
+                        onChange={(e) => setBuscaAssunto(e.target.value)}
+                        placeholder="Buscar chamados por assunto..."
+                        className="w-full rounded-full border border-purple-300 bg-white py-3 pr-10 pl-11 text-base font-semibold tracking-wide text-black placeholder:text-gray-400 focus:outline-none"
+                    />
+                    {buscaAssunto && (
+                        <button
+                            type="button"
+                            onClick={() => setBuscaAssunto('')}
+                            title="Limpar busca"
+                            className="absolute top-1/2 right-3.5 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-700"
+                        >
+                            <IoClose size={18} />
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-6">
                 {hasActiveFilters && (
                     <button
                         onClick={clearAllFilters}
@@ -1130,12 +1214,12 @@ const TableHeader = React.memo(function TableHeader({
                                         )}
                                         {isSorted ? (
                                             sorting?.desc ? (
-                                                <MdArrowDownward size={16} className="text-white" />
+                                                <MdArrowDownward size={24} className="text-white" />
                                             ) : (
-                                                <MdArrowUpward size={16} className="text-white" />
+                                                <MdArrowUpward size={24} className="text-white" />
                                             )
                                         ) : (
-                                            <MdUnfoldMore size={16} className="text-white/50" />
+                                            <MdUnfoldMore size={24} className="text-white/50" />
                                         )}
                                     </button>
                                 ) : (

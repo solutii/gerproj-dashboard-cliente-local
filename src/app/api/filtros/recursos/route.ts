@@ -1,3 +1,4 @@
+import { safeErrorMessage } from '@/lib/api-error';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextResponse } from 'next/server';
 
@@ -136,13 +137,8 @@ export async function GET(request: Request) {
         // Construir query com filtros
         const { sql: sqlFinal, params: sqlParams } = construirSQL(params, dataInicio, dataFim);
 
-        console.log('🔍 SQL Final:', sqlFinal);
-        console.log('📝 Params:', sqlParams);
-
         // Executar query
         const recursos = await firebirdQuery(sqlFinal, sqlParams);
-
-        console.log('✅ Total de recursos encontrados:', recursos.length);
 
         // Processar e ordenar recursos
         const recursosProcessados = processarRecursos(recursos);
@@ -156,9 +152,8 @@ export async function GET(request: Request) {
         return NextResponse.json(
             {
                 error: 'Erro ao buscar recursos',
-                message: error instanceof Error ? error.message : 'Erro desconhecido',
+                message: safeErrorMessage(error),
                 timestamp: new Date().toISOString(),
-                details: process.env.NODE_ENV === 'development' ? error : undefined,
             },
             { status: 500 }
         );

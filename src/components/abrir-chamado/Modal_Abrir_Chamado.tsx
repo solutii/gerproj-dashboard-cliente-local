@@ -4,7 +4,7 @@
 
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FaCheckCircle, FaFileExcel, FaFilePdf, FaFileWord, FaImage } from 'react-icons/fa';
 import { FiChevronDown, FiFile, FiLoader, FiPaperclip, FiSearch } from 'react-icons/fi';
 import { IoClose } from 'react-icons/io5';
@@ -20,6 +20,8 @@ const inputClass =
 
 const labelClass =
     'block select-none text-sm font-semibold tracking-wider text-black uppercase mb-1.5';
+
+const Obrigatorio = () => <span className="text-red-600">*</span>;
 
 const ALLOWED_TYPES = [
     'image/jpeg',
@@ -110,7 +112,7 @@ function SeletorBusca({
     valorSelecionado,
     onSelecionar,
 }: {
-    label: string;
+    label: ReactNode;
     placeholder: string;
     opcoes: Opcao[];
     loading: boolean;
@@ -204,7 +206,7 @@ interface ModalAbrirChamadoProps {
 }
 
 export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
-    const { codCliente, loginType, tipoUsuario } = useAuthStore();
+    const { codCliente, loginType, tipoUsuario, userEmail } = useAuthStore();
     const isAdmin = loginType === 'consultor' && tipoUsuario === 'ADM';
     const isDesktop = useIsDesktop();
 
@@ -245,6 +247,18 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
     const [tarefaSelecionada, setTarefaSelecionada] = useState<Opcao | null>(null);
 
     const clienteAtual = clientesAtivos.find((c) => String(c.cod) === codCliente) ?? null;
+
+    const clienteOk = isAdmin ? !!clienteAtual : !!codCliente;
+    const camposObrigatoriosPreenchidos =
+        clienteOk &&
+        solicitante.trim() !== '' &&
+        EMAIL_REGEX.test(email.trim()) &&
+        telefone.trim() !== '' &&
+        departamento !== null &&
+        area !== null &&
+        classificacao !== null &&
+        assunto.trim() !== '' &&
+        solicitacao.trim() !== '';
 
     const resetFormulario = () => {
         setSolicitante('');
@@ -419,6 +433,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                     codCliente,
                     solicitante,
                     email,
+                    emailLogin: userEmail,
                     telefone,
                     codDepartamento: departamento.cod,
                     codArea: area.cod,
@@ -576,10 +591,17 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                 </>
                             )}
 
+                            {/* Legenda de campos obrigatórios */}
+                            <p className="mb-5 text-xs font-semibold tracking-wider text-gray-500 select-none">
+                                <span className="text-red-600">*</span> Campos obrigatórios
+                            </p>
+
                             {/* Solicitante / Email / Telefone */}
                             <div className="mb-7 grid grid-cols-1 gap-7 sm:grid-cols-3">
                                 <div>
-                                    <label className={labelClass}>Solicitante:</label>
+                                    <label className={labelClass}>
+                                        Solicitante: <Obrigatorio />
+                                    </label>
                                     <input
                                         type="text"
                                         value={solicitante}
@@ -593,7 +615,9 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>E-mail:</label>
+                                    <label className={labelClass}>
+                                        E-mail: <Obrigatorio />
+                                    </label>
                                     <input
                                         type="email"
                                         value={email}
@@ -607,7 +631,9 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     />
                                 </div>
                                 <div>
-                                    <label className={labelClass}>Telefone:</label>
+                                    <label className={labelClass}>
+                                        Telefone: <Obrigatorio />
+                                    </label>
                                     <input
                                         type="tel"
                                         value={telefone}
@@ -625,7 +651,11 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                             {/* Departamento / Módulo */}
                             <div className="mb-7 grid grid-cols-1 gap-7 sm:grid-cols-2">
                                 <SeletorBusca
-                                    label="Departamento:"
+                                    label={
+                                        <>
+                                            Departamento: <Obrigatorio />
+                                        </>
+                                    }
                                     placeholder="Selecione o departamento"
                                     opcoes={opcoes.departamentos}
                                     loading={loadingOpcoes}
@@ -636,7 +666,11 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     }}
                                 />
                                 <SeletorBusca
-                                    label="Módulo:"
+                                    label={
+                                        <>
+                                            Módulo: <Obrigatorio />
+                                        </>
+                                    }
                                     placeholder="Selecione o módulo"
                                     opcoes={opcoes.areas}
                                     loading={loadingOpcoes}
@@ -669,7 +703,11 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     />
                                 </div>
                                 <SeletorBusca
-                                    label="Tipo de solicitação:"
+                                    label={
+                                        <>
+                                            Tipo de solicitação: <Obrigatorio />
+                                        </>
+                                    }
                                     placeholder="Selecione o tipo"
                                     opcoes={opcoes.classificacoes}
                                     loading={loadingOpcoes}
@@ -683,12 +721,14 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
 
                             {/* Assunto */}
                             <div className="mb-5">
-                                <label className={labelClass}>Assunto:</label>
+                                <label className={labelClass}>
+                                    Assunto: <Obrigatorio />
+                                </label>
                                 <input
                                     type="text"
                                     value={assunto}
                                     onChange={(e) => {
-                                        setAssunto(e.target.value);
+                                        setAssunto(capitalizarFrases(e.target.value));
                                         if (erro) setErro('');
                                     }}
                                     maxLength={150}
@@ -706,7 +746,9 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
 
                             {/* Descrição */}
                             <div className="mb-5">
-                                <label className={labelClass}>Descrição:</label>
+                                <label className={labelClass}>
+                                    Descrição: <Obrigatorio />
+                                </label>
                                 <textarea
                                     value={solicitacao}
                                     onChange={(e) => {
@@ -833,7 +875,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                 </button>
                                 <button
                                     onClick={handleSubmit}
-                                    disabled={loading}
+                                    disabled={loading || !camposObrigatoriosPreenchidos}
                                     className="flex flex-1 items-center justify-center gap-3 rounded-md bg-teal-700 py-2 font-semibold text-white shadow-md shadow-black transition-all duration-300 hover:-translate-y-1 hover:bg-teal-600 hover:shadow-none active:scale-95 disabled:cursor-not-allowed disabled:bg-teal-400 disabled:shadow-none"
                                 >
                                     {loading ? (

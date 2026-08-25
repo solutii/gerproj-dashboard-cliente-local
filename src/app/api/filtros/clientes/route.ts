@@ -1,4 +1,5 @@
 // app/api/filtros/clientes/route.ts - ATUALIZADO PARA SUPORTAR NOVOS FILTROS
+import { safeErrorMessage } from '@/lib/api-error';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextResponse } from 'next/server';
 
@@ -150,9 +151,8 @@ export async function GET(request: Request) {
         return NextResponse.json(
             {
                 error: 'Erro ao buscar clientes',
-                message: error instanceof Error ? error.message : 'Erro desconhecido',
+                message: safeErrorMessage(error),
                 timestamp: new Date().toISOString(),
-                details: process.env.NODE_ENV === 'development' ? error : undefined,
             },
             { status: 500 }
         );

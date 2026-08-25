@@ -1,4 +1,5 @@
 // app/api/chamados/[codChamado]/os/route.ts
+import { safeErrorMessage } from '@/lib/api-error';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import {
     agregarHorasAdicionais,
@@ -22,7 +23,6 @@ export interface OrdemServico {
     NOME_TAREFA?: string | null;
     NOME_CLIENTE?: string | null;
     TOTAL_HORAS_OS: number;
-    // ✅ NOVO: breakdown de horas com adicional
     HORAS_ADICIONAL: HorasAdicionaisResult;
 }
 
@@ -112,31 +112,22 @@ function validarAutorizacao(
     };
 }
 
-// ==================== BUSCAR DATA DO CHAMADO ====================
-async function buscarDataChamado(codChamado: number): Promise<Date | null> {
-    try {
-        const resultado = await firebirdQuery<{ DATA_CHAMADO: Date }>(
-            `SELECT DATA_CHAMADO FROM CHAMADO WHERE COD_CHAMADO = ?`,
-            [codChamado]
-        );
-        return resultado.length > 0 ? resultado[0].DATA_CHAMADO : null;
-    } catch (error) {
-        console.error('[API OS] Erro ao buscar data do chamado:', error);
-        return null;
-    }
+// ==================== BUSCAR DADOS DO CHAMADO (data + cliente, numa só query) ====================
+interface DadosChamado {
+    DATA_CHAMADO: Date;
+    COD_CLIENTE: number;
 }
 
-// ==================== VERIFICAR PERMISSÃO ====================
-async function verificarPermissaoChamado(codChamado: number, codCliente: number): Promise<boolean> {
+async function buscarDadosChamado(codChamado: number): Promise<DadosChamado | null> {
     try {
-        const resultado = await firebirdQuery<{ COD_CHAMADO: number }>(
-            `SELECT COD_CHAMADO FROM CHAMADO WHERE COD_CHAMADO = ? AND COD_CLIENTE = ?`,
-            [codChamado, codCliente]
+        const resultado = await firebirdQuery<DadosChamado>(
+            `SELECT DATA_CHAMADO, COD_CLIENTE FROM CHAMADO WHERE COD_CHAMADO = ?`,
+            [codChamado]
         );
-        return resultado.length > 0;
+        return resultado.length > 0 ? resultado[0] : null;
     } catch (error) {
-        console.error('[API OS] Erro ao verificar permissão do chamado:', error);
-        return false;
+        console.error('[API OS] Erro ao buscar dados do chamado:', error);
+        return null;
     }
 }
 
@@ -170,33 +161,33 @@ async function processarOrdemServico(
     state?: string,
     city?: string
 ): Promise<OrdemServico[]> {
-    const results: OrdemServico[] = [];
-    for (const item of os) {
-        const horasAdicional = await calcularHorasComAdicionalAsync(
-            item.DTINI_OS,
-            item.HRINI_OS,
-            item.HRFIM_OS,
-            { state, city }
-        );
+    return Promise.all(
+        os.map(async (item) => {
+            const horasAdicional = await calcularHorasComAdicionalAsync(
+                item.DTINI_OS,
+                item.HRINI_OS,
+                item.HRFIM_OS,
+                { state, city }
+            );
 
-        results.push({
-            COD_OS: item.COD_OS,
-            CODTRF_OS: item.CODTRF_OS,
-            DTINI_OS: item.DTINI_OS,
-            HRINI_OS: item.HRINI_OS,
-            HRFIM_OS: item.HRFIM_OS,
-            OBS: item.OBS || null,
-            NUM_OS: item.NUM_OS || null,
-            VALCLI_OS: item.VALCLI_OS || null,
-            OBSCLI_OS: item.OBSCLI_OS || null,
-            NOME_RECURSO: item.NOME_RECURSO || null,
-            NOME_TAREFA: item.NOME_TAREFA || null,
-            NOME_CLIENTE: item.NOME_CLIENTE || null,
-            TOTAL_HORAS_OS: calcularHorasTrabalhadas(item.HRINI_OS, item.HRFIM_OS),
-            HORAS_ADICIONAL: horasAdicional,
-        });
-    }
-    return results;
+            return {
+                COD_OS: item.COD_OS,
+                CODTRF_OS: item.CODTRF_OS,
+                DTINI_OS: item.DTINI_OS,
+                HRINI_OS: item.HRINI_OS,
+                HRFIM_OS: item.HRFIM_OS,
+                OBS: item.OBS || null,
+                NUM_OS: item.NUM_OS || null,
+                VALCLI_OS: item.VALCLI_OS || null,
+                OBSCLI_OS: item.OBSCLI_OS || null,
+                NOME_RECURSO: item.NOME_RECURSO || null,
+                NOME_TAREFA: item.NOME_TAREFA || null,
+                NOME_CLIENTE: item.NOME_CLIENTE || null,
+                TOTAL_HORAS_OS: calcularHorasTrabalhadas(item.HRINI_OS, item.HRFIM_OS),
+                HORAS_ADICIONAL: horasAdicional,
+            };
+        })
+    );
 }
 
 // ==================== HANDLER PRINCIPAL ====================
@@ -211,23 +202,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const auth = validarAutorizacao(searchParams, codChamadoValidado);
         if (auth instanceof NextResponse) return auth;
 
-        if (auth.codCliente) {
-            const temPermissao = await verificarPermissaoChamado(
-                codChamadoValidado,
-                auth.codCliente
-            );
-            if (!temPermissao) {
-                return NextResponse.json(
-                    { error: 'Você não tem permissão para acessar este chamado' },
-                    { status: 403 }
-                );
-            }
-        }
-
-        const [dataChamado, os] = await Promise.all([
-            buscarDataChamado(codChamadoValidado),
+        const [dadosChamado, os] = await Promise.all([
+            buscarDadosChamado(codChamadoValidado),
             firebirdQuery<any>(construirSQLBase(), [codChamado]),
         ]);
+
+        if (auth.codCliente && dadosChamado?.COD_CLIENTE !== auth.codCliente) {
+            return NextResponse.json(
+                { error: 'Você não tem permissão para acessar este chamado' },
+                { status: 403 }
+            );
+        }
+
+        const dataChamado = dadosChamado?.DATA_CHAMADO ?? null;
 
         const osProcessadas = await processarOrdemServico(os, 'MG', 'Belo Horizonte');
 
@@ -260,8 +247,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             {
                 success: false,
                 error: 'Erro interno do servidor',
-                message: error instanceof Error ? error.message : 'Erro desconhecido',
-                details: process.env.NODE_ENV === 'development' ? error : undefined,
+                message: safeErrorMessage(error),
             },
             { status: 500 }
         );

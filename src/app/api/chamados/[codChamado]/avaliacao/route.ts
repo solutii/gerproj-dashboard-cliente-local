@@ -1,4 +1,5 @@
 // app/api/chamados/[codChamado]/avaliacao/route.ts
+import { safeErrorMessage } from '@/lib/api-error';
 import { firebirdExecute, firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -161,11 +162,7 @@ async function salvarAvaliacao(
         return NextResponse.json(
             {
                 error: 'Erro ao salvar avaliação no banco de dados',
-                details: error instanceof Error ? error.message : 'Erro desconhecido',
-                stack:
-                    process.env.NODE_ENV === 'development' && error instanceof Error
-                        ? error.stack
-                        : undefined,
+                details: safeErrorMessage(error),
             },
             { status: 500 }
         );
@@ -206,8 +203,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json(
             {
                 error: 'Erro interno do servidor',
-                message: error instanceof Error ? error.message : 'Erro desconhecido',
-                details: process.env.NODE_ENV === 'development' ? error : undefined,
+                message: safeErrorMessage(error),
             },
             { status: 500 }
         );
@@ -263,7 +259,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json(
             {
                 error: 'Erro ao buscar avaliação',
-                message: error instanceof Error ? error.message : 'Erro desconhecido',
+                message: safeErrorMessage(error),
             },
             { status: 500 }
         );

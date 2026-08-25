@@ -384,7 +384,7 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
 
     // =================== RENDERIZAÇÃO PRINCIPAL ===================
     return (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out">
+        <div className="animate-in fade-in fixed inset-0 z-[120] flex items-center justify-center p-2 transition-all duration-200 ease-out">
             {/* Overlay */}
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 

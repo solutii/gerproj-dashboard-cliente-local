@@ -1,9 +1,14 @@
 // src/app/api/login/route.ts
+import { validarSenhaConsultor } from '@/lib/auth/senha-consultor';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
+import { excedeuLimite, obterIp } from '@/lib/rate-limit';
 import bcrypt from 'bcryptjs';
 import fs from 'fs/promises';
 import { NextResponse } from 'next/server';
 import path from 'path';
+
+const LOGIN_MAX_TENTATIVAS = 10;
+const LOGIN_JANELA_MS = 5 * 60 * 1000; // 5 minutos
 
 // ==================== TIPOS ====================
 interface LoginRequest {
@@ -57,6 +62,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 
 const ERROR_MESSAGES = {
     INVALID_CREDENTIALS: 'Usuário ou senha inválidos',
+    ACESSO_RESTRITO: 'Acesso restrito a administradores.',
     USER_NOT_FOUND: 'Usuário não encontrado',
     INVALID_PASSWORD: 'Senha incorreta',
     INVALID_REQUEST: 'Email/usuário e senha são obrigatórios',
@@ -166,21 +172,6 @@ async function buscarConsultorPorId(idUsuario: string): Promise<UsuarioConsultor
     }
 }
 
-function encodeSenhaConsultor(senha: string): string {
-    // O GERPROJ subtrai 11 do código ASCII de cada caractere ao salvar a senha.
-    // Ex: '1' (49) é armazenado como '&' (38).
-    return senha
-        .split('')
-        .map((c) => String.fromCharCode(c.charCodeAt(0) - 11))
-        .join('');
-}
-
-function validarSenhaConsultor(senhaDigitada: string, senhaArmazenada: string): boolean {
-    const senhaBanco = senhaArmazenada.trim();
-    const senhaEncodada = encodeSenhaConsultor(senhaDigitada.trim());
-    return senhaEncodada === senhaBanco;
-}
-
 function construirRespostaConsultor(consultor: UsuarioConsultor): LoginResponse {
     return {
         success: true,
@@ -251,6 +242,16 @@ function respostaErroAutenticacao(): NextResponse {
     );
 }
 
+function respostaAcessoRestrito(): NextResponse {
+    return NextResponse.json(
+        {
+            success: false,
+            message: ERROR_MESSAGES.ACESSO_RESTRITO,
+        },
+        { status: 403 }
+    );
+}
+
 function respostaErroServidor(error: unknown): NextResponse {
     console.error('[Login] Erro no servidor:', error);
 
@@ -272,6 +273,17 @@ function respostaErroServidor(error: unknown): NextResponse {
 // ==================== HANDLER PRINCIPAL ====================
 export async function POST(request: Request) {
     try {
+        const ip = obterIp(request);
+        if (excedeuLimite(`login:${ip}`, LOGIN_MAX_TENTATIVAS, LOGIN_JANELA_MS)) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message: 'Muitas tentativas de login. Tente novamente em alguns minutos.',
+                },
+                { status: 429 }
+            );
+        }
+
         const body: LoginRequest = await request.json();
         const { email, password, loginType = 'auto' } = body;
 
@@ -301,6 +313,13 @@ export async function POST(request: Request) {
                         const senhaValida = validarSenhaConsultor(password, consultor.SENHA);
 
                         if (senhaValida) {
+                            // Login de consultor é restrito a usuários ADM —
+                            // credencial correta, mas conta não-ADM não pode
+                            // acessar o portal.
+                            if (consultor.TIPO_USUARIO !== 'ADM') {
+                                return respostaAcessoRestrito();
+                            }
+
                             if (process.env.NODE_ENV === 'development') {
                                 console.log('[Login] Login de consultor bem-sucedido:', email);
                             }

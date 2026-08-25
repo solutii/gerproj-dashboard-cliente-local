@@ -4,6 +4,7 @@ import { create } from 'zustand';
 // ==================== TIPOS ====================
 type UserDataCliente = {
     loginType: 'cliente';
+    userEmail: string | null;
     codCliente: string | null;
     codRecurso: string | null;
     nomeRecurso: string | null;
@@ -11,6 +12,7 @@ type UserDataCliente = {
 
 type UserDataConsultor = {
     loginType: 'consultor';
+    userEmail: string | null;
     codUsuario: number;
     nomeUsuario: string;
     idUsuario: string;
@@ -28,6 +30,7 @@ type AuthState = {
     isLoggedIn: boolean;
     isLoading: boolean;
     loginType: 'cliente' | 'consultor' | null;
+    userEmail: string | null;
 
     // Dados de Cliente
     codCliente: string | null;
@@ -61,6 +64,7 @@ const getStoredAuthData = (): (UserData & { isLoggedIn: boolean }) | { isLoggedI
         if (!storedLoggedIn) return { isLoggedIn: false };
 
         const loginType = localStorage.getItem('loginType') as 'cliente' | 'consultor' | null;
+        const userEmail = localStorage.getItem('userEmail');
 
         if (loginType === 'consultor') {
             const codUsuario = localStorage.getItem('codUsuario');
@@ -74,6 +78,7 @@ const getStoredAuthData = (): (UserData & { isLoggedIn: boolean }) | { isLoggedI
             return {
                 isLoggedIn: true,
                 loginType: 'consultor',
+                userEmail,
                 codUsuario: codUsuario ? parseInt(codUsuario) : 0,
                 nomeUsuario: nomeUsuario || '',
                 idUsuario: idUsuario || '',
@@ -88,6 +93,7 @@ const getStoredAuthData = (): (UserData & { isLoggedIn: boolean }) | { isLoggedI
             return {
                 isLoggedIn: true,
                 loginType: 'cliente',
+                userEmail,
                 codCliente: storedCodCliente || null,
                 codRecurso: storedCodRecurso || null,
                 nomeRecurso: storedNomeRecurso || null,
@@ -126,6 +132,7 @@ const loginApi = async (email: string, password: string): Promise<UserData> => {
 
         return {
             loginType: 'consultor',
+            userEmail: email,
             codUsuario: data.codUsuario,
             nomeUsuario: data.nomeUsuario,
             idUsuario: data.idUsuario,
@@ -142,6 +149,7 @@ const loginApi = async (email: string, password: string): Promise<UserData> => {
 
         return {
             loginType: 'cliente',
+            userEmail: email,
             codCliente: data.codCliente ?? null,
             codRecurso: data.codRecOS ?? null,
             nomeRecurso: data.nomeRecurso ?? null,
@@ -154,6 +162,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     isLoggedIn: false,
     isLoading: true,
     loginType: null,
+    userEmail: null,
 
     // Dados de Cliente
     codCliente: null,
@@ -182,6 +191,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 isLoggedIn: true,
                 isLoading: false,
                 loginType: 'consultor',
+                userEmail: stored.userEmail,
                 codUsuario: stored.codUsuario,
                 nomeUsuario: stored.nomeUsuario,
                 idUsuario: stored.idUsuario,
@@ -194,6 +204,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 isLoggedIn: true,
                 isLoading: false,
                 loginType: 'cliente',
+                userEmail: stored.userEmail,
                 codCliente: stored.codCliente,
                 codRecurso: stored.codRecurso,
                 nomeRecurso: stored.nomeRecurso,
@@ -210,6 +221,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 set({
                     isLoggedIn: true,
                     loginType: 'consultor',
+                    userEmail: userData.userEmail,
                     codUsuario: userData.codUsuario,
                     nomeUsuario: userData.nomeUsuario,
                     idUsuario: userData.idUsuario,
@@ -220,6 +232,7 @@ export const useAuthStore = create<AuthState>((set) => ({
                 set({
                     isLoggedIn: true,
                     loginType: 'cliente',
+                    userEmail: userData.userEmail,
                     codCliente: userData.codCliente,
                     codRecurso: userData.codRecurso,
                     nomeRecurso: userData.nomeRecurso,
@@ -258,6 +271,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         set({
             isLoggedIn: false,
             loginType: null,
+            userEmail: null,
             codCliente: null,
             codRecurso: null,
             nomeRecurso: null,

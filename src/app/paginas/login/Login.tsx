@@ -17,7 +17,8 @@ import {
 import { FiLoader } from 'react-icons/fi';
 import { ImSpinner2 } from 'react-icons/im';
 import { IoIosMail, IoIosTime } from 'react-icons/io';
-import { IoBarChart, IoChevronDown, IoClose, IoSearch } from 'react-icons/io5';
+import { IoAddCircle, IoBarChart, IoChevronDown, IoClose, IoSearch } from 'react-icons/io5';
+import { ModalEsqueciSenha } from './Modal_Esqueci_Senha';
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -169,6 +170,10 @@ function ClienteDropdown({ clientes, value, onChange, loading }: ClienteDropdown
 
 const features = [
     {
+        icon: <IoAddCircle className="h-5 w-5 text-white/60" />,
+        text: 'Abra chamados diretamente pelo portal',
+    },
+    {
         icon: <FaTicketAlt className="h-5 w-5 text-white/60" />,
         text: 'Acompanhe chamados em tempo real',
     },
@@ -193,6 +198,7 @@ export function Login() {
     const [rememberMe, setRememberMe] = useState(false);
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showEsqueciSenha, setShowEsqueciSenha] = useState(false);
 
     const [adminMode, setAdminMode] = useState(false);
     const [clientes, setClientes] = useState<{ cod: string; nome: string }[]>([]);
@@ -568,24 +574,38 @@ export function Login() {
                                     animate={{ opacity: 1 }}
                                     exit={{ opacity: 0 }}
                                     transition={{ duration: 0.2 }}
-                                    className="flex items-center gap-2.5 pt-0.5"
+                                    className="flex items-center justify-between gap-2.5 pt-0.5"
                                 >
-                                    <input
-                                        id="remember"
-                                        type="checkbox"
-                                        checked={rememberMe}
-                                        onChange={() => setRememberMe(!rememberMe)}
-                                        className="h-4 w-4 cursor-pointer rounded shadow-md shadow-black"
-                                    />
-                                    <label
-                                        htmlFor="remember"
-                                        className="cursor-pointer text-sm tracking-wider text-white/50 select-none hover:text-white/60"
+                                    <div className="flex items-center gap-2.5">
+                                        <input
+                                            id="remember"
+                                            type="checkbox"
+                                            checked={rememberMe}
+                                            onChange={() => setRememberMe(!rememberMe)}
+                                            className="h-4 w-4 cursor-pointer rounded shadow-md shadow-black"
+                                        />
+                                        <label
+                                            htmlFor="remember"
+                                            className="cursor-pointer text-sm tracking-wider text-white/50 select-none hover:text-white/60"
+                                        >
+                                            Lembrar de mim
+                                        </label>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowEsqueciSenha(true)}
+                                        className="cursor-pointer text-sm tracking-wider text-cyan-400/80 transition-colors hover:text-cyan-300"
                                     >
-                                        Lembrar de mim
-                                    </label>
+                                        Esqueci minha senha
+                                    </button>
                                 </motion.div>
                             )}
                         </AnimatePresence>
+
+                        <ModalEsqueciSenha
+                            isOpen={showEsqueciSenha}
+                            onClose={() => setShowEsqueciSenha(false)}
+                        />
 
                         {/* Erro */}
                         <AnimatePresence>

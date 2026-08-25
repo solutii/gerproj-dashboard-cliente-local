@@ -1,5 +1,6 @@
 // app/api/chamados/horas-por-mes/route.ts
 
+import { safeErrorMessage } from '@/lib/api-error';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -138,8 +139,7 @@ export async function GET(request: NextRequest) {
             {
                 success: false,
                 error: 'Erro interno do servidor',
-                message: error instanceof Error ? error.message : 'Erro desconhecido',
-                details: process.env.NODE_ENV === 'development' ? error : undefined,
+                message: safeErrorMessage(error),
             },
             { status: 500 }
         );

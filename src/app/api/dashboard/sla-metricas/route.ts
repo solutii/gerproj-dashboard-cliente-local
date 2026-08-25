@@ -3,6 +3,7 @@
 // Métricas agregadas de SLA (cumprimento de prazo por prioridade, tempo médio
 // de resolução) pro card do dashboard. Só leitura — reaproveita
 // calcularMetricasSLA() já existente em sla-utils.ts.
+import { safeErrorMessage } from '@/lib/api-error';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { buscarFeriados } from '@/lib/os/feriados-service';
 import { calcularMetricasSLA } from '@/lib/sla/sla-utils';
@@ -115,7 +116,7 @@ export async function GET(request: Request) {
         return NextResponse.json(
             {
                 error: 'Erro ao calcular métricas de SLA',
-                message: error instanceof Error ? error.message : 'Erro desconhecido',
+                message: safeErrorMessage(error),
             },
             { status: 500 }
         );

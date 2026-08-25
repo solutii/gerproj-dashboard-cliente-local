@@ -1,5 +1,6 @@
 // src/app/api/chamados/upload/route.ts
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
+import { excedeuLimite, obterIp } from '@/lib/rate-limit';
 import fs from 'fs';
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
@@ -21,6 +22,35 @@ const ALLOWED_MIME_TYPES = [
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILES = 5;
 
+// Assinaturas (magic bytes) dos formatos aceitos — o Content-Type do
+// multipart/form-data é definido pelo cliente e não é confiável sozinho
+// (um .html renomeado pode se declarar "application/pdf").
+const MAGIC_BYTES: Record<string, (buf: Buffer) => boolean> = {
+    'image/jpeg': (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff,
+    'image/png': (b) => b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47,
+    'image/gif': (b) => b.toString('ascii', 0, 3) === 'GIF',
+    'image/bmp': (b) => b[0] === 0x42 && b[1] === 0x4d,
+    'image/webp': (b) =>
+        b.toString('ascii', 0, 4) === 'RIFF' && b.toString('ascii', 8, 12) === 'WEBP',
+    'application/pdf': (b) => b.toString('ascii', 0, 4) === '%PDF',
+    // Word/Excel antigos (.doc/.xls) — formato OLE Compound File
+    'application/msword': (b) => b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0,
+    'application/vnd.ms-excel': (b) =>
+        b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0,
+    // Word/Excel novos (.docx/.xlsx) — são um ZIP (PK\x03\x04)
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': (b) =>
+        b[0] === 0x50 && b[1] === 0x4b,
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': (b) =>
+        b[0] === 0x50 && b[1] === 0x4b,
+    // texto plano não tem assinatura confiável — aceito pelo Content-Type mesmo
+    'text/plain': () => true,
+};
+
+function assinaturaValida(mimeType: string, buffer: Buffer): boolean {
+    const check = MAGIC_BYTES[mimeType];
+    return check ? check(buffer) : false;
+}
+
 function sanitizeFileName(name: string): string {
     return name
         .normalize('NFD')
@@ -32,15 +62,20 @@ function sanitizeFileName(name: string): string {
 
 export async function POST(req: NextRequest) {
     try {
+        const ip = obterIp(req);
+        if (excedeuLimite(`upload:${ip}`, 20, 10 * 60 * 1000)) {
+            return NextResponse.json(
+                { error: 'Muitas solicitações. Tente novamente em alguns minutos.' },
+                { status: 429 }
+            );
+        }
+
         const formData = await req.formData();
         const codChamado = formData.get('cod_chamado');
         const files = formData.getAll('arquivos') as File[];
 
-        if (!codChamado) {
-            return NextResponse.json(
-                { error: 'Codigo do chamado nao informado.' },
-                { status: 400 }
-            );
+        if (!codChamado || typeof codChamado !== 'string' || !/^\d+$/.test(codChamado)) {
+            return NextResponse.json({ error: 'Codigo do chamado invalido.' }, { status: 400 });
         }
         if (!files || files.length === 0) {
             return NextResponse.json({ error: 'Nenhum arquivo enviado.' }, { status: 400 });
@@ -52,6 +87,9 @@ export async function POST(req: NextRequest) {
             );
         }
 
+        // Lê cada arquivo uma única vez (buffer reaproveitado na validação de
+        // assinatura e na gravação) e valida tipo/tamanho/conteúdo real.
+        const arquivosValidados: { file: File; buffer: Buffer }[] = [];
         for (const file of files) {
             if (!ALLOWED_MIME_TYPES.includes(file.type)) {
                 return NextResponse.json(
@@ -65,6 +103,17 @@ export async function POST(req: NextRequest) {
                     { status: 400 }
                 );
             }
+
+            const buffer = Buffer.from(await file.arrayBuffer());
+            if (!assinaturaValida(file.type, buffer)) {
+                return NextResponse.json(
+                    {
+                        error: `Conteudo do arquivo nao corresponde ao tipo declarado: ${file.name}`,
+                    },
+                    { status: 400 }
+                );
+            }
+            arquivosValidados.push({ file, buffer });
         }
 
         // Em desenvolvimento usa UPLOAD_PATH_DEV do .env
@@ -112,7 +161,7 @@ export async function POST(req: NextRequest) {
 
         const salvos: string[] = [];
 
-        for (const file of files) {
+        for (const { file, buffer } of arquivosValidados) {
             const nomeSeguro = sanitizeFileName(file.name);
             const ext = path.extname(nomeSeguro);
             const base = path.basename(nomeSeguro, ext);
@@ -124,7 +173,6 @@ export async function POST(req: NextRequest) {
                 contador++;
             }
 
-            const buffer = Buffer.from(await file.arrayBuffer());
             try {
                 fs.writeFileSync(caminhoFinal, buffer);
             } catch (err) {

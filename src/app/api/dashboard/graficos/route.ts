@@ -1,4 +1,5 @@
 // app/api/dashboard/graficos/route.ts
+import { safeErrorMessage } from '@/lib/api-error';
 import { NextResponse } from 'next/server';
 import { firebirdQuery } from '../../../../lib/firebird/firebird-client';
 
@@ -389,8 +390,7 @@ export async function GET(request: Request) {
         return NextResponse.json(
             {
                 error: 'Erro interno do servidor',
-                message: error instanceof Error ? error.message : 'Erro desconhecido',
-                details: process.env.NODE_ENV === 'development' ? error : undefined,
+                message: safeErrorMessage(error),
             },
             { status: 500 }
         );
