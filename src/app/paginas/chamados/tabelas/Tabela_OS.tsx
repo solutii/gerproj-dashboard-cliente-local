@@ -23,8 +23,8 @@ import {
 // =====================================================
 import { useAuthStore } from '@/store/useAuthStore';
 import React, { useCallback, useMemo, useState } from 'react';
-import { FaSort, FaSortDown, FaSortUp } from 'react-icons/fa';
 import { IoClose } from 'react-icons/io5';
+import { MdArrowDownward, MdArrowUpward, MdUnfoldMore } from 'react-icons/md';
 import { TbFileInvoice } from 'react-icons/tb';
 import { getColunasOS, OSRowProps } from './Colunas_Tabela_OS';
 
@@ -312,6 +312,7 @@ export function TabelaOS({ isOpen, codChamado, onClose, onSelectOS, dataChamado 
                             <TableContainer>
                                 <OSTable
                                     table={table}
+                                    sorting={sorting}
                                     columnWidths={columnWidths}
                                     handleMouseDown={handleMouseDown}
                                     handleDoubleClick={handleDoubleClick}
@@ -502,6 +503,13 @@ const TableContainer = React.memo(function TableContainer({ children }: TableCon
 
 interface OSTableProps {
     table: any;
+    // Não usado diretamente aqui — só existe pra forçar o React.memo a
+    // perceber a mudança quando o usuário clica pra ordenar. A instância do
+    // `table` do TanStack mantém a mesma referência entre renders (é criada
+    // uma vez via useState interno), então sem essa prop os componentes
+    // memoizados abaixo nunca percebiam que a ordenação mudou e ficavam
+    // exibindo a linha na ordem antiga.
+    sorting: SortingState;
     columnWidths: Record<string, number>;
     handleMouseDown: (e: React.MouseEvent, columnId: string) => void;
     handleDoubleClick: (columnId: string) => void;
@@ -510,6 +518,7 @@ interface OSTableProps {
 
 const OSTable = React.memo(function OSTable({
     table,
+    sorting,
     columnWidths,
     handleMouseDown,
     handleDoubleClick,
@@ -525,18 +534,20 @@ const OSTable = React.memo(function OSTable({
         >
             <OSTableHeader
                 table={table}
+                sorting={sorting}
                 columnWidths={columnWidths}
                 handleMouseDown={handleMouseDown}
                 handleDoubleClick={handleDoubleClick}
                 resizingColumn={resizingColumn}
             />
-            <OSTableBody table={table} columnWidths={columnWidths} />
+            <OSTableBody table={table} sorting={sorting} columnWidths={columnWidths} />
         </table>
     );
 });
 
 interface OSTableHeaderProps {
     table: any;
+    sorting: SortingState;
     columnWidths: Record<string, number>;
     handleMouseDown: (e: React.MouseEvent, columnId: string) => void;
     handleDoubleClick: (columnId: string) => void;
@@ -563,30 +574,33 @@ const OSTableHeader = React.memo(function OSTableHeader({
                                 key={header.id}
                                 className={`relative bg-purple-600 p-4 shadow-md shadow-black ${
                                     idx === 0 ? 'rounded-tl-2xl' : ''
-                                } ${idx === headerGroup.headers.length - 1 ? 'rounded-tr-2xl' : ''} ${
-                                    canSort ? 'cursor-pointer select-none' : ''
-                                }`}
+                                } ${idx === headerGroup.headers.length - 1 ? 'rounded-tr-2xl' : ''}`}
                                 style={{
                                     width: `${columnWidths[header.id]}px`,
                                 }}
-                                onClick={
-                                    canSort ? header.column.getToggleSortingHandler() : undefined
-                                }
                             >
-                                <div className="flex items-center justify-center gap-1.5">
-                                    {flexRender(
-                                        header.column.columnDef.header,
-                                        header.getContext()
-                                    )}
-                                    {canSort &&
-                                        (sortDirection === 'asc' ? (
-                                            <FaSortUp className="text-white/90" size={20} />
+                                {canSort ? (
+                                    <button
+                                        type="button"
+                                        onClick={header.column.getToggleSortingHandler()}
+                                        className="flex w-full cursor-pointer items-center justify-center gap-1"
+                                        title="Ordenar"
+                                    >
+                                        {flexRender(
+                                            header.column.columnDef.header,
+                                            header.getContext()
+                                        )}
+                                        {sortDirection === 'asc' ? (
+                                            <MdArrowUpward size={24} className="text-white" />
                                         ) : sortDirection === 'desc' ? (
-                                            <FaSortDown className="text-white/90" size={20} />
+                                            <MdArrowDownward size={24} className="text-white" />
                                         ) : (
-                                            <FaSort className="text-white/50" size={17} />
-                                        ))}
-                                </div>
+                                            <MdUnfoldMore size={24} className="text-white/50" />
+                                        )}
+                                    </button>
+                                ) : (
+                                    flexRender(header.column.columnDef.header, header.getContext())
+                                )}
 
                                 {idx < headerGroup.headers.length - 1 && (
                                     <RedimensionarColunas
@@ -607,6 +621,9 @@ const OSTableHeader = React.memo(function OSTableHeader({
 
 interface OSTableBodyProps {
     table: any;
+    // Não usado no corpo — só força o React.memo a perceber a mudança de
+    // ordenação (ver comentário em OSTableProps).
+    sorting: SortingState;
     columnWidths: Record<string, number>;
 }
 

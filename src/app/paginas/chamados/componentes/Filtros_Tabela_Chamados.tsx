@@ -1124,8 +1124,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                     <div className="mx-4 rounded-md border-t border-gray-300 bg-white p-6 shadow-md shadow-black">
                         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
                             {/* COLUNA 1 */}
-                            <div className="flex flex-col gap-1">
-                                <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
+                            <div className="flex flex-col gap-1 rounded-lg border border-teal-200 bg-teal-50/40 p-4">
+                                <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-teal-800 select-none">
                                     PERÍODO / CONSULTOR / STATUS
                                 </h3>
                                 <div className="flex flex-col gap-4">
@@ -1231,8 +1231,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                             </div>
 
                             {/* COLUNA 2 */}
-                            <div className="flex flex-col gap-1">
-                                <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
+                            <div className="flex flex-col gap-1 rounded-lg border border-purple-200 bg-purple-50/40 p-4">
+                                <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-purple-800 select-none">
                                     DADOS DO CHAMADO
                                 </h3>
                                 <div className="flex flex-col gap-4">
@@ -1345,8 +1345,8 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                             </div>
 
                             {/* COLUNA 3 */}
-                            <div className="flex flex-col gap-1">
-                                <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-black select-none">
+                            <div className="flex flex-col gap-1 rounded-lg border border-blue-200 bg-blue-50/40 p-4">
+                                <h3 className="mb-4 flex items-center gap-2 text-lg font-extrabold tracking-widest text-blue-800 select-none">
                                     CARACTERÍSTICAS DO CHAMADO
                                 </h3>
                                 <div className="flex h-full flex-col">
