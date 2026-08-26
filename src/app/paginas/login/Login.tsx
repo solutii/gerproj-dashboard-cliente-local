@@ -209,14 +209,18 @@ export function Login() {
     const { login, setAdminCodCliente } = useAuthStore();
 
     useEffect(() => {
-        const rememberedEmail = localStorage.getItem('rememberedEmail');
-        if (rememberedEmail) {
-            setEmail(rememberedEmail);
-            setRememberMe(true);
+        try {
+            const rememberedEmail = localStorage.getItem('rememberedEmail');
+            if (rememberedEmail) {
+                setEmail(rememberedEmail);
+                setRememberMe(true);
+            }
+        } catch {
+            // localStorage indisponível (modo privado, quota etc.) — ignora.
         }
     }, []);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: { preventDefault: () => void }) => {
         e.preventDefault();
         setError('');
 
@@ -237,10 +241,14 @@ export function Login() {
             const userData = await login(email, password);
 
             if (userData) {
-                if (rememberMe) {
-                    localStorage.setItem('rememberedEmail', email);
-                } else {
-                    localStorage.removeItem('rememberedEmail');
+                try {
+                    if (rememberMe) {
+                        localStorage.setItem('rememberedEmail', email);
+                    } else {
+                        localStorage.removeItem('rememberedEmail');
+                    }
+                } catch {
+                    // localStorage indisponível — não impede o login.
                 }
 
                 if (userData.loginType === 'consultor' && userData.tipoUsuario === 'ADM') {
@@ -286,7 +294,7 @@ export function Login() {
     };
 
     const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !isLoading) handleSubmit(e as any);
+        if (e.key === 'Enter' && !isLoading) handleSubmit(e);
     };
 
     return (
@@ -344,6 +352,7 @@ export function Login() {
                                     width={50}
                                     height={50}
                                     className="rounded-xl"
+                                    priority
                                 />
                             </div>
                             <div>
@@ -449,6 +458,7 @@ export function Login() {
                                     width={40}
                                     height={40}
                                     className="rounded-xl"
+                                    priority
                                 />
                             </div>
                         </div>

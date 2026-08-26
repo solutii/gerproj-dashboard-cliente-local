@@ -7,6 +7,7 @@ import { LoadingButton } from '@/components/Loading_Button';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 // =====================================================
 import { memo, useCallback, useEffect, useState } from 'react';
@@ -213,10 +214,12 @@ const saveValidationApi = async ({
     cod_os,
     concordaPagar,
     observacao,
+    codCliente,
 }: {
     cod_os: string | number;
     concordaPagar: boolean;
     observacao: string | null;
+    codCliente: string | null;
 }) => {
     const response = await fetch('/api/salvar-validacao', {
         method: 'POST',
@@ -225,6 +228,7 @@ const saveValidationApi = async ({
             cod_os,
             concordaPagar,
             observacao: observacao || null,
+            codCliente,
         }),
     });
 
@@ -240,6 +244,7 @@ const saveValidationApi = async ({
 // ==================== COMPONENTE PRINCIPAL ====================
 export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalValidacaoOSProps) {
     const queryClient = useQueryClient();
+    const codCliente = useAuthStore((state) => state.codCliente);
 
     // Estados locais
     const [modalData, setModalData] = useState<ModalDataProps>({
@@ -360,6 +365,7 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
             cod_os: selectedRow.COD_OS,
             concordaPagar: modalData.concordaPagar,
             observacao: modalData.observacao.trim() || null,
+            codCliente,
         });
     }, [
         selectedRow,
@@ -367,6 +373,7 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
         modalData.concordaPagar,
         modalData.observacao,
         saveValidationMutation,
+        codCliente,
     ]);
     // ==================
 
@@ -403,7 +410,7 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
     return (
         <div className="animate-in fade-in fixed inset-0 z-[120] flex items-center justify-center p-2 transition-all duration-200 ease-out">
             {/* Overlay */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
             <div className="animate-in slide-in-from-bottom-4 relative z-10 flex h-auto max-h-[100vh] w-7xl flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
                 {/* ========== HEADER ========== */}

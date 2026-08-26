@@ -1,5 +1,6 @@
 // hooks/useClienteIA.ts
 
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { useQuery } from '@tanstack/react-query';
 
 interface ClienteIAResponse {
@@ -9,7 +10,9 @@ interface ClienteIAResponse {
 }
 
 const fetchClienteIA = async (codCliente: string): Promise<ClienteIAResponse> => {
-    const response = await fetch(`/api/cliente-ia?codCliente=${encodeURIComponent(codCliente)}`);
+    const response = await fetch(`/api/cliente-ia?codCliente=${encodeURIComponent(codCliente)}`, {
+        headers: getClienteTokenHeaders(),
+    });
 
     if (!response.ok) {
         throw new Error('Erro ao carregar dados de IA do cliente');

@@ -1,4 +1,5 @@
 // app/api/saldo-horas/route.ts
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextResponse } from 'next/server';
 
@@ -279,7 +280,7 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const codCliente = searchParams.get('codCliente')?.trim();
+        const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'))?.trim();
         const mesAtual = Number(searchParams.get('mes'));
         const anoAtual = Number(searchParams.get('ano'));
         const mesesHistorico = Number(searchParams.get('mesesHistorico')) || 6;

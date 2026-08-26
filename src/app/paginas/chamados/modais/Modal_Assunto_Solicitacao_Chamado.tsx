@@ -45,7 +45,7 @@ export function ModalAssuntoSolicitacaoChamado({
     return (
         <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ease-out">
             {/* OVERLAY */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
             <div className="animate-in slide-in-from-bottom-4 relative z-10 flex h-auto max-h-[100vh] w-7xl flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
                 {/* ========== HEADER ========== */}

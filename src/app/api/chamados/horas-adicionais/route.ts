@@ -1,6 +1,7 @@
 // app/api/chamados/horas-adicionais/route.ts
 
 import { safeErrorMessage } from '@/lib/api-error';
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import {
     agregarHorasAdicionais,
@@ -29,7 +30,10 @@ interface OSRaw {
 
 // ==================== VALIDAÇÕES ====================
 
-const validarParametros = (sp: URLSearchParams): { ids: number[] } | NextResponse => {
+const validarParametros = (
+    request: NextRequest,
+    sp: URLSearchParams
+): { ids: number[]; codCliente?: string } | NextResponse => {
     const raw = sp.get('ids')?.trim();
 
     if (!raw) {
@@ -52,15 +56,20 @@ const validarParametros = (sp: URLSearchParams): { ids: number[] } | NextRespons
         return NextResponse.json({ error: 'Máximo de 500 IDs por requisição' }, { status: 400 });
     }
 
-    return { ids };
+    const codCliente = resolveCodClienteSeguro(request, sp.get('codCliente'))?.trim() || undefined;
+
+    return { ids, codCliente };
 };
 
 // ==================== QUERY ====================
 
-const buscarOSPorChamados = async (ids: number[]): Promise<OSRaw[]> => {
+const buscarOSPorChamados = async (ids: number[], codCliente?: string): Promise<OSRaw[]> => {
     const placeholders = ids.map(() => '?').join(',');
 
-    const sql = `
+    // Só entra no JOIN com CHAMADO quando há um codCliente pra filtrar
+    // (fluxo de cliente) — sem isso (ex.: ADM), mantém o comportamento
+    // anterior sem exigir o join extra.
+    let sql = `
         SELECT
             CAST(OS.CHAMADO_OS AS INTEGER) AS COD_CHAMADO,
             OS.DTINI_OS,
@@ -69,6 +78,13 @@ const buscarOSPorChamados = async (ids: number[]): Promise<OSRaw[]> => {
         FROM OS
         INNER JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
             AND TAREFA.EXIBECHAM_TAREFA = 1
+    `;
+
+    if (codCliente) {
+        sql += ` INNER JOIN CHAMADO ON CAST(OS.CHAMADO_OS AS INTEGER) = CHAMADO.COD_CHAMADO `;
+    }
+
+    sql += `
         WHERE
             OS.CHAMADO_OS IS NOT NULL
             AND TRIM(OS.CHAMADO_OS) <> ''
@@ -76,12 +92,22 @@ const buscarOSPorChamados = async (ids: number[]): Promise<OSRaw[]> => {
             AND OS.DTINI_OS IS NOT NULL
             AND OS.HRINI_OS IS NOT NULL
             AND OS.HRFIM_OS IS NOT NULL
+    `;
+
+    const sqlParams: (number | string)[] = [...ids];
+
+    if (codCliente) {
+        sql += ` AND CHAMADO.COD_CLIENTE = ? `;
+        sqlParams.push(codCliente);
+    }
+
+    sql += `
         ORDER BY
             COD_CHAMADO,
             OS.DTINI_OS
     `;
 
-    return firebirdQuery<OSRaw>(sql, ids);
+    return firebirdQuery<OSRaw>(sql, sqlParams);
 };
 
 // ==================== HANDLER ====================
@@ -90,10 +116,10 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const params = validarParametros(searchParams);
+        const params = validarParametros(request, searchParams);
         if (params instanceof NextResponse) return params;
 
-        const osRows = await buscarOSPorChamados(params.ids);
+        const osRows = await buscarOSPorChamados(params.ids, params.codCliente);
 
         // ── Passo 1: busca feriados por ano antes de qualquer cálculo ──────────
         //

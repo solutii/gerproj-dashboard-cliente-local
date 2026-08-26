@@ -52,7 +52,10 @@ function validarAvaliacao(
 }
 
 // ==================== VERIFICAÇÕES ====================
-async function verificarChamado(codChamado: number): Promise<{
+async function verificarChamado(
+    codChamado: number,
+    codCliente: string
+): Promise<{
     exists: boolean;
     status?: string;
     avaliacaoAtual?: number;
@@ -62,7 +65,8 @@ async function verificarChamado(codChamado: number): Promise<{
         const sql = `
             SELECT
                 STATUS_CHAMADO,
-                AVALIA_CHAMADO
+                AVALIA_CHAMADO,
+                COD_CLIENTE
             FROM CHAMADO
             WHERE COD_CHAMADO = ?
         `;
@@ -70,6 +74,7 @@ async function verificarChamado(codChamado: number): Promise<{
         const resultado = await firebirdQuery<{
             STATUS_CHAMADO: string;
             AVALIA_CHAMADO: number;
+            COD_CLIENTE: number;
         }>(sql, [codChamado]);
 
         if (resultado.length === 0) {
@@ -80,6 +85,19 @@ async function verificarChamado(codChamado: number): Promise<{
         }
 
         const chamado = resultado[0];
+
+        // O chamado precisa pertencer ao mesmo cliente que está avaliando —
+        // sem isso, qualquer cliente logado poderia sobrescrever a
+        // avaliação de satisfação de um chamado de outro cliente.
+        if (String(chamado.COD_CLIENTE) !== String(codCliente)) {
+            return {
+                exists: true,
+                error: NextResponse.json(
+                    { error: 'Você não tem permissão para avaliar este chamado' },
+                    { status: 403 }
+                ),
+            };
+        }
 
         // Verificar se está finalizado
         if (chamado.STATUS_CHAMADO.toUpperCase().trim() !== 'FINALIZADO') {
@@ -190,8 +208,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         const { avaliacao, observacao } = validacao;
 
+        const codCliente = body.codCliente ? String(body.codCliente).trim() : '';
+        if (!codCliente) {
+            return NextResponse.json(
+                { error: "Parâmetro 'codCliente' é obrigatório" },
+                { status: 400 }
+            );
+        }
+
         // Verificar se o chamado pode ser avaliado
-        const verificacao = await verificarChamado(codChamadoValidado);
+        const verificacao = await verificarChamado(codChamadoValidado, codCliente);
         if (verificacao.error) {
             return verificacao.error;
         }

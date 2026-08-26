@@ -2,7 +2,7 @@
 'use client';
 
 import { calcularStatusSLA, isDentroHorarioComercial, SLAStatus } from '@/lib/sla/sla-utils';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // ==================== CACHE DE FERIADOS ====================
 // Cache em módulo para não refazer fetch a cada instância do hook
@@ -60,20 +60,26 @@ export function useSLADinamico(
     intervalMs: number = 60000
 ): SLAStatus | null {
     const [sla, setSLA] = useState<SLAStatus | null>(null);
-    const feriadosRef = useRef<string[]>([]);
-    const feriadosCarregadosRef = useRef(false);
+    // Estado (não ref) — precisa disparar o recálculo do SLA abaixo assim
+    // que os feriados chegarem, senão o primeiro cálculo de cada chamado
+    // roda com a lista vazia e só corrige no próximo tick do intervalo.
+    const [feriados, setFeriados] = useState<string[]>([]);
 
-    // Carrega feriados uma vez ao montar
+    // Carrega feriados do ano do chamado
     useEffect(() => {
         if (!dataChamado) return;
 
+        let cancelado = false;
         const data = typeof dataChamado === 'string' ? new Date(dataChamado) : dataChamado;
         const year = data.getFullYear();
 
-        getFeriados(year).then((feriados) => {
-            feriadosRef.current = feriados;
-            feriadosCarregadosRef.current = true;
+        getFeriados(year).then((feriadosCarregados) => {
+            if (!cancelado) setFeriados(feriadosCarregados);
         });
+
+        return () => {
+            cancelado = true;
+        };
     }, [dataChamado]);
 
     useEffect(() => {
@@ -99,7 +105,7 @@ export function useSLADinamico(
                     statusChamado,
                     inicioAtendimento,
                     'resolucao',
-                    feriadosRef.current // ✅ passa feriados carregados
+                    feriados // ✅ passa feriados carregados
                 );
 
                 setSLA(slaCalculado);
@@ -116,7 +122,7 @@ export function useSLADinamico(
 
         const agora = new Date();
 
-        if (isDentroHorarioComercial(agora, undefined, feriadosRef.current)) {
+        if (isDentroHorarioComercial(agora, undefined, feriados)) {
             // Dentro do horário comercial: atualiza no intervalo definido
             const intervalo = setInterval(atualizarSLA, intervalMs);
             return () => clearInterval(intervalo);
@@ -126,7 +132,7 @@ export function useSLADinamico(
         const intervaloChecagem = setInterval(
             () => {
                 const agora = new Date();
-                if (isDentroHorarioComercial(agora, undefined, feriadosRef.current)) {
+                if (isDentroHorarioComercial(agora, undefined, feriados)) {
                     atualizarSLA();
                 }
             },
@@ -134,14 +140,15 @@ export function useSLADinamico(
         );
 
         return () => clearInterval(intervaloChecagem);
-    }, [dataChamado, horaChamado, prioridade, statusChamado, dataInicioAtendimento, intervalMs]);
+    }, [
+        dataChamado,
+        horaChamado,
+        prioridade,
+        statusChamado,
+        dataInicioAtendimento,
+        intervalMs,
+        feriados,
+    ]);
 
     return sla;
-}
-
-export function useDeveMostrarSLA(
-    statusChamado: string,
-    dataInicioAtendimento?: Date | string | null
-): boolean {
-    return true;
 }

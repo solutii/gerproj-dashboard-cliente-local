@@ -21,15 +21,7 @@ export default function DashboardPage() {
     if (!isLoggedIn) return null;
 
     return (
-        <LayoutDashboard
-            filters={{
-                ano: filters.ano,
-                mes: filters.mes,
-                cliente: filters.cliente,
-                recurso: filters.recurso,
-                status: filters.status,
-            }}
-        >
+        <LayoutDashboard filters={filters}>
             {/* Área fixa - sem scroll */}
             <div className="flex-shrink-0">
                 <Filtros />

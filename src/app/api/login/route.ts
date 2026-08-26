@@ -1,4 +1,5 @@
 // src/app/api/login/route.ts
+import { assinarClienteToken } from '@/lib/auth/cliente-token';
 import { validarSenhaConsultor } from '@/lib/auth/senha-consultor';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { excedeuLimite, obterIp } from '@/lib/rate-limit';
@@ -44,6 +45,8 @@ interface LoginResponse {
     codCliente?: string | null;
     codRecOS?: string | null;
     nomeRecurso?: string | null;
+    // Amarra esse login ao codCliente real — ver src/lib/auth/cliente-token.ts
+    clienteToken?: string | null;
     // Dados do consultor
     codUsuario?: number;
     nomeUsuario?: string;
@@ -207,12 +210,14 @@ async function validarSenhaCliente(senhaPlana: string, senhaHash: string): Promi
 }
 
 function construirRespostaCliente(usuario: Usuario): LoginResponse {
+    const codCliente = usuario.cod_cliente ?? null;
     return {
         success: true,
         loginType: 'cliente',
-        codCliente: usuario.cod_cliente ?? null,
+        codCliente,
         codRecOS: usuario.codrec_os ?? null,
         nomeRecurso: usuario.nome ?? null,
+        clienteToken: codCliente ? assinarClienteToken(codCliente) : null,
     };
 }
 

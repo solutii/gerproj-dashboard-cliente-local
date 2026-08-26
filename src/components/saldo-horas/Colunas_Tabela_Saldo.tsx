@@ -62,7 +62,7 @@ const StatusBadge = ({
 
     if (status === 'expirado') {
         return (
-            <div className="tracking-widwidester inline-flex items-center gap-3 rounded border border-red-400 bg-red-100 px-3 py-1.5 text-xs font-extrabold text-red-700 select-none sm:text-sm">
+            <div className="inline-flex items-center gap-3 rounded border border-red-400 bg-red-100 px-3 py-1.5 text-xs font-extrabold tracking-widest text-red-700 select-none sm:text-sm">
                 <FaTimesCircle size={18} />
                 <span>Expirado</span>
             </div>

@@ -1,5 +1,6 @@
 // app/api/chamados/[codChamado]/historico/route.ts
 import { safeErrorMessage } from '@/lib/api-error';
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -31,13 +32,25 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             return codChamadoValidado;
         }
 
-        const chamadoRows = await firebirdQuery<{ COD_CHAMADO: number }>(
-            'SELECT COD_CHAMADO FROM CHAMADO WHERE COD_CHAMADO = ?',
+        const chamadoRows = await firebirdQuery<{ COD_CHAMADO: number; COD_CLIENTE: number }>(
+            'SELECT COD_CHAMADO, COD_CLIENTE FROM CHAMADO WHERE COD_CHAMADO = ?',
             [codChamadoValidado]
         );
 
         if (chamadoRows.length === 0) {
             return NextResponse.json({ error: 'Chamado não encontrado' }, { status: 404 });
+        }
+
+        // Só valida dono quando o chamador manda um codCliente (fluxo de
+        // cliente) — sem isso (ex.: ADM sem cliente selecionado ainda),
+        // mantém o comportamento anterior.
+        const { searchParams } = new URL(request.url);
+        const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'));
+        if (codCliente && String(chamadoRows[0].COD_CLIENTE) !== String(codCliente)) {
+            return NextResponse.json(
+                { error: 'Você não tem permissão para acessar este chamado' },
+                { status: 403 }
+            );
         }
 
         const historicoRows = await firebirdQuery<{

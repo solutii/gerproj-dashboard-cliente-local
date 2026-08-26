@@ -1,6 +1,7 @@
 'use client';
 
 import { LoadingRingSpinner } from '@/components/LoadingRingSpinner';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -22,7 +23,6 @@ interface FilterProps {
         recurso: string;
         status: string;
     };
-    onStatusClick?: (status: string) => void;
 }
 
 interface TotalizadoresAPIResponse {
@@ -41,8 +41,6 @@ interface StatusCardProps {
     gradient: string;
     textGradient: string;
     icon: React.ReactNode;
-    onClick?: () => void;
-    percentage?: number;
     isHighlight?: boolean;
 }
 
@@ -158,7 +156,7 @@ const SkeletonLoadingCard = () => (
 // ================================================================================
 // COMPONENTE PRINCIPAL
 // ================================================================================
-export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
+export function CardTotalChamadosOS({ filters }: FilterProps) {
     const { codCliente } = useAuthStore();
 
     const fetchData = async (): Promise<TotalizadoresAPIResponse> => {
@@ -178,6 +176,7 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
+                ...getClienteTokenHeaders(),
             },
         });
 
@@ -193,7 +192,7 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['totalizadoresChamados', filters, codCliente],
         queryFn: fetchData,
-        enabled: !!filters && codCliente !== null,
+        enabled: !!filters && !!codCliente,
         staleTime: 1000 * 60 * 5, // 5 minutos
         refetchOnWindowFocus: false,
     });
@@ -222,9 +221,6 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
         );
     }
 
-    const total = data.TOTAL_CHAMADOS || 0;
-    const calculatePercentage = (value: number) => (total > 0 ? (value / total) * 100 : 0);
-
     const statusDataTop = [
         {
             label: 'Total Chamados',
@@ -240,8 +236,6 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
             gradient: COLORS.atribuido.gradient,
             textGradient: COLORS.atribuido.text,
             icon: <FaExclamationTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />,
-            percentage: calculatePercentage(data.CHAMADOS_ATRIBUIDO ?? 0),
-            onClick: onStatusClick ? () => onStatusClick('ATRIBUIDO') : undefined,
         },
         {
             label: 'Em Atendimento',
@@ -249,8 +243,6 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
             gradient: COLORS.atendimento.gradient,
             textGradient: COLORS.atendimento.text,
             icon: <FaPlay className="h-3 w-3 sm:h-3.5 sm:w-3.5" />,
-            percentage: calculatePercentage(data.CHAMADOS_EM_ATENDIMENTO ?? 0),
-            onClick: onStatusClick ? () => onStatusClick('EM_ATENDIMENTO') : undefined,
         },
     ];
 
@@ -261,8 +253,6 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
             gradient: COLORS.standby.gradient,
             textGradient: COLORS.standby.text,
             icon: <FaHourglassHalf className="h-3 w-3 sm:h-3.5 sm:w-3.5" />,
-            percentage: calculatePercentage(data.CHAMADOS_STANDBY ?? 0),
-            onClick: onStatusClick ? () => onStatusClick('STANDBY') : undefined,
         },
         {
             label: 'Aguard. Validação',
@@ -270,8 +260,6 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
             gradient: COLORS.validacao.gradient,
             textGradient: COLORS.validacao.text,
             icon: <FaClock className="h-3 w-3 sm:h-3.5 sm:w-3.5" />,
-            percentage: calculatePercentage(data.CHAMADOS_AGUARDANDO_VALIDACAO ?? 0),
-            onClick: onStatusClick ? () => onStatusClick('AGUARDANDO_VALIDACAO') : undefined,
         },
         {
             label: 'Finalizados',
@@ -279,8 +267,6 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
             gradient: COLORS.finalizado.gradient,
             textGradient: COLORS.finalizado.text,
             icon: <FaCheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />,
-            percentage: calculatePercentage(data.CHAMADOS_FINALIZADO ?? 0),
-            onClick: onStatusClick ? () => onStatusClick('FINALIZADO') : undefined,
         },
     ];
 

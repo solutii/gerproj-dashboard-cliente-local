@@ -30,7 +30,7 @@ interface ModalAlterarSenhaProps {
 }
 
 export function ModalAlterarSenha({ isOpen, onClose }: ModalAlterarSenhaProps) {
-    const { userEmail } = useAuthStore();
+    const userEmail = useAuthStore((state) => state.userEmail);
 
     const [senhaAtual, setSenhaAtual] = useState('');
     const [senhaNova, setSenhaNova] = useState('');
@@ -101,7 +101,7 @@ export function ModalAlterarSenha({ isOpen, onClose }: ModalAlterarSenhaProps) {
     return (
         <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out sm:p-4">
             <div
-                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
                 onClick={handleFecharLimpar}
             />
 

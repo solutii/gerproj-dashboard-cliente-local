@@ -1,5 +1,6 @@
 'use client';
 
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
@@ -36,7 +37,7 @@ interface ModalSaldoHorasProps {
 }
 
 export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
-    const { codCliente } = useAuthStore();
+    const codCliente = useAuthStore((state) => state.codCliente);
 
     const mesAtual = new Date().getMonth() + 1;
     const anoAtual = new Date().getFullYear();
@@ -76,7 +77,9 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
             mesesHistorico: '6',
         });
 
-        const response = await fetch(`/api/saldo-horas?${params.toString()}`);
+        const response = await fetch(`/api/saldo-horas?${params.toString()}`, {
+            headers: getClienteTokenHeaders(),
+        });
         if (!response.ok) throw new Error('Erro ao carregar dados');
         return response.json();
     };
@@ -86,6 +89,12 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
         queryFn: fetchData,
         enabled: isOpen && !!codCliente,
     });
+
+    // Precisa vir antes dos checks de loading/erro: o React Query mantém
+    // `error`/estado da última busca mesmo com a query desabilitada
+    // (enabled: isOpen && ...) — sem isso, fechar o modal depois de um erro
+    // deixava o overlay de erro em tela cheia preso, cobrindo o app inteiro.
+    if (!isOpen) return null;
 
     if (isLoading) {
         return <IsLoading isLoading={isLoading} title="Carregando dados de saldo de horas..." />;
@@ -101,15 +110,13 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
         );
     }
 
-    if (!isOpen) return null;
-
     // ================================================================================
     // RENDERIZAÇÃO PRINCIPAL
     // ================================================================================
     return (
         <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ease-out">
             {/* OVERLAY */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
             <div className="animate-in slide-in-from-bottom-4 relative z-10 flex w-[95vw] flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out lg:w-[2200px]">
                 {/* ========== HEADER ========== */}

@@ -1,5 +1,6 @@
 // app/api/filtros/classificacoes/route.ts - ATUALIZADO PARA SUPORTAR NOVOS FILTROS
 import { safeErrorMessage } from '@/lib/api-error';
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextResponse } from 'next/server';
 
@@ -16,8 +17,11 @@ interface Classificacao {
 }
 
 // ==================== VALIDAÇÕES ====================
-function validarParametros(searchParams: URLSearchParams): QueryParams | NextResponse {
-    const codCliente = searchParams.get('codCliente')?.trim();
+function validarParametros(
+    request: Request,
+    searchParams: URLSearchParams
+): QueryParams | NextResponse {
+    const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'))?.trim();
 
     const mesParam = searchParams.get('mes');
     const anoParam = searchParams.get('ano');
@@ -129,7 +133,7 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
 
         // Validar parâmetros
-        const params = validarParametros(searchParams);
+        const params = validarParametros(request, searchParams);
         if (params instanceof NextResponse) return params;
 
         // Construir datas no formato Firebird DATE (DD.MM.YYYY)

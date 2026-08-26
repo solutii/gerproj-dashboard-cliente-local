@@ -56,6 +56,32 @@ type AuthState = {
 };
 
 // ==================== HELPERS ====================
+// localStorage pode lançar em modo privado/com quota excedida — essas
+// operações de escrita não podem quebrar o fluxo de login/logout no meio.
+function safeSetItem(key: string, value: string): void {
+    try {
+        localStorage.setItem(key, value);
+    } catch {
+        // ignora — localStorage indisponível
+    }
+}
+
+function safeRemoveItem(key: string): void {
+    try {
+        localStorage.removeItem(key);
+    } catch {
+        // ignora — localStorage indisponível
+    }
+}
+
+function safeGetItem(key: string): string | null {
+    try {
+        return localStorage.getItem(key);
+    } catch {
+        return null;
+    }
+}
+
 const getStoredAuthData = (): (UserData & { isLoggedIn: boolean }) | { isLoggedIn: false } => {
     if (typeof window === 'undefined') return { isLoggedIn: false };
 
@@ -119,16 +145,16 @@ const loginApi = async (email: string, password: string): Promise<UserData> => {
     }
 
     if (data.loginType === 'consultor') {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('loginType', 'consultor');
-        localStorage.setItem('userEmail', email);
-        localStorage.setItem('codUsuario', String(data.codUsuario));
-        localStorage.setItem('nomeUsuario', data.nomeUsuario);
-        localStorage.setItem('idUsuario', data.idUsuario);
-        localStorage.setItem('tipoUsuario', data.tipoUsuario);
-        localStorage.setItem('permtar', String(data.permissoes.permtar));
-        localStorage.setItem('perproj1', String(data.permissoes.perproj1));
-        localStorage.setItem('perproj2', String(data.permissoes.perproj2));
+        safeSetItem('isLoggedIn', 'true');
+        safeSetItem('loginType', 'consultor');
+        safeSetItem('userEmail', email);
+        safeSetItem('codUsuario', String(data.codUsuario));
+        safeSetItem('nomeUsuario', data.nomeUsuario);
+        safeSetItem('idUsuario', data.idUsuario);
+        safeSetItem('tipoUsuario', data.tipoUsuario);
+        safeSetItem('permtar', String(data.permissoes.permtar));
+        safeSetItem('perproj1', String(data.permissoes.perproj1));
+        safeSetItem('perproj2', String(data.permissoes.perproj2));
 
         return {
             loginType: 'consultor',
@@ -140,12 +166,14 @@ const loginApi = async (email: string, password: string): Promise<UserData> => {
             permissoes: data.permissoes,
         };
     } else {
-        localStorage.setItem('isLoggedIn', 'true');
-        localStorage.setItem('loginType', 'cliente');
-        localStorage.setItem('userEmail', email);
-        localStorage.setItem('codCliente', data.codCliente ?? '');
-        localStorage.setItem('codRecOS', data.codRecOS ?? '');
-        localStorage.setItem('nomeRecurso', data.nomeRecurso ?? '');
+        safeSetItem('isLoggedIn', 'true');
+        safeSetItem('loginType', 'cliente');
+        safeSetItem('userEmail', email);
+        safeSetItem('codCliente', data.codCliente ?? '');
+        safeSetItem('codRecOS', data.codRecOS ?? '');
+        safeSetItem('nomeRecurso', data.nomeRecurso ?? '');
+        if (data.clienteToken) safeSetItem('clienteToken', data.clienteToken);
+        else safeRemoveItem('clienteToken');
 
         return {
             loginType: 'cliente',
@@ -186,7 +214,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         }
 
         if (stored.loginType === 'consultor') {
-            const codCliente = localStorage.getItem('codCliente') || null;
+            const codCliente = safeGetItem('codCliente') || null;
             set({
                 isLoggedIn: true,
                 isLoading: false,
@@ -248,25 +276,26 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     // ── Selecionar cliente como admin ──
     setAdminCodCliente: (codCliente) => {
-        localStorage.setItem('codCliente', codCliente);
+        safeSetItem('codCliente', codCliente);
         set({ codCliente });
     },
 
     // ── Logout ──
     logout: () => {
-        localStorage.removeItem('isLoggedIn');
-        localStorage.removeItem('loginType');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('codCliente');
-        localStorage.removeItem('codRecOS');
-        localStorage.removeItem('nomeRecurso');
-        localStorage.removeItem('codUsuario');
-        localStorage.removeItem('nomeUsuario');
-        localStorage.removeItem('idUsuario');
-        localStorage.removeItem('tipoUsuario');
-        localStorage.removeItem('permtar');
-        localStorage.removeItem('perproj1');
-        localStorage.removeItem('perproj2');
+        safeRemoveItem('isLoggedIn');
+        safeRemoveItem('loginType');
+        safeRemoveItem('userEmail');
+        safeRemoveItem('codCliente');
+        safeRemoveItem('codRecOS');
+        safeRemoveItem('nomeRecurso');
+        safeRemoveItem('codUsuario');
+        safeRemoveItem('nomeUsuario');
+        safeRemoveItem('idUsuario');
+        safeRemoveItem('tipoUsuario');
+        safeRemoveItem('permtar');
+        safeRemoveItem('perproj1');
+        safeRemoveItem('perproj2');
+        safeRemoveItem('clienteToken');
 
         set({
             isLoggedIn: false,

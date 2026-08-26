@@ -1,6 +1,7 @@
 'use client';
 
 import { LoadingRingSpinner } from '@/components/LoadingRingSpinner';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -140,6 +141,7 @@ export function CardMediaHrsChamadoTarefa({ filters }: FilterProps) {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...getClienteTokenHeaders(),
                 },
             }
         );
@@ -156,7 +158,7 @@ export function CardMediaHrsChamadoTarefa({ filters }: FilterProps) {
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['mediasHoras', filters, codCliente],
         queryFn: fetchData,
-        enabled: !!filters && codCliente !== null,
+        enabled: !!filters && !!codCliente,
         staleTime: 1000 * 60 * 5, // 5 minutos
         refetchOnWindowFocus: false,
     });

@@ -1,4 +1,5 @@
 import { LoadingRingSpinner, type LoadingRingPalette } from '@/components/LoadingRingSpinner';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
@@ -183,7 +184,9 @@ const fetchOrdensServico = async (filters: FilterProps['filters'], codCliente: s
         params.append('status', filters.status);
     }
 
-    const response = await fetch(`/api/dashboard/graficos?${params.toString()}`);
+    const response = await fetch(`/api/dashboard/graficos?${params.toString()}`, {
+        headers: getClienteTokenHeaders(),
+    });
 
     if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
@@ -201,7 +204,9 @@ const fetchSaldoHistorico = async (codCliente: string, mes: number, ano: number)
         mesesHistorico: '6',
     });
 
-    const response = await fetch(`/api/saldo-horas?${params.toString()}`);
+    const response = await fetch(`/api/saldo-horas?${params.toString()}`, {
+        headers: getClienteTokenHeaders(),
+    });
 
     if (!response.ok) {
         throw new Error(`Erro HTTP: ${response.status}`);
@@ -225,13 +230,15 @@ export function Graficos({ filters }: FilterProps) {
     } = useQuery({
         queryKey: ['graficos', filters, codCliente],
         queryFn: () => fetchOrdensServico(filters, codCliente),
+        enabled: !!codCliente,
         staleTime: 1000 * 60 * 5,
+        refetchOnWindowFocus: false,
         retry: 1,
     });
 
     // Query para buscar dados do saldo histórico
     const { data: dadosSaldo } = useQuery({
-        queryKey: ['saldo-horas', filters.cliente, filters.mes, filters.ano],
+        queryKey: ['saldo-horas', filters.cliente, filters.mes, filters.ano, codCliente],
         queryFn: () => {
             const clienteId = filters.cliente || codCliente;
             if (!clienteId) return Promise.resolve(null);
@@ -239,8 +246,32 @@ export function Graficos({ filters }: FilterProps) {
         },
         enabled: !!(filters.cliente || codCliente),
         staleTime: 1000 * 60 * 5,
+        refetchOnWindowFocus: false,
         retry: 1,
     });
+
+    // Agregações derivadas dos gráficos — memoizadas pra não recalcular a
+    // cada re-render (ex.: resize da janela via useIsDesktop) sem que os
+    // dados de origem tenham mudado.
+    const horasPorMes = dados?.graficos?.horasPorMes;
+    const horasPorRecurso = dados?.graficos?.horasPorRecurso;
+
+    const totalAnualHoras = React.useMemo(
+        () => (horasPorMes ?? []).reduce((acc: number, m: { horas: number }) => acc + m.horas, 0),
+        [horasPorMes]
+    );
+
+    const mediaMensalHoras = React.useMemo(() => {
+        const mesesComHoras = (horasPorMes ?? []).filter((m: { horas: number }) => m.horas > 0);
+        const total = mesesComHoras.reduce((acc: number, m: { horas: number }) => acc + m.horas, 0);
+        return mesesComHoras.length > 0 ? total / mesesComHoras.length : 0;
+    }, [horasPorMes]);
+
+    const mediaHorasPorRecurso = React.useMemo(() => {
+        const lista = horasPorRecurso ?? [];
+        if (lista.length === 0) return 0;
+        return lista.reduce((acc: number, r: { horas: number }) => acc + r.horas, 0) / lista.length;
+    }, [horasPorRecurso]);
 
     if (isLoading) {
         return (
@@ -274,7 +305,7 @@ export function Graficos({ filters }: FilterProps) {
         );
     }
 
-    const { horasPorDia, horasPorRecurso, horasPorMes } = dados.graficos;
+    const { horasPorDia } = dados.graficos;
     const { totalizadores } = dados;
 
     // ================================================================================
@@ -367,27 +398,11 @@ export function Graficos({ filters }: FilterProps) {
                     <div className="mt-4 flex items-center justify-between rounded-md border bg-slate-100 px-4 py-2 text-base font-semibold tracking-widest text-black shadow-xs shadow-black select-none">
                         <div>
                             <span className="font-semibold">Total anual:</span>{' '}
-                            {formatarHorasTotaisSufixo(
-                                horasPorMes.reduce(
-                                    (acc: number, m: { horas: number }) => acc + m.horas,
-                                    0
-                                )
-                            )}
+                            {formatarHorasTotaisSufixo(totalAnualHoras)}
                         </div>
                         <div>
                             <span className="font-semibold">Média mensal:</span>{' '}
-                            {(() => {
-                                const mesesComHoras = horasPorMes.filter(
-                                    (m: { horas: number }) => m.horas > 0
-                                );
-                                const total = mesesComHoras.reduce(
-                                    (acc: number, m: { horas: number }) => acc + m.horas,
-                                    0
-                                );
-                                return formatarHorasTotaisSufixo(
-                                    mesesComHoras.length > 0 ? total / mesesComHoras.length : 0
-                                );
-                            })()}
+                            {formatarHorasTotaisSufixo(mediaMensalHoras)}
                         </div>
                     </div>
                 </ChartCard>
@@ -430,8 +445,10 @@ export function Graficos({ filters }: FilterProps) {
                                 }}
                                 tickFormatter={(value, index) => {
                                     const item = dadosSaldo.historico[index];
+                                    if (!item) return '';
                                     return `${item.mes.toString().padStart(2, '0')}/${item.ano}`;
                                 }}
+                                interval={0}
                                 angle={-35}
                                 textAnchor="end"
                                 height={80}
@@ -860,12 +877,7 @@ export function Graficos({ filters }: FilterProps) {
                     <div className="mt-4 rounded-md border bg-slate-100 px-4 py-2 shadow-xs shadow-black">
                         <p className="text-base font-semibold tracking-widest text-black select-none">
                             <span className="font-semibold">Média por recurso:</span>{' '}
-                            {formatarHorasTotaisSufixo(
-                                horasPorRecurso.reduce(
-                                    (acc: number, r: { horas: number }) => acc + r.horas,
-                                    0
-                                ) / horasPorRecurso.length
-                            )}
+                            {formatarHorasTotaisSufixo(mediaHorasPorRecurso)}
                         </p>
                     </div>
                 </ChartCard>

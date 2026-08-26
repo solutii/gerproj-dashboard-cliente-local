@@ -1,6 +1,7 @@
 // app/api/chamados/route.ts
 
 import { safeErrorMessage } from '@/lib/api-error';
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdExecute, firebirdQuery } from '@/lib/firebird/firebird-client';
 import { sendMail } from '@/lib/mail/mailer';
 import {
@@ -274,8 +275,8 @@ const CAMPOS_AVALIACAO_GROUPBY = `,
     CHAMADO.OBSAVAL_CHAMADO`;
 
 // ==================== VALIDAÇÕES ====================
-const validarParametros = (sp: URLSearchParams): QueryParams | NextResponse => {
-    const codCliente = sp.get('codCliente')?.trim() || undefined;
+const validarParametros = (request: Request, sp: URLSearchParams): QueryParams | NextResponse => {
+    const codCliente = resolveCodClienteSeguro(request, sp.get('codCliente'))?.trim() || undefined;
     const statusFilter = sp.get('statusFilter')?.trim() || undefined;
 
     let mes: number | undefined;
@@ -1228,7 +1229,7 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const params = validarParametros(searchParams);
+        const params = validarParametros(request, searchParams);
         if (params instanceof NextResponse) return params;
 
         const incluirSLA = searchParams.get('incluirSLA') !== 'false';

@@ -3,6 +3,7 @@
 'use client';
 
 import { useIsDesktop } from '@/hooks/useIsDesktop';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FaCheckCircle, FaFileExcel, FaFilePdf, FaFileWord, FaImage } from 'react-icons/fa';
@@ -206,7 +207,10 @@ interface ModalAbrirChamadoProps {
 }
 
 export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
-    const { codCliente, loginType, tipoUsuario, userEmail } = useAuthStore();
+    const codCliente = useAuthStore((state) => state.codCliente);
+    const loginType = useAuthStore((state) => state.loginType);
+    const tipoUsuario = useAuthStore((state) => state.tipoUsuario);
+    const userEmail = useAuthStore((state) => state.userEmail);
     const isAdmin = loginType === 'consultor' && tipoUsuario === 'ADM';
     const isDesktop = useIsDesktop();
 
@@ -317,7 +321,9 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
 
         setTarefaSelecionada(null);
         setLoadingTarefas(true);
-        fetch(`/api/chamados/tarefas?codCliente=${clienteAtual.cod}`)
+        fetch(`/api/chamados/tarefas?codCliente=${clienteAtual.cod}`, {
+            headers: getClienteTokenHeaders(),
+        })
             .then((r) => r.json())
             .then((data: Opcao[]) => setTarefas(data))
             .catch(() => setTarefas([]))
@@ -454,9 +460,12 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
             if (arquivos.length > 0) {
                 const formData = new FormData();
                 formData.append('cod_chamado', String(cod_chamado));
+                const codClienteDono = isAdmin ? clienteAtual?.cod : codCliente;
+                if (codClienteDono) formData.append('codCliente', String(codClienteDono));
                 arquivos.forEach((f) => formData.append('arquivos', f));
                 const uploadRes = await fetch('/api/chamados/upload', {
                     method: 'POST',
+                    headers: getClienteTokenHeaders(),
                     body: formData,
                 });
                 if (!uploadRes.ok) {
@@ -481,7 +490,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
         <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out sm:p-4">
             {/* OVERLAY */}
             <div
-                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+                className="absolute inset-0 bg-black/80 backdrop-blur-sm"
                 onClick={handleFecharLimpar}
             />
 

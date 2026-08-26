@@ -8,7 +8,7 @@ import { formatarDataHoraChamado } from '@/formatters/formatar-data';
 import { formatarHorasRelogio } from '@/formatters/formatar-hora';
 import { formatarNumeros, formatarPrioridade } from '@/formatters/formatar-numeros';
 import { ColumnDef } from '@tanstack/react-table';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BiSolidLike } from 'react-icons/bi';
 import { MdHistory, MdOpenInNew, MdOutlineStar } from 'react-icons/md';
 
@@ -125,6 +125,12 @@ const StatusBadge = React.memo(function StatusBadge({
 }: StatusBadgeProps) {
     const styles = getStylesStatus(status);
     const isFinalizado = status.toUpperCase() === 'FINALIZADO';
+    // AVALIA_CHAMADO é NOT NULL no Firebird e nasce sempre com 1 (default do
+    // legado Delphi, ver route.ts "replicando os defaults do Delphi") — ou
+    // seja, "1" é o sentinela de "nunca avaliado", não uma nota real, então
+    // nunca chega null aqui (a API já normaliza pra 1). O corte em >= 2 é
+    // proposital e espelha a mesma regra usada no backend
+    // (avaliacao/route.ts) pra decidir se o chamado já foi avaliado.
     const avaliacaoValor = avaliacao ?? 1;
     const foiAvaliado = avaliacaoValor >= 2 && avaliacaoValor <= 5;
 
@@ -242,9 +248,18 @@ const TruncatedCell = React.memo(function TruncatedCell({
     centered?: boolean;
     className?: string;
 }) {
+    const ref = useRef<HTMLDivElement>(null);
+
+    // Só remede a truncagem quando o texto realmente muda — o ref callback
+    // inline antigo era recriado (e reexecutado) a cada render da célula,
+    // mesmo sem mudança de conteúdo.
+    useEffect(() => {
+        setupTruncationTooltip(ref.current, value);
+    }, [value]);
+
     return (
         <div
-            ref={(el) => setupTruncationTooltip(el, value)}
+            ref={ref}
             className={`flex-1 truncate overflow-hidden text-sm font-medium tracking-wide whitespace-nowrap text-black select-none ${
                 centered ? 'text-center' : ''
             } ${className}`}

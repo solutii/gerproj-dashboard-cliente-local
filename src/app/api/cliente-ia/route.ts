@@ -1,6 +1,7 @@
 // app/api/cliente-ia/route.ts
 
 import { safeErrorMessage } from '@/lib/api-error';
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -13,7 +14,7 @@ interface ClienteIARaw {
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
-        const codCliente = searchParams.get('codCliente')?.trim();
+        const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'))?.trim();
 
         if (!codCliente) {
             return NextResponse.json(

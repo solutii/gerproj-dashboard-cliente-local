@@ -2,8 +2,9 @@
 
 'use client';
 
+import { useAuthStore } from '@/store/useAuthStore';
 import { Star } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { IoClose } from 'react-icons/io5';
 import { MdMiscellaneousServices, MdSend } from 'react-icons/md';
@@ -36,17 +37,38 @@ export function ModalAvaliarChamado({
     observacaoChamado,
     onSave,
 }: ModalAvaliacaoChamadoProps) {
+    const codCliente = useAuthStore((state) => state.codCliente);
     const [nota, setNota] = useState(0);
     const [hoveredStar, setHoveredStar] = useState(0);
     const [observacao, setObservacao] = useState(observacaoChamado || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Reseta todo o estado do formulário toda vez que o modal abre pra um
+    // chamado — evita que nota/comentário de uma avaliação anterior (com o
+    // modal reaberto sem fechar antes, ex.: clicando "Avaliar" em outra
+    // linha) vazem pro chamado atual. Também cancela um auto-close
+    // pendente de uma avaliação anterior.
+    useEffect(() => {
+        if (!isOpen) return;
+
+        setNota(0);
+        setHoveredStar(0);
+        setError(null);
+        setObservacao(observacaoChamado ? capitalizarPrimeiraLetra(observacaoChamado) : '');
+
+        if (closeTimeoutRef.current) {
+            clearTimeout(closeTimeoutRef.current);
+            closeTimeoutRef.current = null;
+        }
+    }, [isOpen, codChamado, observacaoChamado]);
 
     useEffect(() => {
-        if (isOpen && observacaoChamado) {
-            setObservacao(capitalizarPrimeiraLetra(observacaoChamado));
-        }
-    }, [isOpen, observacaoChamado]);
+        return () => {
+            if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+        };
+    }, []);
 
     const handleSubmit = async () => {
         if (nota === 0) {
@@ -68,6 +90,7 @@ export function ModalAvaliarChamado({
                 body: JSON.stringify({
                     avaliacao: nota,
                     observacao: observacaoTratada,
+                    codCliente,
                 }),
             });
 
@@ -78,7 +101,9 @@ export function ModalAvaliarChamado({
 
             onSave();
             toast.success('Avaliação salva com sucesso!', { duration: 3000 });
-            setTimeout(() => {
+            if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+            closeTimeoutRef.current = setTimeout(() => {
+                closeTimeoutRef.current = null;
                 handleClose();
             }, 3500);
         } catch (err) {
@@ -90,6 +115,10 @@ export function ModalAvaliarChamado({
     };
 
     const handleClose = () => {
+        if (closeTimeoutRef.current) {
+            clearTimeout(closeTimeoutRef.current);
+            closeTimeoutRef.current = null;
+        }
         setNota(0);
         setHoveredStar(0);
         setObservacao('');
@@ -128,7 +157,7 @@ export function ModalAvaliarChamado({
     return (
         <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out">
             {/* Overlay */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
             {/* Modal Content */}
             <div className="animate-in slide-in-from-bottom-4 relative z-10 flex h-auto max-h-[100vh] w-[95vw] flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out sm:w-full sm:max-w-7xl">

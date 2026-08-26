@@ -1,4 +1,5 @@
 // src/app/api/chamados/upload/route.ts
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { excedeuLimite, obterIp } from '@/lib/rate-limit';
 import fs from 'fs';
@@ -85,6 +86,29 @@ export async function POST(req: NextRequest) {
                 { error: `Maximo de ${MAX_FILES} arquivos por chamado.` },
                 { status: 400 }
             );
+        }
+
+        // Só valida dono quando o chamador manda um codCliente (fluxo de
+        // cliente) — sem isso (ex.: ADM), mantém o comportamento anterior.
+        const codClienteRaw = formData.get('codCliente');
+        const codCliente = resolveCodClienteSeguro(
+            req,
+            typeof codClienteRaw === 'string' ? codClienteRaw : null
+        );
+        if (codCliente) {
+            const chamadoRows = await firebirdQuery<{ COD_CLIENTE: number }>(
+                'SELECT COD_CLIENTE FROM CHAMADO WHERE COD_CHAMADO = ?',
+                [codChamado]
+            );
+            if (chamadoRows.length === 0) {
+                return NextResponse.json({ error: 'Chamado não encontrado.' }, { status: 404 });
+            }
+            if (String(chamadoRows[0].COD_CLIENTE) !== String(codCliente)) {
+                return NextResponse.json(
+                    { error: 'Você não tem permissão para anexar arquivos a este chamado.' },
+                    { status: 403 }
+                );
+            }
         }
 
         // Lê cada arquivo uma única vez (buffer reaproveitado na validação de

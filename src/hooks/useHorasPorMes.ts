@@ -1,11 +1,13 @@
 // hooks/useHorasPorMes.ts
 
 import type { HorasMes, HorasPorChamadoMap } from '@/app/api/chamados/horas-por-mes/route';
-import { useEffect, useRef, useState } from 'react';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface UseHorasPorMesOptions {
     /** IDs dos chamados visíveis na tabela */
     codChamados: number[];
+    codCliente?: string | null;
     /** Não dispara o fetch se false (ex: chamado sem OS) */
     enabled?: boolean;
 }
@@ -15,6 +17,9 @@ interface UseHorasPorMesReturn {
     horasMap: HorasPorChamadoMap;
     /** Retorna os meses de um chamado específico */
     getHoras: (codChamado: number) => HorasMes[];
+    /** Remove um chamado do cache, forçando novo fetch na próxima leitura
+     *  (ex.: depois de validar uma OS, as horas totais mudam). */
+    invalidate: (codChamado: number) => void;
     isLoading: boolean;
     error: string | null;
 }
@@ -25,6 +30,7 @@ interface UseHorasPorMesReturn {
  */
 export function useHorasPorMes({
     codChamados,
+    codCliente,
     enabled = true,
 }: UseHorasPorMesOptions): UseHorasPorMesReturn {
     const [horasMap, setHorasMap] = useState<HorasPorChamadoMap>({});
@@ -36,6 +42,15 @@ export function useHorasPorMes({
     const cacheRef = useRef<HorasPorChamadoMap>({});
     const fetchedIdsRef = useRef<Set<number>>(new Set());
     const abortRef = useRef<AbortController | null>(null);
+    // Incrementado por invalidate() só pra forçar o efeito abaixo a rodar de
+    // novo — o conjunto de IDs (codChamados) não muda quando invalidamos.
+    const [refreshTick, setRefreshTick] = useState(0);
+
+    const invalidate = useCallback((codChamado: number) => {
+        fetchedIdsRef.current.delete(codChamado);
+        delete cacheRef.current[codChamado];
+        setRefreshTick((t) => t + 1);
+    }, []);
 
     useEffect(() => {
         if (!enabled || codChamados.length === 0) return;
@@ -62,11 +77,19 @@ export function useHorasPorMes({
                     batches.push(novoIds.slice(i, i + BATCH_SIZE));
                 }
 
+                const codClienteParam = codCliente
+                    ? `&codCliente=${encodeURIComponent(codCliente)}`
+                    : '';
+
                 const results = await Promise.all(
                     batches.map((batch) =>
-                        fetch(`/api/chamados/horas-por-mes?ids=${batch.join(',')}`, {
-                            signal: controller.signal,
-                        }).then((res) => {
+                        fetch(
+                            `/api/chamados/horas-por-mes?ids=${batch.join(',')}${codClienteParam}`,
+                            {
+                                signal: controller.signal,
+                                headers: getClienteTokenHeaders(),
+                            }
+                        ).then((res) => {
                             if (!res.ok) throw new Error(`HTTP ${res.status}`);
                             return res.json() as Promise<{
                                 success: boolean;
@@ -103,13 +126,16 @@ export function useHorasPorMes({
             abortRef.current?.abort();
         };
     }, [
-        // Reexecuta apenas se o conjunto de IDs mudar (ex: virar de página)
+        // Reexecuta se o conjunto de IDs mudar (ex: virar de página) ou se
+        // invalidate() marcar algum id pra ser buscado de novo.
         // eslint-disable-next-line react-hooks/exhaustive-deps
         codChamados.join(','),
+        codCliente,
         enabled,
+        refreshTick,
     ]);
 
     const getHoras = (codChamado: number): HorasMes[] => horasMap[codChamado] ?? [];
 
-    return { horasMap, getHoras, isLoading, error };
+    return { horasMap, getHoras, invalidate, isLoading, error };
 }

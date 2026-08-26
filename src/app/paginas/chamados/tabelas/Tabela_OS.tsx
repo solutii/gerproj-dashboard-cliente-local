@@ -356,7 +356,7 @@ interface ModalOverlayProps {
 const ModalOverlay = React.memo(function ModalOverlay({ children }: ModalOverlayProps) {
     return (
         <div className="animate-in fade-in fixed inset-0 z-[110] flex items-center justify-center transition-all duration-200 ease-out">
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
             {children}
         </div>
     );

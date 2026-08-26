@@ -34,7 +34,7 @@ export function IsError({
     };
 
     return (
-        <div className="animate-in fade-in fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm duration-200">
+        <div className="animate-in fade-in fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm duration-200">
             <div className="flex flex-col items-center justify-center gap-6">
                 <div className="relative">
                     <div className="absolute inset-0 rounded-full bg-gradient-to-r from-red-200 via-red-400 to-red-600 opacity-20 blur-xl"></div>

@@ -18,6 +18,7 @@ import { useHorasAdicionais } from '@/hooks/useHorasAdicionais';
 import { useHorasPorMes } from '@/hooks/useHorasPorMes';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useRedimensionarColunas } from '@/hooks/useRedimensionarColunas';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -198,6 +199,7 @@ const createAuthHeaders = () => ({
     'x-is-logged-in': localStorage.getItem('isLoggedIn') || 'false',
     'x-user-email': localStorage.getItem('userEmail') || '',
     'x-cod-cliente': localStorage.getItem('codCliente') || '',
+    ...getClienteTokenHeaders(),
 });
 
 const serializeColumnFilters = (filters: ColumnFiltersState): string => {
@@ -413,13 +415,23 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         [idsComOSKey]
     );
 
-    const { getHoras, isLoading: isLoadingHoras } = useHorasPorMes({
+    const {
+        getHoras,
+        invalidate: invalidateHoras,
+        isLoading: isLoadingHoras,
+    } = useHorasPorMes({
         codChamados: idsComOS,
+        codCliente,
         enabled: idsComOS.length > 0,
     });
 
-    const { getHorasAdicionais, isLoading: isLoadingHorasAdicionais } = useHorasAdicionais({
+    const {
+        getHorasAdicionais,
+        invalidate: invalidateHorasAdicionais,
+        isLoading: isLoadingHorasAdicionais,
+    } = useHorasAdicionais({
         codChamados: idsComOS,
+        codCliente,
         enabled: idsComOS.length > 0,
     });
 
@@ -613,16 +625,27 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         };
     }, []);
 
-    const handleSaveValidation = useCallback((_updatedRow: OSRowProps) => {
-        setIsModalOSOpen(false);
-        setSelectedOS(null);
-        setIsModalListaOSOpen(false);
+    const handleSaveValidation = useCallback(
+        (_updatedRow: OSRowProps) => {
+            setIsModalOSOpen(false);
+            setSelectedOS(null);
+            setIsModalListaOSOpen(false);
 
-        if (reabrirListaOSTimerRef.current) clearTimeout(reabrirListaOSTimerRef.current);
-        reabrirListaOSTimerRef.current = setTimeout(() => {
-            setIsModalListaOSOpen(true);
-        }, 50);
-    }, []);
+            // A validação de uma OS pode mudar o total de horas do chamado
+            // (faturadas/adicionais) — invalida o cache pra tabela buscar o
+            // valor atualizado em vez de continuar mostrando o antigo.
+            if (selectedChamado !== null) {
+                invalidateHoras(selectedChamado);
+                invalidateHorasAdicionais(selectedChamado);
+            }
+
+            if (reabrirListaOSTimerRef.current) clearTimeout(reabrirListaOSTimerRef.current);
+            reabrirListaOSTimerRef.current = setTimeout(() => {
+                setIsModalListaOSOpen(true);
+            }, 50);
+        },
+        [selectedChamado, invalidateHoras, invalidateHorasAdicionais]
+    );
 
     const handleOpenSolicitacao = useCallback((chamado: ChamadoRowProps) => {
         setSelectedChamadoSolicitacao(chamado);

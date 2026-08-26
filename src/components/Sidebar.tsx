@@ -160,11 +160,20 @@ export function Sidebar() {
     const [isOpen, setIsOpen] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const hoverExpandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isModalSaldoOpen, setIsModalSaldoOpen] = useState(false);
     const [isModalAbrirChamadoOpen, setIsModalAbrirChamadoOpen] = useState(false);
     const [isModalAlterarSenhaOpen, setIsModalAlterarSenhaOpen] = useState(false);
 
-    const { logout, codCliente, loginType, tipoUsuario } = useAuthStore();
+    // Seletores individuais (em vez de desestruturar a store inteira) —
+    // Sidebar e os modais sempre montados dentro dele (Saldo, Abrir
+    // Chamado, Alterar Senha) não podem re-renderizar a cada mudança de
+    // QUALQUER campo da store de auth, só quando os campos que eles
+    // realmente usam mudam.
+    const logout = useAuthStore((state) => state.logout);
+    const codCliente = useAuthStore((state) => state.codCliente);
+    const loginType = useAuthStore((state) => state.loginType);
+    const tipoUsuario = useAuthStore((state) => state.tipoUsuario);
     const podeAlterarSenha = loginType === 'cliente';
     // Abrir chamado é restrito a clientes e consultores do tipo ADM.
     const podeAbrirChamado = loginType === 'cliente' || tipoUsuario === 'ADM';
@@ -189,6 +198,20 @@ export function Sidebar() {
         setIsNavigating(false);
         setTargetRoute(null);
     }, [pathname]);
+
+    // Rede de segurança: se por algum motivo a navegação nunca completar
+    // (chunk que falha ao carregar, erro de render da rota), o overlay não
+    // fica preso pra sempre.
+    useEffect(() => {
+        if (!isNavigating) return;
+
+        const timeout = setTimeout(() => {
+            setIsNavigating(false);
+            setTargetRoute(null);
+        }, 8000);
+
+        return () => clearTimeout(timeout);
+    }, [isNavigating]);
 
     useEffect(() => {
         const handleResize = () => {
@@ -215,7 +238,11 @@ export function Sidebar() {
             setIsOpen(false);
         }
 
-        setTimeout(() => {
+        // Cancela uma navegação pendente — clicar em dois links rápido
+        // (dentro dos 300ms) disparava dois `router.push` em sequência.
+        if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
+        navigationTimeoutRef.current = setTimeout(() => {
+            navigationTimeoutRef.current = null;
             router.push(route);
         }, 300);
     };
@@ -239,6 +266,7 @@ export function Sidebar() {
     useEffect(() => {
         return () => {
             if (hoverExpandTimeoutRef.current) clearTimeout(hoverExpandTimeoutRef.current);
+            if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
         };
     }, []);
 
@@ -309,7 +337,7 @@ export function Sidebar() {
         <>
             {isMobile && isOpen && (
                 <div
-                    className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+                    className="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm"
                     onClick={() => setIsOpen(false)}
                 />
             )}

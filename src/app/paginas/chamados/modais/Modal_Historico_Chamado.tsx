@@ -3,6 +3,8 @@
 'use client';
 
 import { formatarDataHoraChamado } from '@/formatters/formatar-data';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
+import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { IoClose } from 'react-icons/io5';
 import { MdHistory } from 'react-icons/md';
@@ -27,8 +29,14 @@ interface ModalHistoricoChamadoProps {
     onClose: () => void;
 }
 
-async function fetchHistorico(codChamado: number): Promise<HistoricoResponse> {
-    const response = await fetch(`/api/chamados/${codChamado}/historico`);
+async function fetchHistorico(
+    codChamado: number,
+    codCliente: string | null
+): Promise<HistoricoResponse> {
+    const params = codCliente ? `?codCliente=${encodeURIComponent(codCliente)}` : '';
+    const response = await fetch(`/api/chamados/${codChamado}/historico${params}`, {
+        headers: getClienteTokenHeaders(),
+    });
     if (!response.ok) {
         const erro = await response.json();
         throw new Error(erro.error ?? 'Erro ao buscar histórico do chamado');
@@ -37,9 +45,10 @@ async function fetchHistorico(codChamado: number): Promise<HistoricoResponse> {
 }
 
 export function ModalHistoricoChamado({ isOpen, codChamado, onClose }: ModalHistoricoChamadoProps) {
+    const codCliente = useAuthStore((state) => state.codCliente);
     const { data, isLoading, isError, error } = useQuery({
-        queryKey: ['historico-chamado', codChamado],
-        queryFn: () => fetchHistorico(codChamado),
+        queryKey: ['historico-chamado', codChamado, codCliente],
+        queryFn: () => fetchHistorico(codChamado, codCliente),
         enabled: isOpen && codChamado > 0,
     });
 
@@ -48,7 +57,7 @@ export function ModalHistoricoChamado({ isOpen, codChamado, onClose }: ModalHist
     return (
         <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out">
             {/* Overlay */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
             <div className="animate-in slide-in-from-bottom-4 relative z-10 flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
                 {/* ========== HEADER ========== */}

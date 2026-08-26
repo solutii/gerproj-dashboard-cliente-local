@@ -2,6 +2,7 @@
 
 import { LoadingRingSpinner } from '@/components/LoadingRingSpinner';
 import { MetricInfoTooltip } from '@/components/MetricInfoTooltip';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -167,6 +168,7 @@ export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
+                    ...getClienteTokenHeaders(),
                 },
             }
         );

@@ -1,5 +1,6 @@
 // src/app/api/dashboard/hrs-contratadas-hrs-executadas/route.ts
 import { safeErrorMessage } from '@/lib/api-error';
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextResponse } from 'next/server';
 
@@ -31,8 +32,11 @@ interface DadosCliente {
 }
 
 // ==================== VALIDAÇÕES ====================
-function validarParametros(searchParams: URLSearchParams): QueryParams | NextResponse {
-    const codCliente = searchParams.get('codCliente')?.trim();
+function validarParametros(
+    request: Request,
+    searchParams: URLSearchParams
+): QueryParams | NextResponse {
+    const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'))?.trim();
     const mes = Number(searchParams.get('mes'));
     const ano = Number(searchParams.get('ano'));
 
@@ -267,7 +271,7 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const params = validarParametros(searchParams);
+        const params = validarParametros(request, searchParams);
         if (params instanceof NextResponse) return params;
 
         const { dataInicio, dataFim } = construirDatas(params.mes, params.ano);

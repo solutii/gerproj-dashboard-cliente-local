@@ -1,6 +1,7 @@
 // app/api/chamados/horas-por-mes/route.ts
 
 import { safeErrorMessage } from '@/lib/api-error';
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -30,7 +31,10 @@ interface HorasRaw {
  * Recebe: ?ids=1,2,3,4
  * Limite de 500 IDs por batch para não estourar o SQL.
  */
-const validarParametros = (sp: URLSearchParams): { ids: number[] } | NextResponse => {
+const validarParametros = (
+    request: NextRequest,
+    sp: URLSearchParams
+): { ids: number[]; codCliente?: string } | NextResponse => {
     const raw = sp.get('ids')?.trim();
 
     if (!raw) {
@@ -53,7 +57,9 @@ const validarParametros = (sp: URLSearchParams): { ids: number[] } | NextRespons
         return NextResponse.json({ error: 'Máximo de 500 IDs por requisição' }, { status: 400 });
     }
 
-    return { ids };
+    const codCliente = resolveCodClienteSeguro(request, sp.get('codCliente'))?.trim() || undefined;
+
+    return { ids, codCliente };
 };
 
 // ==================== QUERY ====================
@@ -67,12 +73,15 @@ const validarParametros = (sp: URLSearchParams): { ids: number[] } | NextRespons
  * Inclui apenas OS faturadas (FATURADO_OS <> 'NAO').
  * Ignora OS sem DTINI_OS preenchido.
  */
-const buscarHorasPorMes = async (ids: number[]): Promise<HorasRaw[]> => {
+const buscarHorasPorMes = async (ids: number[], codCliente?: string): Promise<HorasRaw[]> => {
     // Firebird não suporta IN com parâmetros dinâmicos de forma nativa via ?
     // então montamos placeholders explícitos: ?,?,?
     const placeholders = ids.map(() => '?').join(',');
 
-    const sql = `
+    // Só entra no JOIN com CHAMADO quando há um codCliente pra filtrar
+    // (fluxo de cliente) — sem isso (ex.: ADM), mantém o comportamento
+    // anterior sem exigir o join extra.
+    let sql = `
         SELECT
             CAST(OS.CHAMADO_OS AS INTEGER)          AS COD_CHAMADO,
             EXTRACT(MONTH FROM OS.DTINI_OS)         AS MES_OS,
@@ -88,12 +97,29 @@ const buscarHorasPorMes = async (ids: number[]): Promise<HorasRaw[]> => {
         FROM OS
         INNER JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA
             AND TAREFA.EXIBECHAM_TAREFA = 1
+    `;
+
+    if (codCliente) {
+        sql += ` INNER JOIN CHAMADO ON CAST(OS.CHAMADO_OS AS INTEGER) = CHAMADO.COD_CHAMADO `;
+    }
+
+    sql += `
         WHERE
             OS.CHAMADO_OS IS NOT NULL
             AND TRIM(OS.CHAMADO_OS) <> ''
             AND CAST(OS.CHAMADO_OS AS INTEGER) IN (${placeholders})
             AND UPPER(OS.FATURADO_OS) <> 'NAO'
             AND OS.DTINI_OS IS NOT NULL
+    `;
+
+    const sqlParams: (number | string)[] = [...ids];
+
+    if (codCliente) {
+        sql += ` AND CHAMADO.COD_CLIENTE = ? `;
+        sqlParams.push(codCliente);
+    }
+
+    sql += `
         GROUP BY
             CAST(OS.CHAMADO_OS AS INTEGER),
             EXTRACT(MONTH FROM OS.DTINI_OS),
@@ -104,7 +130,7 @@ const buscarHorasPorMes = async (ids: number[]): Promise<HorasRaw[]> => {
             MES_OS
     `;
 
-    return firebirdQuery<HorasRaw>(sql, ids);
+    return firebirdQuery<HorasRaw>(sql, sqlParams);
 };
 
 // ==================== HANDLER ====================
@@ -112,10 +138,10 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const params = validarParametros(searchParams);
+        const params = validarParametros(request, searchParams);
         if (params instanceof NextResponse) return params;
 
-        const raw = await buscarHorasPorMes(params.ids);
+        const raw = await buscarHorasPorMes(params.ids, params.codCliente);
 
         // Agrupa os resultados em um map: { [codChamado]: HorasMes[] }
         const map: HorasPorChamadoMap = {};

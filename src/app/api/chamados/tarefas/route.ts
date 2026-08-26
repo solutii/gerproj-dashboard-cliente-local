@@ -2,13 +2,14 @@
 // Tarefas disponíveis para um cliente, usado pelo ADM na abertura de chamado.
 // COD_CLIENTE -> PROJETO (CODCLI_PROJETO, STATUS_PROJETO = 'ATI') -> COD_PROJETO
 // COD_PROJETO -> TAREFA (CODPRO_TAREFA) -> COD_TAREFA + NOME_TAREFA
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
-        const codCliente = searchParams.get('codCliente')?.trim();
+        const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'))?.trim();
 
         if (!codCliente) {
             return NextResponse.json(

@@ -4,6 +4,7 @@
 // de resolução) pro card do dashboard. Só leitura — reaproveita
 // calcularMetricasSLA() já existente em sla-utils.ts.
 import { safeErrorMessage } from '@/lib/api-error';
+import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { buscarFeriados } from '@/lib/os/feriados-service';
 import { calcularMetricasSLA } from '@/lib/sla/sla-utils';
@@ -14,6 +15,7 @@ interface QueryParams {
     mes: number;
     ano: number;
     codRecursoFilter?: string;
+    codClienteFilter?: string;
 }
 
 interface ChamadoSLARow {
@@ -25,8 +27,11 @@ interface ChamadoSLARow {
     CONCLUSAO_CHAMADO: Date | null;
 }
 
-function validarParametros(searchParams: URLSearchParams): QueryParams | NextResponse {
-    const codCliente = searchParams.get('codCliente')?.trim();
+function validarParametros(
+    request: Request,
+    searchParams: URLSearchParams
+): QueryParams | NextResponse {
+    const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'))?.trim();
     const mes = Number(searchParams.get('mes'));
     const ano = Number(searchParams.get('ano'));
 
@@ -56,6 +61,7 @@ function validarParametros(searchParams: URLSearchParams): QueryParams | NextRes
         mes,
         ano,
         codRecursoFilter: searchParams.get('codRecursoFilter')?.trim() || undefined,
+        codClienteFilter: searchParams.get('codClienteFilter')?.trim() || undefined,
     };
 }
 
@@ -73,7 +79,7 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const params = validarParametros(searchParams);
+        const params = validarParametros(request, searchParams);
         if (params instanceof NextResponse) return params;
 
         const { dataInicio, dataFim } = construirDatas(params.mes, params.ano);
@@ -87,6 +93,11 @@ export async function GET(request: Request) {
               AND CHAMADO.COD_CLIENTE = ?
         `;
         const sqlParams: (string | number)[] = [dataInicio, dataFim, parseInt(params.codCliente)];
+
+        if (params.codClienteFilter) {
+            sql += ` AND CHAMADO.COD_CLIENTE = ?`;
+            sqlParams.push(parseInt(params.codClienteFilter));
+        }
 
         if (params.codRecursoFilter) {
             sql += ` AND CHAMADO.COD_RECURSO = ?`;

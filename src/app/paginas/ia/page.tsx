@@ -19,7 +19,7 @@ const SANITIZE_CONFIG = {
 };
 
 export default function IAPage() {
-    const { codCliente } = useAuthStore();
+    const codCliente = useAuthStore((state) => state.codCliente);
     const router = useRouter();
     const { data, isLoading, isError } = useClienteIA(codCliente);
 

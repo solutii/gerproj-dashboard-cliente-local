@@ -1,4 +1,5 @@
 import { useIsDesktop } from '@/hooks/useIsDesktop';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -52,7 +53,9 @@ const fetchClientes = async ({
         params.append('codCliente', codCliente);
     }
 
-    const response = await fetch(`/api/filtros/clientes?${params.toString()}`);
+    const response = await fetch(`/api/filtros/clientes?${params.toString()}`, {
+        headers: getClienteTokenHeaders(),
+    });
 
     if (!response.ok) {
         throw new Error('Erro ao carregar clientes');
@@ -78,7 +81,9 @@ const fetchRecursos = async ({
         params.append('codCliente', codCliente);
     }
 
-    const response = await fetch(`/api/filtros/recursos?${params.toString()}`);
+    const response = await fetch(`/api/filtros/recursos?${params.toString()}`, {
+        headers: getClienteTokenHeaders(),
+    });
 
     if (!response.ok) {
         throw new Error('Erro ao carregar recursos');
@@ -110,7 +115,9 @@ const fetchStatus = async ({
         params.append('recurso', recursoSelecionado);
     }
 
-    const response = await fetch(`/api/filtros/status?${params.toString()}`);
+    const response = await fetch(`/api/filtros/status?${params.toString()}`, {
+        headers: getClienteTokenHeaders(),
+    });
 
     if (!response.ok) {
         throw new Error('Erro ao carregar status');

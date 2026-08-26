@@ -103,7 +103,7 @@ export function ModalArtigoBaseConhecimento({
     return (
         <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center p-2 transition-all duration-200 ease-out">
             {/* Overlay */}
-            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
             <div className="animate-in slide-in-from-bottom-4 relative z-10 flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
                 {/* ========== HEADER ========== */}

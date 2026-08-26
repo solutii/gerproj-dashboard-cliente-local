@@ -2,6 +2,7 @@
 
 import { LoadingRingSpinner } from '@/components/LoadingRingSpinner';
 import { MetricInfoTooltip } from '@/components/MetricInfoTooltip';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { formatarHoras } from '@/lib/sla/sla-utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
@@ -65,7 +66,9 @@ export function CardSLAMetricas({ filters }: FilterProps) {
         if (filters.cliente) params.append('codClienteFilter', filters.cliente);
         if (filters.recurso) params.append('codRecursoFilter', filters.recurso);
 
-        const response = await fetch(`/api/dashboard/sla-metricas?${params.toString()}`);
+        const response = await fetch(`/api/dashboard/sla-metricas?${params.toString()}`, {
+            headers: getClienteTokenHeaders(),
+        });
 
         if (!response.ok) {
             throw new Error(`Erro na requisição: ${response.status}`);
@@ -77,7 +80,7 @@ export function CardSLAMetricas({ filters }: FilterProps) {
     const { data, isLoading, isError, error } = useQuery({
         queryKey: ['slaMetricas', filters, codCliente],
         queryFn: fetchData,
-        enabled: !!filters && codCliente !== null,
+        enabled: !!filters && !!codCliente,
         staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,
     });

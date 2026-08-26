@@ -3,6 +3,7 @@
 'use client';
 
 import { Relogio } from '@/components/Relogio';
+import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -187,7 +188,9 @@ const fetchClientes = async ({
     if (mes) params.append('mes', mes.toString());
     if (ano) params.append('ano', ano.toString());
     if (codCliente) params.append('codCliente', codCliente);
-    const response = await fetch(`/api/filtros/clientes?${params.toString()}`);
+    const response = await fetch(`/api/filtros/clientes?${params.toString()}`, {
+        headers: getClienteTokenHeaders(),
+    });
     if (!response.ok) throw new Error('Erro ao carregar clientes');
     return response.json();
 };
@@ -207,7 +210,9 @@ const fetchRecursos = async ({
     if (mes) params.append('mes', mes.toString());
     if (ano) params.append('ano', ano.toString());
     if (codCliente) params.append('codCliente', codCliente);
-    const response = await fetch(`/api/filtros/recursos?${params.toString()}`);
+    const response = await fetch(`/api/filtros/recursos?${params.toString()}`, {
+        headers: getClienteTokenHeaders(),
+    });
     if (!response.ok) throw new Error('Erro ao carregar recursos');
     return response.json();
 };
@@ -229,7 +234,9 @@ const fetchStatus = async ({
     if (ano) params.append('ano', ano.toString());
     if (codCliente) params.append('codCliente', codCliente);
     if (recursoSelecionado) params.append('recurso', recursoSelecionado);
-    const response = await fetch(`/api/filtros/status?${params.toString()}`);
+    const response = await fetch(`/api/filtros/status?${params.toString()}`, {
+        headers: getClienteTokenHeaders(),
+    });
     if (!response.ok) throw new Error('Erro ao carregar status');
     return response.json();
 };
