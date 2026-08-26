@@ -419,18 +419,14 @@ const ModalHeader = React.memo(function ModalHeader({
                         <TotalPill
                             color="green"
                             label="Total Horas Comerciais"
-                            value={formatarHorasRelogio(
-                                totais.horas_adicional.horasSemAdicional
-                            )}
+                            value={formatarHorasRelogio(totais.horas_adicional.horasSemAdicional)}
                         />
                     )}
                     {totais.horas_adicional.horasComAdicional > 0 && (
                         <TotalPill
                             color="orange"
                             label="Total Horas Não Comerciais"
-                            value={formatarHorasRelogio(
-                                totais.horas_adicional.horasComAdicional
-                            )}
+                            value={formatarHorasRelogio(totais.horas_adicional.horasComAdicional)}
                         />
                     )}
                     {totais.horas_adicional.horasAdicionalGerado > 0 && (
@@ -445,9 +441,7 @@ const ModalHeader = React.memo(function ModalHeader({
                     <TotalPill
                         color="purple"
                         label="Total de Horas"
-                        value={formatarHorasRelogio(
-                            totais.horas_adicional.totalHorasEquivalente
-                        )}
+                        value={formatarHorasRelogio(totais.horas_adicional.totalHorasEquivalente)}
                     />
                 </div>
             )}
