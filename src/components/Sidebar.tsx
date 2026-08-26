@@ -1,18 +1,14 @@
-import { formatarHorasRelogio } from '@/formatters/formatar-hora';
 import { useClienteIA } from '@/hooks/useClienteIA';
 import { useAuthStore } from '@/store/useAuthStore';
-import { useQuery } from '@tanstack/react-query';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { IconType } from 'react-icons';
 import { FaBook } from 'react-icons/fa';
 import {
     IoAddCircle,
     IoCall,
-    IoChevronBack,
-    IoChevronForward,
     IoClose,
     IoHome,
     IoKey,
@@ -28,6 +24,15 @@ import { ModalSaldoHoras } from './saldo-horas/Modal_Saldo_Horas';
 
 // Chave única para reativar o botão "Abrir Chamado" quando o fluxo for liberado.
 const ABRIR_CHAMADO_DISPONIVEL = true;
+
+// Tempo que o mouse precisa ficar sobre a sidebar recolhida antes dela expandir.
+const HOVER_EXPAND_DELAY_MS = 300;
+
+// Tamanho do quadrado do logo (e das camadas de fundo atrás dele) por estado.
+function LOGO_SIZE_CLASS(isMobile: boolean, showLabel: boolean): string {
+    if (isMobile) return 'h-16 w-16';
+    return showLabel ? 'h-20 w-20' : 'h-11 w-11';
+}
 
 // ================================================================================
 // SUBCOMPONENTES
@@ -49,12 +54,12 @@ function NavItem({ href, label, icon: Icon, active, loading, showLabel, onClick 
             href={href}
             onClick={onClick}
             title={showLabel ? undefined : label}
-            className={`group relative flex items-center rounded-xl border p-4 shadow-sm transition-all duration-200 ${
+            className={`group relative flex items-center rounded-lg border p-4 transition-all duration-200 ${
                 showLabel ? 'justify-start gap-4' : 'justify-center gap-0'
             } ${
                 active
                     ? '-translate-y-0.5 border-purple-500 bg-gradient-to-b from-purple-300 to-purple-200 shadow-[0_6px_14px_rgba(126,34,206,0.35),0_2px_4px_rgba(0,0,0,0.15),inset_0_1px_0_rgba(255,255,255,0.7)]'
-                    : 'border-gray-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-purple-300 hover:bg-gradient-to-b hover:from-purple-50 hover:to-purple-100/50 hover:shadow-md hover:shadow-purple-900/10'
+                    : 'border-transparent bg-transparent hover:-translate-y-0.5 hover:border-purple-300 hover:bg-gradient-to-b hover:from-purple-50 hover:to-purple-100/50 hover:shadow-md hover:shadow-purple-900/10'
             } ${loading ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}
         >
             {active && (
@@ -71,12 +76,12 @@ function NavItem({ href, label, icon: Icon, active, loading, showLabel, onClick 
                     <Icon className="h-6 w-6 text-purple-700" />
                 </div>
             ) : (
-                <Icon className="h-7 w-7 flex-shrink-0 text-gray-500 transition-colors duration-200 group-hover:text-purple-700" />
+                <Icon className="h-7 w-7 flex-shrink-0 text-teal-300/70 transition-colors duration-200 group-hover:text-purple-700" />
             )}
 
             <span
                 className={`overflow-hidden text-left text-base font-extrabold tracking-widest transition-all duration-200 select-none ${
-                    active ? 'text-purple-900' : 'text-gray-600 group-hover:text-gray-900'
+                    active ? 'text-purple-900' : 'text-teal-100 group-hover:text-purple-900'
                 } ${showLabel ? 'w-auto flex-1 opacity-100' : 'w-0 opacity-0'}`}
             >
                 {label}
@@ -109,32 +114,32 @@ function ActionButton({
             onClick={onClick}
             disabled={disabled}
             title={title ?? (showLabel ? undefined : label)}
-            className={`group relative flex w-full items-center rounded-xl border p-4 shadow-sm transition-all duration-200 ${
+            className={`group relative flex w-full items-center rounded-lg border p-4 transition-all duration-200 ${
                 showLabel ? 'justify-start gap-4' : 'justify-center gap-0'
             } ${
                 disabled
-                    ? 'cursor-not-allowed border-gray-200 bg-gray-100 opacity-50'
+                    ? 'cursor-not-allowed border-transparent bg-transparent opacity-50'
                     : variant === 'danger'
                       ? 'cursor-pointer border-red-400 bg-red-100 shadow-sm hover:-translate-y-0.5 hover:border-red-500 hover:bg-gradient-to-b hover:from-red-200 hover:to-red-300/60 hover:shadow-md hover:shadow-red-900/10'
-                      : 'cursor-pointer border-gray-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-purple-300 hover:bg-gradient-to-b hover:from-purple-50 hover:to-purple-100/50 hover:shadow-md hover:shadow-purple-900/10'
+                      : 'cursor-pointer border-transparent bg-transparent hover:-translate-y-0.5 hover:border-purple-300 hover:bg-gradient-to-b hover:from-purple-50 hover:to-purple-100/50 hover:shadow-md hover:shadow-purple-900/10'
             }`}
         >
             <Icon
                 className={`h-7 w-7 flex-shrink-0 transition-colors duration-200 ${
                     disabled
-                        ? 'text-gray-400'
+                        ? 'text-teal-300/40'
                         : variant === 'danger'
                           ? 'text-red-600 group-hover:text-red-700'
-                          : 'text-gray-500 group-hover:text-purple-700'
+                          : 'text-teal-300/70 group-hover:text-purple-700'
                 }`}
             />
             <span
                 className={`overflow-hidden text-left text-base font-extrabold tracking-widest transition-all duration-200 select-none ${
                     disabled
-                        ? 'text-gray-400'
+                        ? 'text-teal-300/40'
                         : variant === 'danger'
                           ? 'text-red-600'
-                          : 'text-gray-600 group-hover:text-gray-900'
+                          : 'text-teal-100 group-hover:text-purple-900'
                 } ${showLabel ? 'w-auto flex-1 opacity-100' : 'w-0 opacity-0'}`}
             >
                 {label}
@@ -153,7 +158,8 @@ export function Sidebar() {
     const [targetRoute, setTargetRoute] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(false);
     const [isOpen, setIsOpen] = useState(false);
-    const [isExpanded, setIsExpanded] = useState(false);
+    const [isHovered, setIsHovered] = useState(false);
+    const hoverExpandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isModalSaldoOpen, setIsModalSaldoOpen] = useState(false);
     const [isModalAbrirChamadoOpen, setIsModalAbrirChamadoOpen] = useState(false);
     const [isModalAlterarSenhaOpen, setIsModalAlterarSenhaOpen] = useState(false);
@@ -172,32 +178,7 @@ export function Sidebar() {
     const { data: clienteIA } = useClienteIA(codCliente);
     const exibeBotaoIA = clienteIA?.exibe ?? false;
 
-    const showLabel = isMobile || isExpanded;
-
-    const mesAtual = new Date().getMonth() + 1;
-    const anoAtual = new Date().getFullYear();
-
-    const { data: saldoHoras } = useQuery({
-        queryKey: ['saldoHoras', mesAtual, anoAtual, codCliente],
-        queryFn: async () => {
-            const params = new URLSearchParams({
-                codCliente: codCliente as string,
-                mes: mesAtual.toString(),
-                ano: anoAtual.toString(),
-                mesesHistorico: '6',
-            });
-            const response = await fetch(`/api/saldo-horas?${params.toString()}`);
-            if (!response.ok) throw new Error('Erro ao carregar saldo de horas');
-            return response.json() as Promise<{
-                nomeCliente: string;
-                saldoTotalDisponivel: number;
-                debitoTotal: number;
-                resumo: { saldoGeral: number };
-            }>;
-        },
-        enabled: !!hasClienteSelecionado && !!codCliente,
-        staleTime: 5 * 60 * 1000,
-    });
+    const showLabel = isMobile || isHovered || isNavigating;
 
     useEffect(() => {
         if (!isNavigating) return;
@@ -239,13 +220,27 @@ export function Sidebar() {
         }, 300);
     };
 
-    const toggleExpanded = () => {
-        setIsExpanded((prev) => !prev);
-    };
-
     const toggleSidebar = () => {
         setIsOpen(!isOpen);
     };
+
+    const handleSidebarMouseEnter = () => {
+        if (hoverExpandTimeoutRef.current) clearTimeout(hoverExpandTimeoutRef.current);
+        hoverExpandTimeoutRef.current = setTimeout(() => {
+            setIsHovered(true);
+        }, HOVER_EXPAND_DELAY_MS);
+    };
+
+    const handleSidebarMouseLeave = () => {
+        if (hoverExpandTimeoutRef.current) clearTimeout(hoverExpandTimeoutRef.current);
+        setIsHovered(false);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (hoverExpandTimeoutRef.current) clearTimeout(hoverExpandTimeoutRef.current);
+        };
+    }, []);
 
     const handleLogout = () => {
         logout();
@@ -320,37 +315,23 @@ export function Sidebar() {
             )}
 
             <nav
-                className={`flex h-full flex-col rounded-2xl border border-purple-400 bg-purple-100 text-gray-900 shadow-[0_2px_4px_rgba(0,0,0,0.08),0_8px_16px_rgba(0,0,0,0.10),0_24px_48px_rgba(0,0,0,0.16),inset_0_1px_0_rgba(255,255,255,0.9),inset_0_-1px_0_rgba(0,0,0,0.06)] transition-all duration-300 ease-in-out ${
+                className={`flex h-full flex-col rounded-lg bg-teal-900 text-white shadow-xl shadow-black transition-all duration-300 ease-in-out ${
                     isMobile
                         ? `fixed top-0 left-0 z-50 h-screen ${isOpen ? 'translate-x-0' : '-translate-x-full'} w-64 p-4`
-                        : `relative ${isExpanded ? 'w-60 p-4' : 'w-[72px] p-3'}`
+                        : `relative ${isHovered || isNavigating ? 'w-64 p-4' : 'w-20 p-3'}`
                 }`}
                 onClick={(e) => e.stopPropagation()}
+                onMouseEnter={!isMobile ? handleSidebarMouseEnter : undefined}
+                onMouseLeave={!isMobile ? handleSidebarMouseLeave : undefined}
             >
                 {/* Botão de Fechar (Mobile) */}
                 {isMobile && (
                     <button
                         onClick={toggleSidebar}
-                        className="absolute top-4 right-4 z-[100] flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200 active:scale-90"
+                        className="absolute top-4 right-4 z-[100] flex h-9 w-9 items-center justify-center rounded-full bg-white/10 transition-colors hover:bg-white/20 active:scale-90"
                         aria-label="Fechar menu"
                     >
-                        <IoClose className="h-5 w-5 text-gray-700" />
-                    </button>
-                )}
-
-                {/* Aba de Recolher/Expandir (Desktop) */}
-                {!isMobile && (
-                    <button
-                        onClick={toggleExpanded}
-                        className="absolute top-8 right-0 z-[100] flex h-16 w-6 translate-x-full cursor-pointer items-center justify-center rounded-r-lg border border-l-0 border-purple-800 bg-purple-800 text-white shadow-lg shadow-black/25 transition-all duration-150 hover:w-7 hover:bg-purple-900 active:scale-95"
-                        aria-label={isExpanded ? 'Recolher menu' : 'Expandir menu'}
-                        title={isExpanded ? 'Recolher menu' : 'Expandir menu'}
-                    >
-                        {isExpanded ? (
-                            <IoChevronBack className="h-5 w-5" />
-                        ) : (
-                            <IoChevronForward className="h-5 w-5" />
-                        )}
+                        <IoClose className="h-5 w-5 text-white" />
                     </button>
                 )}
 
@@ -358,18 +339,46 @@ export function Sidebar() {
                     exatamente quando a página nova estiver pronta. Sem número
                     fingindo saber um progresso que o Next.js não expõe. */}
                 {isNavigating && (
-                    <div className="absolute inset-0 z-[9999] flex items-center justify-center rounded-2xl bg-white/90 backdrop-blur-md">
-                        <div className="flex flex-col items-center gap-5">
-                            <div className="relative h-16 w-16">
-                                <div className="absolute inset-0 animate-spin rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,#06b6d4_120deg,#9333ea_240deg,transparent_360deg)]" />
-                                <div className="absolute inset-[3px] rounded-full bg-white" />
+                    <div className="absolute inset-0 z-[9999] flex items-center justify-center rounded-lg bg-teal-900 backdrop-blur-md">
+                        <div className="flex flex-col items-center gap-6">
+                            <div className="relative h-28 w-28">
+                                {/* Halo desfocado atrás do spinner */}
+                                <div className="absolute inset-0 animate-pulse rounded-full bg-gradient-to-br from-cyan-400 to-purple-600 opacity-40 blur-xl" />
+
+                                {/* Anel externo — gira em sentido horário */}
+                                <div className="absolute inset-0 animate-spin rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,#22d3ee_90deg,#a855f7_180deg,transparent_270deg)] shadow-[0_0_18px_rgba(168,85,247,0.55)]" />
+                                <div className="absolute inset-[7px] rounded-full bg-teal-900" />
+
+                                {/* Anel interno — gira em sentido anti-horário, mais rápido */}
+                                <div className="absolute inset-[13px] animate-[spin_1.1s_linear_infinite_reverse] rounded-full bg-[conic-gradient(from_0deg,transparent_0deg,#67e8f9_140deg,transparent_280deg)]" />
+                                <div className="absolute inset-[19px] rounded-full bg-teal-900" />
+
+                                {/* Núcleo pulsante */}
                                 <div className="absolute inset-0 flex items-center justify-center">
-                                    <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-gradient-to-br from-cyan-500 to-purple-600 shadow-[0_0_10px_rgba(147,51,234,0.6)]" />
+                                    <div className="h-4 w-4 animate-pulse rounded-full bg-gradient-to-br from-cyan-300 to-purple-500 shadow-[0_0_14px_rgba(168,85,247,0.85)]" />
                                 </div>
                             </div>
                             {showLabel && (
-                                <span className="animate-pulse text-xs font-bold tracking-[0.25em] text-gray-500 select-none">
+                                <span className="flex items-baseline text-xs font-bold tracking-[0.3em] text-cyan-200/90 select-none">
                                     CARREGANDO
+                                    <span
+                                        className="ml-1 animate-bounce"
+                                        style={{ animationDelay: '0ms' }}
+                                    >
+                                        .
+                                    </span>
+                                    <span
+                                        className="animate-bounce"
+                                        style={{ animationDelay: '150ms' }}
+                                    >
+                                        .
+                                    </span>
+                                    <span
+                                        className="animate-bounce"
+                                        style={{ animationDelay: '300ms' }}
+                                    >
+                                        .
+                                    </span>
                                 </span>
                             )}
                         </div>
@@ -381,25 +390,35 @@ export function Sidebar() {
                     className={`relative z-10 flex h-full w-full flex-col ${isMobile ? 'pt-14' : ''}`}
                 >
                     {/* Logo */}
-                    <div
-                        className={`mb-6 flex items-center gap-3 ${isMobile ? '' : 'justify-center'}`}
-                    >
-                        <div className="relative flex-shrink-0 overflow-hidden rounded-xl bg-cyan-600 p-1.5">
-                            <Image
-                                src="/logo-solutii.png"
-                                alt="Logo Solutii"
-                                width={isMobile ? 44 : 32}
-                                height={isMobile ? 44 : 32}
-                                className="rounded-lg"
-                                priority
+                    <div className="mb-6 flex flex-col items-center gap-3">
+                        <div className="relative flex items-center justify-center">
+                            {/* Camadas de fundo — efeito de cartões empilhados atrás do logo */}
+                            <div
+                                className={`absolute rotate-[18deg] rounded-2xl bg-purple-500 shadow-md shadow-black/40 transition-all duration-300 ${LOGO_SIZE_CLASS(isMobile, showLabel)}`}
                             />
+                            <div
+                                className={`absolute -rotate-[12deg] rounded-2xl bg-purple-300 shadow-md shadow-black/40 transition-all duration-300 ${LOGO_SIZE_CLASS(isMobile, showLabel)}`}
+                            />
+
+                            <div
+                                className={`relative flex flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-cyan-400 to-cyan-700 shadow-lg ring-1 shadow-black/40 ring-white/15 transition-all duration-300 ${LOGO_SIZE_CLASS(isMobile, showLabel)}`}
+                            >
+                                <Image
+                                    src="/logo-solutii.png"
+                                    alt="Logo Solutii"
+                                    width={64}
+                                    height={64}
+                                    className="h-full w-full rounded-lg object-contain p-3"
+                                    priority
+                                />
+                            </div>
                         </div>
                         {showLabel && (
-                            <div className="flex flex-col overflow-hidden">
-                                <span className="truncate text-sm font-extrabold tracking-widest text-gray-900 select-none">
+                            <div className="flex flex-col items-center overflow-hidden">
+                                <span className="truncate text-base font-extrabold tracking-widest text-white select-none">
                                     SOLUTII
                                 </span>
-                                <span className="truncate text-[11px] font-semibold tracking-widest text-gray-500 select-none">
+                                <span className="truncate text-xs font-semibold tracking-widest text-teal-300/70 select-none">
                                     Portal Cliente
                                 </span>
                             </div>
@@ -440,9 +459,6 @@ export function Sidebar() {
                             showLabel={showLabel}
                             onClick={(e) => handleNavigation(e, '/paginas/base-conhecimento')}
                         />
-
-                        {/* Divisor entre navegação e ações */}
-                        <div className="my-3 h-px w-full bg-purple-300" />
 
                         <ActionButton
                             label="Abrir Chamado"
@@ -487,56 +503,6 @@ export function Sidebar() {
                                     onClick={handleOpenIA}
                                 />
                             </>
-                        )}
-
-                        {/* Card de saldo de horas — preenche o espaço vazio da navegação */}
-                        {showLabel && hasClienteSelecionado && saldoHoras && (
-                            <div className="mt-auto flex flex-col gap-3 rounded-xl border border-purple-300 bg-white p-4 shadow-md shadow-purple-900/10">
-                                <div className="flex items-center gap-2">
-                                    <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg bg-purple-100">
-                                        <PiTimerFill className="h-4 w-4 text-purple-700" />
-                                    </div>
-                                    <span className="truncate text-[11px] font-extrabold tracking-widest text-gray-700 uppercase select-none">
-                                        {saldoHoras.nomeCliente}
-                                    </span>
-                                </div>
-
-                                <div className="flex flex-col gap-1.5">
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[11px] font-semibold tracking-wide text-gray-500 select-none">
-                                            Créditos disponíveis
-                                        </span>
-                                        <span className="text-xs font-bold tracking-wide text-emerald-600 select-none">
-                                            {formatarHorasRelogio(saldoHoras.saldoTotalDisponivel)}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-[11px] font-semibold tracking-wide text-gray-500 select-none">
-                                            Débitos
-                                        </span>
-                                        <span className="text-xs font-bold tracking-wide text-red-600 select-none">
-                                            {saldoHoras.debitoTotal > 0
-                                                ? `-${formatarHorasRelogio(saldoHoras.debitoTotal)}`
-                                                : formatarHorasRelogio(0)}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="flex flex-col gap-1 border-t border-dashed border-purple-100 pt-2.5">
-                                    <span
-                                        className={`text-2xl font-extrabold tracking-wide select-none ${
-                                            saldoHoras.resumo.saldoGeral >= 0
-                                                ? 'text-emerald-600'
-                                                : 'text-red-600'
-                                        }`}
-                                    >
-                                        {formatarHorasRelogio(saldoHoras.resumo.saldoGeral)}
-                                    </span>
-                                    <span className="text-[11px] font-semibold tracking-wide text-gray-400 select-none">
-                                        Saldo geral (créditos válidos − débitos)
-                                    </span>
-                                </div>
-                            </div>
                         )}
                     </div>
 

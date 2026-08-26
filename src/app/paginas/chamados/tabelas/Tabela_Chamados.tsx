@@ -54,10 +54,10 @@ const MIN_HEIGHT_DESKTOP = `${(BASE_MIN_HEIGHT * ZOOM_COMPENSATION) / 100}px`;
 // Sem zoom (tablet/mobile), unidades reais — não precisa de compensação.
 const MAX_HEIGHT_MOBILE = 'calc(100vh - 220px)';
 const MIN_HEIGHT_MOBILE = '300px';
-const PAGINATION_LIMIT = 30;
+const PAGINATION_LIMIT = 50;
 
 const INITIAL_COLUMN_WIDTHS = {
-    COD_CHAMADO: 110,
+    COD_CHAMADO: 140,
     DATA_CHAMADO: 160,
     DTENVIO_CHAMADO: 160,
     DTINI_CHAMADO: 160,
@@ -109,15 +109,15 @@ interface FetchChamadosParams {
     atribuicao?: string;
     inicio?: string;
     finalizacao?: string;
-    sortBy?: string;
-    sortDir?: 'asc' | 'desc';
     page: number;
     limit: number;
     columnFilters?: ColumnFiltersState;
 }
 
-// Colunas ordenáveis no servidor — mesma allowlist de src/app/api/chamados/route.ts
-// (SORT_COLUMN_MAP). Nunca adicionar um id aqui sem adicionar lá também.
+// Colunas ordenáveis — ordenação é client-side, sobre a página já carregada
+// (ver dadosCompletosFiltrados). Com PAGINATION_LIMIT em 50, a imensa
+// maioria dos filtros cabe numa página só, então isso cobre o caso comum
+// sem precisar de uma requisição nova a cada clique de ordenação.
 const SORTABLE_COLUMNS = new Set([
     'COD_CHAMADO',
     'DATA_CHAMADO',
@@ -131,9 +131,33 @@ const SORTABLE_COLUMNS = new Set([
     'NOME_CLASSIFICACAO',
 ]);
 
+// Colunas comparadas numericamente; as demais usam comparação de string
+// (cobre também os campos de data, que chegam em formato ISO e portanto
+// ordenam corretamente como string).
+const NUMERIC_SORT_COLUMNS = new Set(['COD_CHAMADO', 'PRIOR_CHAMADO']);
+
 interface SortState {
     id: string;
     desc: boolean;
+}
+
+function compararChamadosPorColuna(
+    a: ChamadoRowProps,
+    b: ChamadoRowProps,
+    columnId: string
+): number {
+    const va = a[columnId as keyof ChamadoRowProps];
+    const vb = b[columnId as keyof ChamadoRowProps];
+
+    if (va == null && vb == null) return 0;
+    if (va == null) return 1;
+    if (vb == null) return -1;
+
+    if (NUMERIC_SORT_COLUMNS.has(columnId)) {
+        return Number(va) - Number(vb);
+    }
+
+    return String(va).localeCompare(String(vb), 'pt-BR', { sensitivity: 'base' });
 }
 
 // As 6 colunas essenciais nunca podem ser ocultadas pelo botão "Colunas".
@@ -202,8 +226,6 @@ const fetchChamados = async ({
     atribuicao,
     inicio,
     finalizacao,
-    sortBy,
-    sortDir,
     page,
     limit,
     columnFilters,
@@ -237,11 +259,6 @@ const fetchChamados = async ({
     if (atribuicao) params.append('filter_DTENVIO_CHAMADO', atribuicao);
     if (inicio) params.append('filter_DTINI_CHAMADO', inicio);
     if (finalizacao) params.append('filter_DATA_HISTCHAMADO', finalizacao);
-
-    if (sortBy) {
-        params.append('sortBy', sortBy);
-        params.append('sortDir', sortDir === 'asc' ? 'asc' : 'desc');
-    }
 
     columnFilters?.forEach((filter) => {
         if (filter.id !== 'STATUS_CHAMADO' && filter.value && String(filter.value).trim()) {
@@ -348,8 +365,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             page,
             PAGINATION_LIMIT,
             columnFiltersKey,
-            sorting?.id ?? '',
-            sorting?.desc ?? '',
         ],
         queryFn: () =>
             fetchChamados({
@@ -366,8 +381,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 atribuicao: atribuicao ?? '',
                 inicio: inicio ?? '',
                 finalizacao: finalizacao ?? '',
-                sortBy: sorting?.id,
-                sortDir: sorting ? (sorting.desc ? 'desc' : 'asc') : undefined,
                 page,
                 limit: PAGINATION_LIMIT,
                 columnFilters,
@@ -421,17 +434,31 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // dados já filtrados.
     const dadosCompletosFiltrados = useMemo(() => {
         const chamados = apiData?.data ?? [];
-        if (columnFilters.length === 0) return chamados;
-        return chamados.filter((row) => {
-            return columnFilters.every((filter) => {
-                if (!filter.value || (typeof filter.value === 'string' && !filter.value.trim()))
-                    return true;
-                const cellValue = row[filter.id as keyof ChamadoRowProps];
-                if (cellValue == null) return false;
-                return String(cellValue).toUpperCase().includes(String(filter.value).toUpperCase());
-            });
+        const filtrados =
+            columnFilters.length === 0
+                ? chamados
+                : chamados.filter((row) => {
+                      return columnFilters.every((filter) => {
+                          if (
+                              !filter.value ||
+                              (typeof filter.value === 'string' && !filter.value.trim())
+                          )
+                              return true;
+                          const cellValue = row[filter.id as keyof ChamadoRowProps];
+                          if (cellValue == null) return false;
+                          return String(cellValue)
+                              .toUpperCase()
+                              .includes(String(filter.value).toUpperCase());
+                      });
+                  });
+
+        if (!sorting) return filtrados;
+
+        return [...filtrados].sort((a, b) => {
+            const cmp = compararChamadosPorColuna(a, b, sorting.id);
+            return sorting.desc ? -cmp : cmp;
         });
-    }, [apiData?.data, columnFilters]);
+    }, [apiData?.data, columnFilters, sorting]);
 
     // =====================================================
     // TOTALIZADORES
@@ -489,8 +516,6 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         finalizacao,
         inicio,
         columnFiltersKey,
-        sorting?.id,
-        sorting?.desc,
     ]);
 
     // Padrão de visibilidade de colunas responsivo: em desktop, todas
@@ -507,6 +532,17 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         );
         setColumnVisibility(Object.fromEntries(colunasOpcionais.map((id) => [id, false])));
     }, [isDesktop]);
+
+    // A coluna Finalização só faz sentido quando o status filtrado é
+    // FINALIZADO (é o único caso em que DATA_HISTCHAMADO é preenchida pra
+    // todas as linhas) — força visível/oculta conforme o filtro, ignorando
+    // qualquer preferência salva pra essa coluna especificamente.
+    useEffect(() => {
+        setColumnVisibility((prev) => ({
+            ...prev,
+            DATA_HISTCHAMADO: status === 'FINALIZADO',
+        }));
+    }, [status]);
 
     // Persiste a escolha de colunas visíveis — sobrevive a reload/nova sessão.
     useEffect(() => {
@@ -951,7 +987,7 @@ const COLUNA_LABELS: Record<string, string> = {
     HORAS: 'Horas',
 };
 
-function ColumnVisibilityMenu({ table }: { table: any }) {
+function ColumnVisibilityMenu({ table, status }: { table: any; status: string }) {
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
 
@@ -966,9 +1002,17 @@ function ColumnVisibilityMenu({ table }: { table: any }) {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen]);
 
+    // Finalização só faz sentido com o status FINALIZADO — nesse caso ela é
+    // forçada pelo filtro (ver useEffect em TabelaChamados), então não faz
+    // sentido oferecer o toggle manual pra ela nos outros status.
     const colunasOpcionais = table
         .getAllLeafColumns()
-        .filter((col: any) => !COLUNAS_SEMPRE_VISIVEIS.has(col.id) && COLUNA_LABELS[col.id]);
+        .filter(
+            (col: any) =>
+                !COLUNAS_SEMPRE_VISIVEIS.has(col.id) &&
+                COLUNA_LABELS[col.id] &&
+                (col.id !== 'DATA_HISTCHAMADO' || status === 'FINALIZADO')
+        );
 
     return (
         <div ref={menuRef} className="relative">
@@ -1115,7 +1159,7 @@ const Header = React.memo(function Header({
                         type="text"
                         value={buscaAssunto}
                         onChange={(e) => setBuscaAssunto(e.target.value)}
-                        placeholder="Buscar chamados por assunto..."
+                        placeholder="Buscar chamados por assunto ou código..."
                         className="w-full rounded-full border border-purple-300 bg-white py-3 pr-10 pl-11 text-base font-semibold tracking-wide text-black placeholder:text-gray-400 focus:outline-none"
                     />
                     {buscaAssunto && (
@@ -1145,7 +1189,7 @@ const Header = React.memo(function Header({
                     </button>
                 )}
 
-                <ColumnVisibilityMenu table={table} />
+                <ColumnVisibilityMenu table={table} status={status} />
 
                 <ExportarExcelTabelaChamados
                     data={filteredData}

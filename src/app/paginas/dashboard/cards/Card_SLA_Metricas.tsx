@@ -1,5 +1,7 @@
 'use client';
 
+import { LoadingRingSpinner } from '@/components/LoadingRingSpinner';
+import { MetricInfoTooltip } from '@/components/MetricInfoTooltip';
 import { formatarHoras } from '@/lib/sla/sla-utils';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
@@ -36,7 +38,7 @@ interface MetricasSLAResponse {
 const SkeletonLoadingCard = () => (
     <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-teal-200 bg-gradient-to-br from-white via-teal-50/30 to-teal-100/20 shadow-lg sm:h-64 lg:h-72">
         <div className="flex h-full items-center justify-center">
-            <div className="h-16 w-16 animate-spin rounded-full border-4 border-transparent border-t-teal-600 border-r-teal-400" />
+            <LoadingRingSpinner palette="teal-cyan" />
         </div>
     </div>
 );
@@ -106,12 +108,19 @@ export function CardSLAMetricas({ filters }: FilterProps) {
     );
 
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="animate-in fade-in slide-in-from-bottom-4 relative duration-500">
             {/* === Título do Card === */}
             <div className="mb-2 flex items-center justify-between">
-                <h1 className="text-base font-extrabold tracking-widest text-black select-none">
-                    SLA — CUMPRIMENTO DE PRAZO
-                </h1>
+                <div className="flex items-center gap-2">
+                    <h1 className="text-base font-extrabold tracking-widest text-black select-none">
+                        SLA — CUMPRIMENTO DE PRAZO
+                    </h1>
+                    <MetricInfoTooltip
+                        accentColor="text-teal-600"
+                        title="SLA — Cumprimento de Prazo"
+                        description="Cada chamado tem um prazo de resolução definido pela prioridade, contado em horário comercial (dias úteis, sem feriados). 'Dentro do prazo' são os chamados resolvidos antes desse prazo vencer; o percentual mostra a proporção do total que cumpriu o prazo. O tempo médio de resolução considera só o tempo útil decorrido entre abertura e finalização. O detalhamento por prioridade mostra o mesmo cálculo separado por nível de urgência."
+                    />
+                </div>
             </div>
 
             {/* === Container === */}

@@ -1,5 +1,6 @@
 'use client';
 
+import { LoadingRingSpinner } from '@/components/LoadingRingSpinner';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -107,36 +108,10 @@ const MediaCard = ({ label, value, icon, gradient, textGradient }: MediaCardProp
 
 // ==================== SKELETON LOADING ====================
 const SkeletonLoadingCard = () => (
-    <div className="flex h-32 flex-col overflow-hidden rounded-xl border border-cyan-200 bg-gradient-to-br from-white via-cyan-50/30 to-cyan-100/20 shadow-lg sm:h-36 lg:h-40">
+    <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-cyan-200 bg-gradient-to-br from-white via-cyan-50/30 to-cyan-100/20 shadow-lg sm:h-64 lg:h-72">
         <div className="flex h-full items-center justify-center">
-            <div className="relative h-20 w-20">
-                {/* Círculo externo girando no sentido horário */}
-                <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-cyan-600 border-r-cyan-400"></div>
-
-                {/* Círculo interno girando no sentido anti-horário */}
-                <div className="animate-spin-reverse absolute inset-2 rounded-full border-4 border-transparent border-b-blue-600 border-l-blue-400"></div>
-
-                {/* Círculo central estático */}
-                <div className="absolute inset-4 flex items-center justify-center rounded-full bg-gradient-to-br from-cyan-100 to-blue-100">
-                    <div className="h-6 w-6 animate-pulse rounded-full bg-gradient-to-br from-cyan-500 to-blue-500"></div>
-                </div>
-            </div>
+            <LoadingRingSpinner palette="cyan-blue" />
         </div>
-
-        {/* Adicionar animação CSS personalizada */}
-        <style jsx>{`
-            @keyframes spin-reverse {
-                from {
-                    transform: rotate(360deg);
-                }
-                to {
-                    transform: rotate(0deg);
-                }
-            }
-            .animate-spin-reverse {
-                animation: spin-reverse 1s linear infinite;
-            }
-        `}</style>
     </div>
 );
 

@@ -247,6 +247,12 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
         observacao: '',
     });
     const [validationError, setValidationError] = useState('');
+    // Estado original carregado do banco (ver useEffect abaixo) — usado só
+    // pra saber se o usuário de fato alterou algo antes de habilitar salvar.
+    const [estadoOriginal, setEstadoOriginal] = useState<ModalDataProps>({
+        concordaPagar: true,
+        observacao: '',
+    });
     // ====================
 
     // Mutação para salvar a validação
@@ -315,27 +321,37 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
     }, [modalData.concordaPagar, modalData.observacao]);
     // ===================
 
-    // Handler para fechar o modal
+    // Handler para fechar o modal — sempre permite fechar, mesmo com "OS
+    // Reprovada" selecionada e sem observação preenchida: nada foi salvo,
+    // então só limpa a escolha local (na próxima abertura, o useEffect
+    // abaixo recarrega os dados reais do banco a partir de selectedRow).
     const handleClose = useCallback(() => {
         if (saveValidationMutation.isPending) return;
-
-        if (!modalData.concordaPagar && modalData.observacao.trim() === '') {
-            setValidationError(
-                'Em caso de OS Reprovada, informe o motivo no campo de observação para salvar a validação ou fechar o formulário.'
-            );
-            return;
-        }
 
         setModalData({ concordaPagar: true, observacao: '' });
         setValidationError('');
         onClose();
-    }, [saveValidationMutation.isPending, modalData.concordaPagar, modalData.observacao, onClose]);
+    }, [saveValidationMutation.isPending, onClose]);
     // ===================
 
-    // Verifica se o formulário é válido para habilitar o botão de salvar
+    // Verifica se o formulário é válido para habilitar o botão de salvar —
+    // exige uma escolha preenchida corretamente E que algo tenha realmente
+    // mudado em relação ao que foi carregado do banco (senão não há o que
+    // salvar).
     const isFormValid = useCallback(() => {
-        return modalData.concordaPagar || modalData.observacao.trim() !== '';
-    }, [modalData.concordaPagar, modalData.observacao]);
+        const preenchidoCorretamente =
+            modalData.concordaPagar || modalData.observacao.trim() !== '';
+        const houveAlteracao =
+            modalData.concordaPagar !== estadoOriginal.concordaPagar ||
+            modalData.observacao.trim() !== estadoOriginal.observacao.trim();
+
+        return preenchidoCorretamente && houveAlteracao;
+    }, [
+        modalData.concordaPagar,
+        modalData.observacao,
+        estadoOriginal.concordaPagar,
+        estadoOriginal.observacao,
+    ]);
 
     const saveModalData = useCallback(async () => {
         if (!selectedRow || !validateForm()) return;
@@ -367,12 +383,13 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
     // Efeito para resetar o estado ao abrir o modal
     useEffect(() => {
         if (isOpen && selectedRow) {
-            const concordaInicial = selectedRow.VALCLI_OS === 'SIM';
-
-            setModalData({
-                concordaPagar: concordaInicial,
+            const estadoCarregado: ModalDataProps = {
+                concordaPagar: selectedRow.VALCLI_OS === 'SIM',
                 observacao: selectedRow.OBSCLI_OS || '',
-            });
+            };
+
+            setModalData(estadoCarregado);
+            setEstadoOriginal(estadoCarregado);
             setValidationError('');
         }
     }, [isOpen, selectedRow]);

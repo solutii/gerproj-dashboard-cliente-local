@@ -1,5 +1,6 @@
 'use client';
 
+import { LoadingRingSpinner } from '@/components/LoadingRingSpinner';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -115,7 +116,6 @@ const StatusCard = ({
     gradient,
     textGradient,
     icon,
-    percentage,
     isHighlight = false,
 }: StatusCardProps) => {
     return (
@@ -132,9 +132,8 @@ const StatusCard = ({
                 </span>
             </div>
 
-            {/* === Valor e Porcentagem === */}
+            {/* === Valor === */}
             <div className="flex flex-col items-center gap-1">
-                {/* Valor */}
                 <span
                     className={`text-xl font-extrabold tracking-widest select-none ${textGradient} ${
                         isHighlight ? 'text-2xl sm:text-4xl' : ''
@@ -142,60 +141,17 @@ const StatusCard = ({
                 >
                     <AnimatedCounter value={value} />
                 </span>
-
-                {/* Porcentagem */}
-                {percentage !== undefined && percentage > 0 && (
-                    <span className="text-sm font-semibold tracking-widest text-black select-none">
-                        {percentage.toFixed(1)}%
-                    </span>
-                )}
             </div>
-
-            {/* === Barra de progresso === */}
-            {percentage !== undefined && percentage > 0 && (
-                <div className="h-1 w-full overflow-hidden rounded-full bg-gray-200 shadow-xs shadow-black">
-                    <div
-                        className={`h-full ${gradient} transition-all duration-1000 ease-out`}
-                        style={{ width: `${Math.min(percentage, 100)}%` }}
-                    />
-                </div>
-            )}
         </div>
     );
 };
 
 // ==================== SKELETON LOADING ====================
 const SkeletonLoadingCard = () => (
-    <div className="flex h-32 flex-col overflow-hidden rounded-xl border border-purple-200 bg-gradient-to-br from-white via-purple-50/30 to-purple-100/20 shadow-lg sm:h-36 lg:h-40">
+    <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-purple-200 bg-gradient-to-br from-white via-purple-50/30 to-purple-100/20 shadow-lg sm:h-64 lg:h-72">
         <div className="flex h-full items-center justify-center">
-            <div className="relative h-20 w-20">
-                {/* Círculo externo girando no sentido horário */}
-                <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-purple-600 border-r-purple-400"></div>
-
-                {/* Círculo interno girando no sentido anti-horário */}
-                <div className="animate-spin-reverse absolute inset-2 rounded-full border-4 border-transparent border-b-blue-600 border-l-blue-400"></div>
-
-                {/* Círculo central estático */}
-                <div className="absolute inset-4 flex items-center justify-center rounded-full bg-gradient-to-br from-purple-100 to-blue-100">
-                    <div className="h-6 w-6 animate-pulse rounded-full bg-gradient-to-br from-purple-500 to-blue-500"></div>
-                </div>
-            </div>
+            <LoadingRingSpinner palette="purple-blue" />
         </div>
-
-        {/* Adicionar animação CSS personalizada */}
-        <style jsx>{`
-            @keyframes spin-reverse {
-                from {
-                    transform: rotate(360deg);
-                }
-                to {
-                    transform: rotate(0deg);
-                }
-            }
-            .animate-spin-reverse {
-                animation: spin-reverse 1s linear infinite;
-            }
-        `}</style>
     </div>
 );
 
@@ -271,21 +227,21 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
 
     const statusDataTop = [
         {
-            label: 'Finalizados',
-            value: data.CHAMADOS_FINALIZADO ?? 0,
-            gradient: COLORS.finalizado.gradient,
-            textGradient: COLORS.finalizado.text,
-            icon: <FaCheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />,
-            percentage: calculatePercentage(data.CHAMADOS_FINALIZADO ?? 0),
-            onClick: onStatusClick ? () => onStatusClick('FINALIZADO') : undefined,
-        },
-        {
             label: 'Total Chamados',
             value: data.TOTAL_CHAMADOS ?? 0,
             gradient: COLORS.total.gradient,
             textGradient: COLORS.total.text,
             icon: <FaInfoCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />,
             isHighlight: true,
+        },
+        {
+            label: 'Atribuídos',
+            value: data.CHAMADOS_ATRIBUIDO ?? 0,
+            gradient: COLORS.atribuido.gradient,
+            textGradient: COLORS.atribuido.text,
+            icon: <FaExclamationTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />,
+            percentage: calculatePercentage(data.CHAMADOS_ATRIBUIDO ?? 0),
+            onClick: onStatusClick ? () => onStatusClick('ATRIBUIDO') : undefined,
         },
         {
             label: 'Em Atendimento',
@@ -318,13 +274,13 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
             onClick: onStatusClick ? () => onStatusClick('AGUARDANDO_VALIDACAO') : undefined,
         },
         {
-            label: 'Atribuídos',
-            value: data.CHAMADOS_ATRIBUIDO ?? 0,
-            gradient: COLORS.atribuido.gradient,
-            textGradient: COLORS.atribuido.text,
-            icon: <FaExclamationTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />,
-            percentage: calculatePercentage(data.CHAMADOS_ATRIBUIDO ?? 0),
-            onClick: onStatusClick ? () => onStatusClick('ATRIBUIDO') : undefined,
+            label: 'Finalizados',
+            value: data.CHAMADOS_FINALIZADO ?? 0,
+            gradient: COLORS.finalizado.gradient,
+            textGradient: COLORS.finalizado.text,
+            icon: <FaCheckCircle className="h-3 w-3 sm:h-3.5 sm:w-3.5" />,
+            percentage: calculatePercentage(data.CHAMADOS_FINALIZADO ?? 0),
+            onClick: onStatusClick ? () => onStatusClick('FINALIZADO') : undefined,
         },
     ];
 
@@ -347,7 +303,7 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
 
                 {/* Body do Card */}
                 <div className="flex h-full flex-col justify-between gap-3 px-4 pt-4 pb-5">
-                    {/* Linha Superior: Finalizados | Total Chamados | Em Atendimento */}
+                    {/* Linha Superior: Total Chamados | Atribuídos | Em Atendimento */}
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {statusDataTop.map((status, index) => (
                             <StatusCard key={index} {...status} />
@@ -357,7 +313,7 @@ export function CardTotalChamadosOS({ filters, onStatusClick }: FilterProps) {
                     {/* Linha Divisória */}
                     <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-gray-400 to-transparent"></div>
 
-                    {/* Linha Inferior: Standby | Aguard. Validação | Atribuído */}
+                    {/* Linha Inferior: Standby | Aguard. Validação | Finalizados */}
                     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {statusDataBottom.map((status, index) => (
                             <StatusCard key={index} {...status} />

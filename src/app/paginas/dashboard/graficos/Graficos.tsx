@@ -1,3 +1,4 @@
+import { LoadingRingSpinner, type LoadingRingPalette } from '@/components/LoadingRingSpinner';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import React from 'react';
@@ -134,35 +135,15 @@ const SkeletonLoadingCard = ({ variant = 'primary' }: { variant?: string }) => {
         quinary: 'border-l-green-600',
     };
 
-    const spinnerColorClasses: Record<string, { outer: string; inner: string; center: string }> = {
-        primary: {
-            outer: 'border-t-orange-600 border-r-orange-400',
-            inner: 'border-b-orange-600 border-l-orange-400',
-            center: 'from-orange-100 to-orange-100 bg-gradient-to-br from-orange-500 to-orange-500',
-        },
-        secondary: {
-            outer: 'border-t-purple-600 border-r-purple-400',
-            inner: 'border-b-purple-600 border-l-purple-400',
-            center: 'from-purple-100 to-purple-100 bg-gradient-to-br from-purple-500 to-purple-500',
-        },
-        tertiary: {
-            outer: 'border-t-cyan-600 border-r-cyan-400',
-            inner: 'border-b-cyan-600 border-l-cyan-400',
-            center: 'from-cyan-100 to-cyan-100 bg-gradient-to-br from-cyan-500 to-cyan-500',
-        },
-        quaternary: {
-            outer: 'border-t-blue-600 border-r-blue-400',
-            inner: 'border-b-blue-600 border-l-blue-400',
-            center: 'from-blue-100 to-blue-100 bg-gradient-to-br from-blue-500 to-blue-500',
-        },
-        quinary: {
-            outer: 'border-t-green-600 border-r-green-400',
-            inner: 'border-b-green-600 border-l-green-400',
-            center: 'from-green-100 to-green-100 bg-gradient-to-br from-green-500 to-green-500',
-        },
+    const spinnerPalettes: Record<string, LoadingRingPalette> = {
+        primary: 'orange',
+        secondary: 'purple',
+        tertiary: 'cyan',
+        quaternary: 'blue',
+        quinary: 'green',
     };
 
-    const colors = spinnerColorClasses[variant] || spinnerColorClasses.primary;
+    const palette = spinnerPalettes[variant] ?? spinnerPalettes.primary;
 
     return (
         <div
@@ -173,45 +154,11 @@ const SkeletonLoadingCard = ({ variant = 'primary' }: { variant?: string }) => {
 
             {/* Container do Spinner */}
             <div className="flex h-[300px] items-center justify-center sm:h-[320px] lg:h-[350px]">
-                <div className="relative h-20 w-20">
-                    {/* Círculo externo girando no sentido horário */}
-                    <div
-                        className={`absolute inset-0 animate-spin rounded-full border-4 border-transparent ${colors.outer}`}
-                    ></div>
-
-                    {/* Círculo interno girando no sentido anti-horário */}
-                    <div
-                        className={`animate-spin-reverse absolute inset-2 rounded-full border-4 border-transparent ${colors.inner}`}
-                    ></div>
-
-                    {/* Círculo central estático */}
-                    <div
-                        className={`absolute inset-4 flex items-center justify-center rounded-full ${colors.center.split('bg-gradient-to-br')[0]} bg-gradient-to-br ${colors.center.split('bg-gradient-to-br')[1]}`}
-                    >
-                        <div
-                            className={`h-6 w-6 animate-pulse rounded-full ${colors.center.split('from-')[1].split('to-')[0].includes('100') ? 'bg-gradient-to-br' : 'bg-gradient-to-br'} ${colors.center.split('from-')[2]}`}
-                        ></div>
-                    </div>
-                </div>
+                <LoadingRingSpinner palette={palette} />
             </div>
 
             {/* Footer Skeleton (opcional) */}
             <div className="mt-4 h-12 animate-pulse rounded-md bg-gray-100"></div>
-
-            {/* Animação CSS personalizada */}
-            <style jsx>{`
-                @keyframes spin-reverse {
-                    from {
-                        transform: rotate(360deg);
-                    }
-                    to {
-                        transform: rotate(0deg);
-                    }
-                }
-                .animate-spin-reverse {
-                    animation: spin-reverse 1s linear infinite;
-                }
-            `}</style>
         </div>
     );
 };
@@ -456,6 +403,11 @@ export function Graficos({ filters }: FilterProps) {
                     title={`Evolução de Saldo - ${dadosSaldo.nomeCliente}`}
                     variant="secondary"
                 >
+                    <p className="mb-3 text-xs font-semibold tracking-wide text-gray-500 select-none">
+                        As barras em destaque são o mês selecionado nos filtros — o mesmo período
+                        mostrado no card "Horas Contratadas × Executadas".
+                    </p>
+
                     <ResponsiveContainer
                         width="100%"
                         height={300}
@@ -594,7 +546,19 @@ export function Graficos({ filters }: FilterProps) {
                                     letterSpacing: '0.2em',
                                     formatter: (value: number) => formatarHorasArredondadas(value),
                                 }}
-                            />
+                            >
+                                {dadosSaldo.historico.map((entry: any, index: number) => (
+                                    <Cell
+                                        key={`cell-contratadas-${index}`}
+                                        fill={COLORS.primary}
+                                        fillOpacity={
+                                            entry.mes === filters.mes && entry.ano === filters.ano
+                                                ? 1
+                                                : 0.35
+                                        }
+                                    />
+                                ))}
+                            </Bar>
                             <Bar
                                 dataKey="horasExecutadas"
                                 fill={COLORS.secondary}
@@ -608,7 +572,19 @@ export function Graficos({ filters }: FilterProps) {
                                     letterSpacing: '0.2em',
                                     formatter: (value: number) => formatarHorasArredondadas(value),
                                 }}
-                            />
+                            >
+                                {dadosSaldo.historico.map((entry: any, index: number) => (
+                                    <Cell
+                                        key={`cell-executadas-${index}`}
+                                        fill={COLORS.secondary}
+                                        fillOpacity={
+                                            entry.mes === filters.mes && entry.ano === filters.ano
+                                                ? 1
+                                                : 0.35
+                                        }
+                                    />
+                                ))}
+                            </Bar>
 
                             <Line
                                 type="monotone"

@@ -1,5 +1,7 @@
 'use client';
 
+import { LoadingRingSpinner } from '@/components/LoadingRingSpinner';
+import { MetricInfoTooltip } from '@/components/MetricInfoTooltip';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
@@ -134,29 +136,10 @@ const HorasBar = ({
 
 // ==================== SKELETON LOADING ====================
 const SkeletonLoadingCard = () => (
-    <div className="flex h-32 flex-col overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20 shadow-lg sm:h-36 lg:h-40">
+    <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20 shadow-lg sm:h-64 lg:h-72">
         <div className="flex h-full items-center justify-center">
-            <div className="relative h-20 w-20">
-                <div className="absolute inset-0 animate-spin rounded-full border-4 border-transparent border-t-blue-600 border-r-blue-400"></div>
-                <div className="animate-spin-reverse absolute inset-2 rounded-full border-4 border-transparent border-b-indigo-600 border-l-indigo-400"></div>
-                <div className="absolute inset-4 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-100 to-indigo-100">
-                    <div className="h-6 w-6 animate-pulse rounded-full bg-gradient-to-br from-blue-500 to-indigo-500"></div>
-                </div>
-            </div>
+            <LoadingRingSpinner palette="blue-indigo" />
         </div>
-        <style jsx>{`
-            @keyframes spin-reverse {
-                from {
-                    transform: rotate(360deg);
-                }
-                to {
-                    transform: rotate(0deg);
-                }
-            }
-            .animate-spin-reverse {
-                animation: spin-reverse 1s linear infinite;
-            }
-        `}</style>
     </div>
 );
 
@@ -286,12 +269,19 @@ export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
     // RENDERIZAÇÃO PRINCIPAL
     // ================================================================================
     return (
-        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="animate-in fade-in slide-in-from-bottom-4 relative duration-500">
             {/* === Título do Card === */}
             <div className="mb-2 flex items-center justify-between">
-                <h1 className="text-base font-extrabold tracking-widest text-black select-none">
-                    HORAS CONTRATADAS × EXECUTADAS
-                </h1>
+                <div className="flex items-center gap-2">
+                    <h1 className="text-base font-extrabold tracking-widest text-black select-none">
+                        HORAS CONTRATADAS × EXECUTADAS
+                    </h1>
+                    <MetricInfoTooltip
+                        accentColor="text-blue-600"
+                        title="Horas Contratadas × Executadas"
+                        description="Contratadas é o limite de horas do contrato do cliente no mês. Executadas mostra as horas faturadas (as que efetivamente contam para esse limite) — horas extras não faturáveis não entram nessa conta. Utilização é o percentual das contratadas já usado; o valor entre parênteses mostra o quanto passou (vermelho) ou ainda falta (verde) para bater o contratado. Este card é o retrato do mês selecionado — o gráfico 'Evolução de Saldo', logo abaixo, mostra esse mesmo dado no histórico dos últimos 6 meses."
+                    />
+                </div>
             </div>
 
             {/* === Container === */}
@@ -336,6 +326,11 @@ export function CardHrsContratadasHrsExecutadas({ filters }: FilterProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Nota — liga esse retrato do mês ao histórico completo do gráfico */}
+            <p className="mt-1.5 text-xs font-semibold tracking-wide text-gray-400 select-none">
+                Retrato do mês selecionado — veja o histórico de 6 meses em "Evolução de Saldo" ↓
+            </p>
         </div>
     );
 }

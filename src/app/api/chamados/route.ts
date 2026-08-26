@@ -467,8 +467,12 @@ const construirWherePrincipal = (
         }
 
         if (cf.ASSUNTO_CHAMADO) {
-            whereClauses.push(`UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?)`);
-            whereParams.push(`%${cf.ASSUNTO_CHAMADO}%`);
+            // Busca também por código do chamado — mesma caixa de busca cobre
+            // "digitei parte do assunto" e "digitei o número do chamado".
+            whereClauses.push(
+                `(UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?) OR CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?)`
+            );
+            whereParams.push(`%${cf.ASSUNTO_CHAMADO}%`, `%${cf.ASSUNTO_CHAMADO}%`);
         }
 
         if (cf.EMAIL_CHAMADO) {
@@ -618,8 +622,10 @@ const buscarChamadosTodos = async (
         }
 
         if (cf?.ASSUNTO_CHAMADO) {
-            clauses.push(`UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?)`);
-            p.push(`%${cf.ASSUNTO_CHAMADO}%`);
+            clauses.push(
+                `(UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?) OR CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?)`
+            );
+            p.push(`%${cf.ASSUNTO_CHAMADO}%`, `%${cf.ASSUNTO_CHAMADO}%`);
         }
 
         // NOME_CLASSIFICACAO precisa de join — só adicionado quando o filtro está ativo
