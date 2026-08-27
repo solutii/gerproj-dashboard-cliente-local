@@ -89,6 +89,12 @@ interface OpcoesFormulario {
     classificacoes: Opcao[];
 }
 
+const PRIORIDADE_OPCOES: Opcao[] = [
+    { cod: 1, nome: '1 - Urgente' },
+    { cod: 2, nome: '2 - Alta' },
+    { cod: 3, nome: '3 - Normal' },
+];
+
 function formatBytes(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -249,12 +255,14 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
     const [tarefas, setTarefas] = useState<Opcao[]>([]);
     const [loadingTarefas, setLoadingTarefas] = useState(false);
     const [tarefaSelecionada, setTarefaSelecionada] = useState<Opcao | null>(null);
+    const [prioridadeSelecionada, setPrioridadeSelecionada] = useState<Opcao | null>(null);
 
     const clienteAtual = clientesAtivos.find((c) => String(c.cod) === codCliente) ?? null;
 
     const clienteOk = isAdmin ? !!clienteAtual : !!codCliente;
     const camposObrigatoriosPreenchidos =
         clienteOk &&
+        (!isAdmin || prioridadeSelecionada !== null) &&
         solicitante.trim() !== '' &&
         EMAIL_REGEX.test(email.trim()) &&
         telefone.trim() !== '' &&
@@ -278,6 +286,8 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
         setErro('');
         setCodChamadoCriado(null);
         setRecursoSelecionado(null);
+        setTarefaSelecionada(null);
+        setPrioridadeSelecionada(null);
     };
 
     useEffect(() => {
@@ -387,6 +397,10 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                 setErro('Nenhum cliente selecionado. Escolha um cliente nos filtros do dashboard.');
                 return;
             }
+            if (!prioridadeSelecionada) {
+                setErro('Selecione a prioridade do chamado.');
+                return;
+            }
         } else if (!codCliente) {
             setErro('Nenhum cliente selecionado. Faça login novamente ou selecione um cliente.');
             return;
@@ -448,6 +462,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                     codClienteSelecionado: isAdmin ? clienteAtual?.cod : undefined,
                     codRecursoSelecionado: isAdmin ? recursoSelecionado?.cod : undefined,
                     codTarefaSelecionada: isAdmin ? tarefaSelecionada?.cod : undefined,
+                    prioridadeSelecionada: isAdmin ? prioridadeSelecionada?.cod : undefined,
                 }),
             });
             if (!res.ok) {
@@ -561,7 +576,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                             {/* Cliente / Recurso / Tarefa — somente ADM */}
                             {isAdmin && (
                                 <>
-                                    <div className="mb-7 grid grid-cols-1 gap-7 sm:grid-cols-2">
+                                    <div className="mb-7 grid grid-cols-1 gap-7 sm:grid-cols-3">
                                         <div>
                                             <label className={labelClass}>Cliente:</label>
                                             <div
@@ -580,6 +595,18 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                             loading={loadingClientesRecursos}
                                             valorSelecionado={recursoSelecionado}
                                             onSelecionar={setRecursoSelecionado}
+                                        />
+                                        <SeletorBusca
+                                            label={
+                                                <>
+                                                    Prioridade: <Obrigatorio />
+                                                </>
+                                            }
+                                            placeholder="Selecione a prioridade"
+                                            opcoes={PRIORIDADE_OPCOES}
+                                            loading={false}
+                                            valorSelecionado={prioridadeSelecionada}
+                                            onSelecionar={setPrioridadeSelecionada}
                                         />
                                     </div>
 

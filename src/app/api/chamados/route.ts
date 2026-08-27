@@ -1362,9 +1362,9 @@ function arredondarHora(hhmm: string): string {
 
 /**
  * Cria o chamado direto na tabela CHAMADO, replicando os defaults do Delphi
- * (PRIOR_CHAMADO=100, AVALIA_CHAMADO=1). COD_CHAMADO não tem generator — é
- * MAX+1 por convenção — então em caso de colisão de PK com outro processo
- * concorrente, tenta de novo.
+ * (AVALIA_CHAMADO=1; PRIOR_CHAMADO=3 - Normal quando não informado). COD_CHAMADO
+ * não tem generator — é MAX+1 por convenção — então em caso de colisão de PK
+ * com outro processo concorrente, tenta de novo.
  */
 async function inserirChamado(params: {
     assunto: string;
@@ -1380,12 +1380,24 @@ async function inserirChamado(params: {
     codClassificacao: number;
     codRecurso: number | null;
     codTarefa: number | null;
+    prioridade: number | null;
 }): Promise<number> {
     const agora = new Date();
     const dataChamado = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
     const hhmmBruto = `${String(agora.getHours()).padStart(2, '0')}${String(agora.getMinutes()).padStart(2, '0')}`;
     const horaChamado = arredondarHora(hhmmBruto);
     const statusChamado = params.codRecurso ? 'ATRIBUIDO' : 'NAO INICIADO';
+
+    // DTENVIO_CHAMADO ("Atribuição") só é preenchido quando o chamado já
+    // nasce atribuído a um recurso — mesmo critério do STATUS_CHAMADO acima.
+    // Coluna é VARCHAR "DD/MM/AAAA HH:MM" (não TIMESTAMP), ver comentário em
+    // construirWherePrincipal.
+    const dtEnvioChamado = params.codRecurso
+        ? `${String(agora.getDate()).padStart(2, '0')}/${String(agora.getMonth() + 1).padStart(2, '0')}/${agora.getFullYear()} ${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
+        : null;
+    // Só o ADM define prioridade (1/2/3); quando o próprio cliente abre o
+    // chamado (sem esse campo no formulário), cai no padrão 3 - Normal.
+    const priorChamado = params.prioridade ?? 3;
 
     const MAX_TENTATIVAS = 5;
     for (let tentativa = 0; tentativa < MAX_TENTATIVAS; tentativa++) {
@@ -1403,8 +1415,8 @@ async function inserirChamado(params: {
                     EMAIL_CHAMADO, COD_CLIENTE, COD_RECURSO, IDMAIL_CHAMADO,
                     SOLICITANTE_CHAMADO, TEL_SOLIC_CHAMADO, COD_DEPARTAMENTO,
                     COD_AREA, ROTINA_CHAMADO, COD_CLASSIFICACAO, CODTRF_CHAMADO,
-                    PRIOR_CHAMADO, AVALIA_CHAMADO
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 100, 1)`,
+                    DTENVIO_CHAMADO, PRIOR_CHAMADO, AVALIA_CHAMADO
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
                 [
                     cod,
                     dataChamado,
@@ -1424,6 +1436,8 @@ async function inserirChamado(params: {
                     params.rotina,
                     params.codClassificacao,
                     params.codTarefa,
+                    dtEnvioChamado,
+                    priorChamado,
                 ]
             );
             return cod;
@@ -1463,6 +1477,7 @@ export async function POST(request: NextRequest) {
             codClienteSelecionado,
             codRecursoSelecionado,
             codTarefaSelecionada,
+            prioridadeSelecionada,
         } = await request.json();
 
         if (!assunto?.trim() || !solicitacao?.trim()) {
@@ -1518,6 +1533,21 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Cliente não identificado.' }, { status: 400 });
             }
             codClienteFinal = codClienteNum;
+        }
+
+        // Prioridade só existe no formulário do ADM (quem manda
+        // codClienteSelecionado) e é obrigatória nesse fluxo — cliente abrindo
+        // o próprio chamado nunca define prioridade (fica com o padrão 100).
+        let prioridadeFinal: number | null = null;
+        if (codClienteSelecionado) {
+            const prioridadeNum = Number(prioridadeSelecionada);
+            if (![1, 2, 3].includes(prioridadeNum)) {
+                return NextResponse.json(
+                    { error: 'Prioridade é obrigatória e deve ser 1, 2 ou 3.' },
+                    { status: 400 }
+                );
+            }
+            prioridadeFinal = prioridadeNum;
         }
 
         let codRecursoFinal: number | null = null;
@@ -1586,6 +1616,7 @@ export async function POST(request: NextRequest) {
             codClassificacao: codClassificacaoNum,
             codRecurso: codRecursoFinal,
             codTarefa: codTarefaFinal,
+            prioridade: prioridadeFinal,
         });
 
         const assuntoEmail = `${assuntoLimpo} - CHAMADO TÉCNICO Nº ${novoCod}`;
