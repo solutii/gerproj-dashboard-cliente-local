@@ -1,18 +1,33 @@
 import { safeErrorMessage } from '@/lib/api-error';
+import { verificarLinkValidacao } from '@/lib/auth/link-validacao';
 import { NextRequest, NextResponse } from 'next/server';
 import { firebirdExecute, firebirdQuery } from '../../../lib/firebird/firebird-client';
 
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { cod_os, concordaPagar, observacao, codCliente } = body;
+        const { cod_os, concordaPagar, observacao, codCliente, linkToken } = body;
 
         // Validações
         if (!cod_os) {
             return NextResponse.json({ error: 'Número da OS é obrigatório' }, { status: 400 });
         }
 
-        if (!codCliente) {
+        // Chamado a partir do link de validação (sem login, ver
+        // /validar/[token]) — o token já prova a posse do chamado, então o
+        // codCliente vem dele, ignorando qualquer valor solto enviado.
+        // Chamado normal (dentro da aplicação já logada) continua usando o
+        // codCliente do body como antes.
+        let codClienteEfetivo = codCliente;
+        if (linkToken) {
+            const verificado = verificarLinkValidacao(linkToken);
+            if (!verificado) {
+                return NextResponse.json({ error: 'Link inválido ou expirado' }, { status: 403 });
+            }
+            codClienteEfetivo = verificado.codCliente;
+        }
+
+        if (!codClienteEfetivo) {
             return NextResponse.json(
                 { error: "Parâmetro 'codCliente' é obrigatório" },
                 { status: 400 }
@@ -35,7 +50,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'OS não encontrada' }, { status: 404 });
         }
 
-        if (String(donoOS[0].COD_CLIENTE) !== String(codCliente)) {
+        if (String(donoOS[0].COD_CLIENTE) !== String(codClienteEfetivo)) {
             return NextResponse.json(
                 { error: 'Você não tem permissão para validar esta OS' },
                 { status: 403 }
