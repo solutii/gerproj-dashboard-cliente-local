@@ -5,6 +5,9 @@ export default defineConfig({
     test: {
         environment: 'node',
         include: ['src/**/*.test.ts'],
+        env: {
+            SESSAO_SECRET: 'segredo-de-teste-nao-usar-em-producao',
+        },
     },
     resolve: {
         alias: {
