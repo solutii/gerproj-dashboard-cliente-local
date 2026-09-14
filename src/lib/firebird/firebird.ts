@@ -334,3 +334,58 @@ export function executeFirebird(sql: string, params: any[] = []): Promise<void> 
         });
     });
 }
+
+// ─── Execute Transaction (múltiplos statements atômicos) ─────────────────────
+//
+// Roda vários INSERT/UPDATE/DELETE na MESMA transação: ou todos os statements
+// aplicam, ou nenhum — um erro em qualquer um deles faz rollback dos
+// anteriores. executeFirebird sozinho não serve para isso porque cada
+// chamada abre e comita sua própria transação; duas chamadas em sequência
+// deixam uma janela onde a primeira já commitou e a segunda ainda pode
+// falhar (ex: UPDATE CHAMADO sem o INSERT em HISTCHAMADO correspondente).
+export function executeFirebirdTransaction(
+    statements: Array<{ sql: string; params?: any[] }>
+): Promise<void> {
+    return settleOnce<void>((resolve, reject, registerDb) => {
+        if (statements.length === 0) {
+            resolve();
+            return;
+        }
+
+        const pool = getPool();
+
+        pool.get((err, db) => {
+            if (err) return reject(err);
+            registerDb(db);
+
+            db.transaction(Firebird.ISOLATION_READ_COMMITTED, (err, transaction) => {
+                if (err) {
+                    db.detach();
+                    return reject(err);
+                }
+
+                const runNext = (index: number) => {
+                    if (index >= statements.length) {
+                        transaction.commit((err) => {
+                            db.detach(); // devolve conexão ao pool
+                            if (err) return reject(err);
+                            resolve();
+                        });
+                        return;
+                    }
+
+                    const { sql, params = [] } = statements[index];
+                    transaction.query(sql, params, (err) => {
+                        if (err) {
+                            transaction.rollback(() => db.detach());
+                            return reject(err);
+                        }
+                        runNext(index + 1);
+                    });
+                };
+
+                runNext(0);
+            });
+        });
+    });
+}

@@ -8,9 +8,90 @@
 // dentro da aplicação já logada).
 import { safeErrorMessage } from '@/lib/api-error';
 import { verificarLinkValidacao } from '@/lib/auth/link-validacao';
-import { firebirdExecute } from '@/lib/firebird/firebird-client';
+import {
+    firebirdExecute,
+    firebirdExecuteTransaction,
+    firebirdQuery,
+} from '@/lib/firebird/firebird-client';
 import { excedeuLimite, obterIp } from '@/lib/rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
+
+// Mesmo cálculo de CONCLUSAO_CHAMADO do fluxo "Apenas finalizar o chamado"
+// do gerproj-solutii (src/services/call/change-status.ts) — usa a última
+// DTINI_OS/HRFIM_OS lançada no chamado como data/hora de conclusão, caindo
+// para "agora" quando o chamado não tem nenhuma OS.
+async function calcularConclusaoChamado(codChamado: number): Promise<string> {
+    const [ultimaOs] = await firebirdQuery<{ DATA: Date | null; HORA: string | null }>(
+        `SELECT MAX(DTINI_OS) AS DATA, MAX(HRFIM_OS) AS HORA FROM OS WHERE CHAMADO_OS = ?`,
+        [String(codChamado)]
+    );
+
+    let data: string;
+    let hora: string;
+
+    if (ultimaOs?.DATA && ultimaOs?.HORA) {
+        data = new Date(ultimaOs.DATA)
+            .toLocaleString('pt-br', { year: 'numeric', month: '2-digit', day: '2-digit' })
+            .replaceAll('/', '-')
+            .replaceAll(',', '');
+        hora = ultimaOs.HORA.substring(0, 2) + ':' + ultimaOs.HORA.substring(2, 4);
+    } else {
+        data = new Date()
+            .toLocaleString('pt-br', { year: 'numeric', month: '2-digit', day: '2-digit' })
+            .replaceAll('/', '-')
+            .replaceAll(',', '');
+        hora = new Date().toLocaleString('pt-br', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    return new Date(`${data} ${hora}`)
+        .toLocaleString('pt-br', {
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+        })
+        .replaceAll('/', '.')
+        .replace('T', '');
+}
+
+// Mesmas duas escritas do fluxo "Apenas finalizar o chamado" do
+// gerproj-solutii (ChangeStatusService), na MESMA transação (igual ao
+// original): fecha o CHAMADO e grava o histórico atomicamente — ou os dois
+// aplicam, ou nenhum. A cláusula STATUS_CHAMADO <> 'FINALIZADO' torna a
+// chamada idempotente caso o chamado já tenha sido finalizado antes.
+async function finalizarChamado(codChamado: number): Promise<void> {
+    const conclusaoChamado = await calcularConclusaoChamado(codChamado);
+
+    const [{ ID: novoId }] = await firebirdQuery<{ ID: number }>(
+        `SELECT MAX(COD_HISTCHAMADO) + 1 AS ID FROM HISTCHAMADO`,
+        []
+    );
+
+    await firebirdExecuteTransaction([
+        {
+            sql: `UPDATE CHAMADO SET STATUS_CHAMADO = 'FINALIZADO', CONCLUSAO_CHAMADO = ?
+                  WHERE COD_CHAMADO = ? AND STATUS_CHAMADO <> 'FINALIZADO'`,
+            params: [conclusaoChamado, codChamado],
+        },
+        {
+            sql: `INSERT INTO HISTCHAMADO (COD_HISTCHAMADO, COD_CHAMADO, DATA_HISTCHAMADO, HORA_HISTCHAMADO, DESC_HISTCHAMADO)
+                  VALUES (?, ?, ?, ?, ?)`,
+            params: [
+                novoId,
+                codChamado,
+                new Date()
+                    .toLocaleString('pt-br', { year: 'numeric', month: '2-digit', day: '2-digit' })
+                    .replaceAll('/', '.')
+                    .replaceAll(',', ''),
+                new Date()
+                    .toLocaleString('pt-br', { hour: '2-digit', minute: '2-digit' })
+                    .replaceAll(':', ''),
+                'FINALIZADO',
+            ],
+        },
+    ]);
+}
 
 interface RouteParams {
     params: {
@@ -58,6 +139,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
              WHERE CHAMADO_OS = ?`,
             [logvalcli, String(codChamadoNum)]
         );
+
+        // Igual ao fluxo "Apenas finalizar o chamado" do gerproj-solutii:
+        // ao validar, o chamado também é finalizado (CHAMADO + HISTCHAMADO).
+        await finalizarChamado(codChamadoNum);
 
         return NextResponse.json({ success: true }, { status: 200 });
     } catch (error) {
