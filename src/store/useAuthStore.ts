@@ -282,6 +282,11 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     // ── Logout ──
     logout: () => {
+        // Fire-and-forget: o cookie httpOnly só o servidor consegue limpar.
+        // Se a chamada falhar (rede), o localStorage abaixo já foi limpo e o
+        // cookie expira sozinho em até 8h.
+        fetch('/api/logout', { method: 'POST' }).catch(() => {});
+
         safeRemoveItem('isLoggedIn');
         safeRemoveItem('loginType');
         safeRemoveItem('userEmail');
