@@ -67,9 +67,11 @@ Protegidas por mecanismo próprio, ou são o próprio ponto de entrada:
 |---|---|
 | `POST /api/login` | é o próprio login |
 | `POST /api/esqueci-senha` | fluxo de recuperação, anterior ao login |
+| `POST /api/logout` | precisa funcionar mesmo com sessão já expirada/ausente, só limpa o cookie |
 | `POST /api/gerar-link-validacao` | protegido por `X-Internal-Key` (chamado só pelo sistema Delphi) |
 | `POST /api/salvar-validacao` | fluxo público do link de e-mail, protegido pelo token HMAC próprio |
 | `POST /api/chamados/[codChamado]/validar-tudo` | idem — mesmo fluxo de `/validar/[token]` |
+| `GET /api/chamados/[codChamado]/os` | **correção pós-brainstorm:** também consumida pela tela pública `/validar/[token]` (`ValidarChamadoClient.tsx`), sem sessão — é a mesma rota que a tela logada usa (`Tabela_OS.tsx`, `Modal_Historico_Chamado.tsx`, exportações), então gateá-la quebraria o fluxo público. Continua exposta como hoje (exigindo só o parâmetro `codCliente`); fechar essa exposição fica junto do achado grave de IDOR, fora de escopo desta rodada. |
 
 ### Rotas ADM-only
 
@@ -86,7 +88,7 @@ checagem de ADM roda **dentro da rota**, condicional aos campos: se o body troux
 `codClienteSelecionado`, `codRecursoSelecionado` ou `prioridadeSelecionada`, exige sessão ADM antes
 de aceitá-los; sem esses campos, qualquer sessão válida (cliente ou consultor) basta.
 
-### Demais rotas (~24)
+### Demais rotas (23)
 
 Exigem apenas sessão válida (qualquer `loginType`), sem checagem de papel adicional — mesmo
 comportamento de hoje, só que agora com um usuário autenticado de verdade por trás.
