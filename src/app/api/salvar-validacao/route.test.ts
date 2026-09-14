@@ -95,7 +95,12 @@ describe('POST /api/salvar-validacao', () => {
         firebirdExecuteMock.mockResolvedValueOnce(undefined);
 
         const response = await POST(
-            criarRequest({ cod_os: 10, concordaPagar: true, observacao: '', linkToken: 'token-valido' })
+            criarRequest({
+                cod_os: 10,
+                concordaPagar: true,
+                observacao: '',
+                linkToken: 'token-valido',
+            })
         );
 
         expect(response.status).toBe(200);
