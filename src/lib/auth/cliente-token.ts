@@ -12,6 +12,7 @@
 // o parâmetro. O fluxo do ADM (que escolhe qual cliente visualizar) não usa
 // esse token e continua funcionando exatamente como antes.
 import crypto from 'crypto';
+import { SESSAO_COOKIE_NOME, verificarSessao } from './session';
 
 const SECRET = process.env.CLIENTE_TOKEN_SECRET;
 const VALIDADE_MS = 30 * 24 * 60 * 60 * 1000; // 30 dias
@@ -88,18 +89,37 @@ export function verificarClienteToken(token: string | null | undefined): string 
     }
 }
 
+function extrairCookie(request: Request, nome: string): string | undefined {
+    const cookieHeader = request.headers.get('cookie');
+    if (!cookieHeader) return undefined;
+    const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${nome}=([^;]+)`));
+    return match?.[1];
+}
+
 /**
- * Resolve o codCliente autoritativo pra uma requisição de leitura: se o
- * header `x-cliente-token` trouxer um token válido, usa o codCliente DE
- * DENTRO dele (ignora o parâmetro solto — é exatamente isso que impede a
- * adulteração). Sem token válido (fluxo de ADM, requisição antiga, ou
- * segredo não configurado), cai de volta pro parâmetro recebido, mantendo
- * o comportamento anterior a essa feature.
+ * Resolve o codCliente autoritativo pra uma requisição de leitura.
+ *
+ * Prioridade 1 — sessão real do servidor (session.ts): se o cookie `sessao`
+ * trouxer uma sessão válida de `loginType='cliente'`, usa o codCliente DE
+ * DENTRO da sessão, sempre — ignora qualquer parâmetro solto ou o token
+ * legado. É essa checagem que fecha o IDOR: um cliente logado nunca mais
+ * consegue ler dados de outro cliente trocando `codCliente` na URL/body,
+ * porque o valor usado não vem mais de entrada controlada pelo cliente.
+ *
+ * Prioridade 2 — sem sessão de cliente (sessão de ADM, ou nenhuma sessão):
+ * mantém o comportamento anterior — usa o `x-cliente-token` (HMAC legado)
+ * se presente e válido, senão cai no parâmetro recebido. É esse caminho que
+ * permite o ADM continuar escolhendo qual cliente visualizar.
  */
-export function resolveCodClienteSeguro(
+export async function resolveCodClienteSeguro(
     request: Request,
     codClienteParam: string | null | undefined
-): string | null | undefined {
+): Promise<string | null | undefined> {
+    const sessao = await verificarSessao(extrairCookie(request, SESSAO_COOKIE_NOME));
+    if (sessao?.loginType === 'cliente') {
+        return sessao.codCliente;
+    }
+
     const codClienteToken = verificarClienteToken(request.headers.get('x-cliente-token'));
     return codClienteToken ?? codClienteParam;
 }

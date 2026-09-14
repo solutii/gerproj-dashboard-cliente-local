@@ -280,7 +280,9 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'))?.trim();
+        const codCliente = (
+            await resolveCodClienteSeguro(request, searchParams.get('codCliente'))
+        )?.trim();
         const mesAtual = Number(searchParams.get('mes'));
         const anoAtual = Number(searchParams.get('ano'));
         const mesesHistorico = Number(searchParams.get('mesesHistorico')) || 6;

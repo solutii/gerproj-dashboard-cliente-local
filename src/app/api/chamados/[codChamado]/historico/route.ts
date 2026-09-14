@@ -45,7 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         // cliente) — sem isso (ex.: ADM sem cliente selecionado ainda),
         // mantém o comportamento anterior.
         const { searchParams } = new URL(request.url);
-        const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'));
+        const codCliente = await resolveCodClienteSeguro(request, searchParams.get('codCliente'));
         if (codCliente && String(chamadoRows[0].COD_CLIENTE) !== String(codCliente)) {
             return NextResponse.json(
                 { error: 'Você não tem permissão para acessar este chamado' },

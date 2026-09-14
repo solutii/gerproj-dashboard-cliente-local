@@ -9,7 +9,9 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
-        const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'))?.trim();
+        const codCliente = (
+            await resolveCodClienteSeguro(request, searchParams.get('codCliente'))
+        )?.trim();
 
         if (!codCliente) {
             return NextResponse.json(

@@ -27,11 +27,13 @@ interface ChamadoSLARow {
     CONCLUSAO_CHAMADO: Date | null;
 }
 
-function validarParametros(
+async function validarParametros(
     request: Request,
     searchParams: URLSearchParams
-): QueryParams | NextResponse {
-    const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'))?.trim();
+): Promise<QueryParams | NextResponse> {
+    const codCliente = (
+        await resolveCodClienteSeguro(request, searchParams.get('codCliente'))
+    )?.trim();
     const mes = Number(searchParams.get('mes'));
     const ano = Number(searchParams.get('ano'));
 
@@ -79,7 +81,7 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const params = validarParametros(request, searchParams);
+        const params = await validarParametros(request, searchParams);
         if (params instanceof NextResponse) return params;
 
         const { dataInicio, dataFim } = construirDatas(params.mes, params.ano);

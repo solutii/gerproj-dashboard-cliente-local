@@ -16,11 +16,13 @@ interface Recurso {
 }
 
 // ==================== VALIDAÇÕES ====================
-function validarParametros(
+async function validarParametros(
     request: Request,
     searchParams: URLSearchParams
-): QueryParams | NextResponse {
-    const codCliente = resolveCodClienteSeguro(request, searchParams.get('codCliente'))?.trim();
+): Promise<QueryParams | NextResponse> {
+    const codCliente = (
+        await resolveCodClienteSeguro(request, searchParams.get('codCliente'))
+    )?.trim();
 
     const mesParam = searchParams.get('mes');
     const anoParam = searchParams.get('ano');
@@ -132,7 +134,7 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url);
 
         // Validar parâmetros
-        const params = validarParametros(request, searchParams);
+        const params = await validarParametros(request, searchParams);
         if (params instanceof NextResponse) return params;
 
         // Construir datas no formato Firebird DATE (DD.MM.YYYY)

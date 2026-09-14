@@ -276,8 +276,12 @@ const CAMPOS_AVALIACAO_GROUPBY = `,
     CHAMADO.OBSAVAL_CHAMADO`;
 
 // ==================== VALIDAÇÕES ====================
-const validarParametros = (request: Request, sp: URLSearchParams): QueryParams | NextResponse => {
-    const codCliente = resolveCodClienteSeguro(request, sp.get('codCliente'))?.trim() || undefined;
+const validarParametros = async (
+    request: Request,
+    sp: URLSearchParams
+): Promise<QueryParams | NextResponse> => {
+    const codCliente =
+        (await resolveCodClienteSeguro(request, sp.get('codCliente')))?.trim() || undefined;
     const statusFilter = sp.get('statusFilter')?.trim() || undefined;
 
     let mes: number | undefined;
@@ -1230,7 +1234,7 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const params = validarParametros(request, searchParams);
+        const params = await validarParametros(request, searchParams);
         if (params instanceof NextResponse) return params;
 
         const incluirSLA = searchParams.get('incluirSLA') !== 'false';

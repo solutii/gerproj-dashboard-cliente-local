@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
         // Só valida dono quando o chamador manda um codCliente (fluxo de
         // cliente) — sem isso (ex.: ADM), mantém o comportamento anterior.
         const codClienteRaw = formData.get('codCliente');
-        const codCliente = resolveCodClienteSeguro(
+        const codCliente = await resolveCodClienteSeguro(
             req,
             typeof codClienteRaw === 'string' ? codClienteRaw : null
         );

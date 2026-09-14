@@ -31,10 +31,10 @@ interface HorasRaw {
  * Recebe: ?ids=1,2,3,4
  * Limite de 500 IDs por batch para não estourar o SQL.
  */
-const validarParametros = (
+const validarParametros = async (
     request: NextRequest,
     sp: URLSearchParams
-): { ids: number[]; codCliente?: string } | NextResponse => {
+): Promise<{ ids: number[]; codCliente?: string } | NextResponse> => {
     const raw = sp.get('ids')?.trim();
 
     if (!raw) {
@@ -57,7 +57,8 @@ const validarParametros = (
         return NextResponse.json({ error: 'Máximo de 500 IDs por requisição' }, { status: 400 });
     }
 
-    const codCliente = resolveCodClienteSeguro(request, sp.get('codCliente'))?.trim() || undefined;
+    const codCliente =
+        (await resolveCodClienteSeguro(request, sp.get('codCliente')))?.trim() || undefined;
 
     return { ids, codCliente };
 };
@@ -138,7 +139,7 @@ export async function GET(request: NextRequest) {
     try {
         const { searchParams } = new URL(request.url);
 
-        const params = validarParametros(request, searchParams);
+        const params = await validarParametros(request, searchParams);
         if (params instanceof NextResponse) return params;
 
         const raw = await buscarHorasPorMes(params.ids, params.codCliente);

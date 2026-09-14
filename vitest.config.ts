@@ -7,6 +7,7 @@ export default defineConfig({
         include: ['src/**/*.test.ts'],
         env: {
             SESSAO_SECRET: 'segredo-de-teste-nao-usar-em-producao',
+            CLIENTE_TOKEN_SECRET: 'segredo-cliente-token-de-teste-nao-usar-em-producao',
         },
     },
     resolve: {
