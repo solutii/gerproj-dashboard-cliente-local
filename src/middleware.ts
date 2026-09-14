@@ -10,7 +10,15 @@ import {
     SESSAO_MAX_AGE_SEGUNDOS,
     verificarSessao,
 } from '@/lib/auth/session';
+import { excedeuLimite, obterIp } from '@/lib/rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
+
+// Limite geral por IP, cobrindo TODA /api/* — inclusive as rotas que hoje
+// não chamam excedeuLimite() por conta própria. Rotas com limite próprio
+// mais restrito (login, upload, etc.) continuam aplicando o delas por cima
+// disso, em camadas.
+const LIMITE_GERAL_MAX_REQUISICOES = 120;
+const LIMITE_GERAL_JANELA_MS = 60_000;
 
 // Protegidas por mecanismo próprio (chave interna, token HMAC do link de
 // e-mail), são o próprio ponto de entrada, ou precisam funcionar mesmo sem
@@ -43,6 +51,14 @@ const ROTAS_ADM = new Set([
 
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl;
+
+    const chaveLimite = `geral:${obterIp(request)}`;
+    if (excedeuLimite(chaveLimite, LIMITE_GERAL_MAX_REQUISICOES, LIMITE_GERAL_JANELA_MS)) {
+        return NextResponse.json(
+            { error: 'Muitas requisições. Tente novamente em instantes.' },
+            { status: 429 }
+        );
+    }
 
     if (isRotaPublica(pathname)) {
         return NextResponse.next();

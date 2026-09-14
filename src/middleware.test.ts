@@ -98,4 +98,30 @@ describe('middleware', () => {
         const response = await middleware(criarRequest('/api/recursos-ativos', `sessao=${token}`));
         expect(response.status).toBe(200);
     });
+
+    it('bloqueia com 429 após exceder o limite geral de requisições por IP', async () => {
+        const ip = '203.0.113.55';
+        const fazerRequest = () =>
+            middleware(
+                new NextRequest('http://localhost/api/filtros/status', {
+                    headers: { 'x-forwarded-for': ip },
+                })
+            );
+
+        let ultimaResposta;
+        for (let i = 0; i < 121; i++) {
+            ultimaResposta = await fazerRequest();
+        }
+
+        expect(ultimaResposta?.status).toBe(429);
+    });
+
+    it('não bloqueia uma rota pública por causa do limite de outro IP', async () => {
+        const response = await middleware(
+            new NextRequest('http://localhost/api/login', {
+                headers: { 'x-forwarded-for': '203.0.113.99' },
+            })
+        );
+        expect(response.status).toBe(200);
+    });
 });
