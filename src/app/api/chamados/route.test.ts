@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { POST } from './route';
+import { GET, limparCacheChamados, POST } from './route';
 
 const {
     firebirdQueryMock,
@@ -205,5 +205,225 @@ describe('POST /api/chamados (criar chamado)', () => {
 
         expect(response.status).toBe(500);
         expect(firebirdExecuteMock).toHaveBeenCalledTimes(1);
+    });
+});
+
+function criarGetRequest(query: string) {
+    return new NextRequest(`http://localhost/api/chamados${query}`);
+}
+
+function chamadoRawFixture(overrides: Record<string, unknown> = {}) {
+    return {
+        COD_CHAMADO: 501,
+        DATA_CHAMADO: new Date(2026, 0, 6),
+        HORA_CHAMADO: '0900',
+        SOLICITACAO_CHAMADO: '<p>Erro na agenda</p>',
+        CONCLUSAO_CHAMADO: null,
+        STATUS_CHAMADO: 'ATRIBUIDO',
+        DTENVIO_CHAMADO: '06/01/2026 09:00',
+        DTINI_CHAMADO: null,
+        ASSUNTO_CHAMADO: '[Cliente] Erro na agenda',
+        EMAIL_CHAMADO: 'fulano@cliente.com',
+        PRIOR_CHAMADO: 100,
+        COD_CLASSIFICACAO: 3,
+        COD_RECURSO: null,
+        NOME_CLIENTE: 'Cliente Teste',
+        NOME_RECURSO: null,
+        NOME_CLASSIFICACAO: 'Erro',
+        AVALIA_CHAMADO: 1,
+        OBSAVAL_CHAMADO: null,
+        TOTAL_HORAS_OS: 2,
+        TOTAL_HORAS_OS_FATURADAS: 2,
+        TOTAL_HORAS_OS_NAO_FATURADAS: 0,
+        DATA_HISTCHAMADO: null,
+        HORA_HISTCHAMADO: null,
+        DATA_INICIO_ATENDIMENTO: null,
+        HORA_INICIO_ATENDIMENTO: null,
+        POSSUI_OS: 1,
+        ...overrides,
+    };
+}
+
+const totaisFixture = [
+    { TOTAL_OS: 1, TOTAL_HORAS: 2, TOTAL_HORAS_OS_NAO_FATURADAS: 0, TOTAL_HORAS_OS_FATURADAS: 2 },
+];
+const nomeClienteFixture = [{ NOME_CLIENTE: 'Cliente Teste' }];
+
+describe('GET /api/chamados (listagem)', () => {
+    beforeEach(() => {
+        limparCacheChamados();
+    });
+
+    afterEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it('retorna 400 quando status=FINALIZADO sem mes/ano', async () => {
+        const response = await GET(criarGetRequest('?codCliente=9&statusFilter=FINALIZADO'));
+
+        expect(response.status).toBe(400);
+        expect(firebirdQueryMock).not.toHaveBeenCalled();
+    });
+
+    it('retorna 400 quando status=TODOS sem mes/ano', async () => {
+        const response = await GET(criarGetRequest('?codCliente=9&statusFilter=TODOS'));
+
+        expect(response.status).toBe(400);
+    });
+
+    it('retorna 400 quando mes é informado sem ano', async () => {
+        const response = await GET(criarGetRequest('?codCliente=9&mes=5'));
+
+        expect(response.status).toBe(400);
+        const body = await response.json();
+        expect(body.error).toBe("Se informar 'mes', deve informar 'ano' também");
+    });
+
+    it('retorna 400 quando codCliente não é informado', async () => {
+        const response = await GET(criarGetRequest(''));
+
+        expect(response.status).toBe(400);
+    });
+
+    it('retorna 400 quando page é menor que 1', async () => {
+        // Number('0') || 1 resolve para 1 (0 é falsy em JS) — só valores
+        // negativos de fato acionam essa validação.
+        const response = await GET(criarGetRequest('?codCliente=9&page=-1'));
+
+        expect(response.status).toBe(400);
+    });
+
+    it('retorna 400 quando limit está fora do intervalo 1-500', async () => {
+        const response = await GET(criarGetRequest('?codCliente=9&limit=501'));
+
+        expect(response.status).toBe(400);
+    });
+
+    it('retorna a listagem paginada com SLA incluído por padrão', async () => {
+        firebirdQueryMock
+            .mockResolvedValueOnce([chamadoRawFixture()]) // sqlChamados
+            .mockResolvedValueOnce([{ TOTAL: 1 }]) // sqlCount
+            .mockResolvedValueOnce(totaisFixture) // buscarTotais
+            .mockResolvedValueOnce(nomeClienteFixture); // buscarNomes (cliente)
+
+        const response = await GET(criarGetRequest('?codCliente=9'));
+
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.totalChamados).toBe(1);
+        expect(body.cliente).toBe('Cliente Teste');
+        expect(body.totalOS).toBe(1);
+        expect(body.data).toHaveLength(1);
+        expect(body.data[0].COD_CHAMADO).toBe(501);
+        expect(body.data[0].SLA_STATUS).toBeDefined();
+        expect(body.pagination).toEqual({
+            page: 1,
+            limit: 50,
+            totalPages: 1,
+            hasNextPage: false,
+            hasPreviousPage: false,
+        });
+    });
+
+    it('omite os campos SLA quando incluirSLA=false', async () => {
+        firebirdQueryMock
+            .mockResolvedValueOnce([chamadoRawFixture()])
+            .mockResolvedValueOnce([{ TOTAL: 1 }])
+            .mockResolvedValueOnce(totaisFixture)
+            .mockResolvedValueOnce(nomeClienteFixture);
+
+        const response = await GET(criarGetRequest('?codCliente=9&incluirSLA=false'));
+
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.data[0].SLA_STATUS).toBeUndefined();
+    });
+
+    it('retorna a forma vazia quando não há chamados', async () => {
+        firebirdQueryMock
+            .mockResolvedValueOnce([]) // sqlChamados
+            .mockResolvedValueOnce([{ TOTAL: 0 }]) // sqlCount
+            .mockResolvedValueOnce([
+                {
+                    TOTAL_OS: 0,
+                    TOTAL_HORAS: 0,
+                    TOTAL_HORAS_OS_NAO_FATURADAS: 0,
+                    TOTAL_HORAS_OS_FATURADAS: 0,
+                },
+            ])
+            .mockResolvedValueOnce(nomeClienteFixture);
+
+        const response = await GET(criarGetRequest('?codCliente=9'));
+
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.totalChamados).toBe(0);
+        expect(body.data).toEqual([]);
+        expect(body.pagination.totalPages).toBe(0);
+    });
+
+    it('reaproveita o cache de nomes e totais em requisições subsequentes com os mesmos parâmetros', async () => {
+        firebirdQueryMock
+            // 1ª requisição: sqlChamados, sqlCount, buscarTotais, buscarNomes
+            .mockResolvedValueOnce([chamadoRawFixture()])
+            .mockResolvedValueOnce([{ TOTAL: 1 }])
+            .mockResolvedValueOnce(totaisFixture)
+            .mockResolvedValueOnce(nomeClienteFixture)
+            // 2ª requisição: só sqlChamados e sqlCount são refeitas — totais e
+            // nome do cliente reaproveitam a Promise já cacheada.
+            .mockResolvedValueOnce([chamadoRawFixture()])
+            .mockResolvedValueOnce([{ TOTAL: 1 }]);
+
+        const primeira = await GET(criarGetRequest('?codCliente=9'));
+        expect(primeira.status).toBe(200);
+
+        const segunda = await GET(criarGetRequest('?codCliente=9'));
+        expect(segunda.status).toBe(200);
+
+        expect(firebirdQueryMock).toHaveBeenCalledTimes(6);
+    });
+
+    it('modo TODOS retorna a listagem combinando chamados finalizados e não finalizados', async () => {
+        firebirdQueryMock.mockImplementation((sql: string) => {
+            if (sql.includes('POSSUI_OS')) {
+                return Promise.resolve([chamadoRawFixture()]);
+            }
+            if (sql.includes('TOTAL_OS')) {
+                return Promise.resolve(totaisFixture);
+            }
+            if (sql.includes('NOME_CLIENTE FROM CLIENTE')) {
+                return Promise.resolve(nomeClienteFixture);
+            }
+            // Queries leves de IDs (finalizados e não finalizados).
+            if (sql.includes('CHAMADO.DTINI_CHAMADO, CHAMADO.ASSUNTO_CHAMADO')) {
+                return Promise.resolve([
+                    {
+                        COD_CHAMADO: 501,
+                        DATA_CHAMADO: new Date(2026, 0, 6),
+                        HORA_CHAMADO: '0900',
+                    },
+                ]);
+            }
+            return Promise.resolve([]);
+        });
+
+        const response = await GET(
+            criarGetRequest('?codCliente=9&statusFilter=TODOS&mes=1&ano=2026')
+        );
+
+        expect(response.status).toBe(200);
+        const body = await response.json();
+        expect(body.data).toHaveLength(1);
+        expect(body.data[0].COD_CHAMADO).toBe(501);
+        expect(body.totalChamados).toBe(1);
+    });
+
+    it('retorna 500 quando a consulta principal falha', async () => {
+        firebirdQueryMock.mockRejectedValueOnce(new Error('timeout'));
+        firebirdQueryMock.mockResolvedValue([]);
+
+        const response = await GET(criarGetRequest('?codCliente=9'));
+
+        expect(response.status).toBe(500);
     });
 });
