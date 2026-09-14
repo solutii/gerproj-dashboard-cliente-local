@@ -368,6 +368,24 @@ const validarParametros = async (
     };
 };
 
+// ==================== SEGURANÇA: DATAS INTERPOLADAS NO SQL ====================
+// dataInicio/dataFim (sempre construídas por construirDatas() abaixo, a
+// partir de mes/ano já validados como inteiros em validarParametros) entram
+// como literal de string em algumas JOINs internas deste arquivo — não dá
+// pra usar `?` ali sem reordenar manualmente os parâmetros das queries mais
+// complexas (buscarChamadosTodos/buscarChamados), risco real de erro que os
+// testes com Firebird mockado não pegariam, já que o mock ignora o SQL/
+// params de verdade. Em vez disso, valida em tempo de execução que o valor
+// está sempre em "DD.MM.AAAA" antes de qualquer interpolação — transforma a
+// garantia de "seguro só porque quem chama hoje sempre valida antes" em algo
+// que barra explicitamente qualquer valor fora do formato esperado.
+function dataSqlSegura(data: string): string {
+    if (!/^\d{2}\.\d{2}\.\d{4}$/.test(data)) {
+        throw new Error(`Data em formato inesperado para uso em SQL: ${data}`);
+    }
+    return data;
+}
+
 // ==================== CONSTRUÇÃO DE DATAS ====================
 const construirDatas = (
     mes?: number,
@@ -653,8 +671,8 @@ const buscarChamadosTodos = async (
                 SELECT COD_CHAMADO, MAX(DATA_HISTCHAMADO) AS DATA_HISTCHAMADO_FINAL
                 FROM HISTCHAMADO
                 WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
-                AND DATA_HISTCHAMADO >= '${dataInicio}'
-                AND DATA_HISTCHAMADO < '${dataFim}'
+                AND DATA_HISTCHAMADO >= '${dataSqlSegura(dataInicio)}'
+                AND DATA_HISTCHAMADO < '${dataSqlSegura(dataFim)}'
                 GROUP BY COD_CHAMADO
             ) HIST_MAX_JOIN ON CHAMADO.COD_CHAMADO = HIST_MAX_JOIN.COD_CHAMADO`
                 : '';
@@ -781,7 +799,7 @@ const buscarChamadosTodos = async (
     // via /api/chamados/horas-por-mes, exibido no tooltip da coluna.
     const dentroDoMes =
         dataInicio && dataFim
-            ? `(OS.DTINI_OS >= '${dataInicio}' AND OS.DTINI_OS < '${dataFim}')`
+            ? `(OS.DTINI_OS >= '${dataSqlSegura(dataInicio)}' AND OS.DTINI_OS < '${dataSqlSegura(dataFim)}')`
             : `1=1`;
 
     const sqlCompleta = `
@@ -890,8 +908,8 @@ const buscarChamados = async (
         SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
         FROM HISTCHAMADO
         WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
-        AND DATA_HISTCHAMADO >= '${dataInicio}'
-        AND DATA_HISTCHAMADO < '${dataFim}'
+        AND DATA_HISTCHAMADO >= '${dataSqlSegura(dataInicio)}'
+        AND DATA_HISTCHAMADO < '${dataSqlSegura(dataFim)}'
         GROUP BY COD_CHAMADO
     ) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO`
             : `LEFT JOIN (
