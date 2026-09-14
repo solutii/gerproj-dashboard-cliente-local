@@ -1,6 +1,7 @@
 // src/app/api/login/route.ts
 import { assinarClienteToken } from '@/lib/auth/cliente-token';
 import { validarSenhaConsultor } from '@/lib/auth/senha-consultor';
+import { assinarSessao, SESSAO_COOKIE_NOME, SESSAO_MAX_AGE_SEGUNDOS } from '@/lib/auth/session';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import { excedeuLimite, obterIp } from '@/lib/rate-limit';
 import bcrypt from 'bcryptjs';
@@ -275,6 +276,18 @@ function respostaErroServidor(error: unknown): NextResponse {
     );
 }
 
+// ==================== SESSÃO ====================
+function anexarCookieSessao(response: NextResponse, token: string | null): void {
+    if (!token) return;
+    response.cookies.set(SESSAO_COOKIE_NOME, token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: SESSAO_MAX_AGE_SEGUNDOS,
+    });
+}
+
 // ==================== HANDLER PRINCIPAL ====================
 export async function POST(request: Request) {
     try {
@@ -330,7 +343,23 @@ export async function POST(request: Request) {
                             }
 
                             const resposta = construirRespostaConsultor(consultor);
-                            return NextResponse.json(resposta, { status: 200 });
+                            const response = NextResponse.json(resposta, { status: 200 });
+                            const sessaoToken = await assinarSessao({
+                                loginType: 'consultor',
+                                codUsuario: consultor.COD_USUARIO,
+                                idUsuario: consultor.ID_USUARIO,
+                                nomeUsuario: consultor.NOME_USUARIO,
+                                tipoUsuario: consultor.TIPO_USUARIO,
+                                permissoes: {
+                                    permtar: consultor.PERMTAR_USUARIO === 'SIM',
+                                    perproj1: consultor.PERPROJ1_USUARIO === 'SIM',
+                                    perproj2: consultor.PERPROJ2_USUARIO === 'SIM',
+                                },
+                                userEmail: email,
+                                exp: Date.now() + SESSAO_MAX_AGE_SEGUNDOS * 1000,
+                            });
+                            anexarCookieSessao(response, sessaoToken);
+                            return response;
                         }
 
                         // Se encontrou o usuário mas senha errada, retorna erro
@@ -365,7 +394,17 @@ export async function POST(request: Request) {
                             }
 
                             const resposta = construirRespostaCliente(usuario);
-                            return NextResponse.json(resposta, { status: 200 });
+                            const response = NextResponse.json(resposta, { status: 200 });
+                            const sessaoToken = await assinarSessao({
+                                loginType: 'cliente',
+                                codCliente: usuario.cod_cliente ?? null,
+                                codRecurso: usuario.codrec_os ?? null,
+                                nomeRecurso: usuario.nome ?? null,
+                                userEmail: email,
+                                exp: Date.now() + SESSAO_MAX_AGE_SEGUNDOS * 1000,
+                            });
+                            anexarCookieSessao(response, sessaoToken);
+                            return response;
                         }
                     }
                 } catch (error) {

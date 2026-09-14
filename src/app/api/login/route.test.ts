@@ -1,4 +1,5 @@
 import { encodeSenhaConsultor } from '@/lib/auth/senha-consultor';
+import { verificarSessao } from '@/lib/auth/session';
 import bcrypt from 'bcryptjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { limparCaches, POST } from './route';
@@ -84,6 +85,9 @@ describe('POST /api/login', () => {
         expect(body.loginType).toBe('consultor');
         expect(body.tipoUsuario).toBe('ADM');
         expect(body.permissoes).toEqual({ permtar: true, perproj1: false, perproj2: true });
+
+        const cookie = response.cookies.get('sessao');
+        expect(cookie?.value).toBeTruthy();
     });
 
     it('bloqueia consultor autenticado que não é ADM', async () => {
@@ -156,6 +160,31 @@ describe('POST /api/login', () => {
         expect(body.codCliente).toBe('10');
         expect(body.nomeRecurso).toBe('Cliente Teste');
         expect(firebirdQueryMock).not.toHaveBeenCalled();
+
+        const cookie = response.cookies.get('sessao');
+        expect(cookie?.value).toBeTruthy();
+    });
+
+    it('o cookie de sessão emitido é válido e reflete os dados do cliente autenticado', async () => {
+        readFileMock.mockResolvedValueOnce(
+            JSON.stringify([
+                {
+                    email: 'cliente@teste.com',
+                    password: bcrypt.hashSync('Senha123!', 8),
+                    cod_cliente: '10',
+                    codrec_os: '5',
+                    nome: 'Cliente Teste',
+                },
+            ])
+        );
+
+        const response = await POST(
+            criarRequest({ email: 'cliente@teste.com', password: 'Senha123!' })
+        );
+
+        const cookie = response.cookies.get('sessao');
+        const sessao = await verificarSessao(cookie?.value);
+        expect(sessao).toMatchObject({ loginType: 'cliente', codCliente: '10' });
     });
 
     it('rejeita cliente com senha incorreta', async () => {
