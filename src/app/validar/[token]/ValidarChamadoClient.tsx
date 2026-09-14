@@ -6,10 +6,10 @@ import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { alertConfirm, alertError, alertSuccess } from '@/store/useAlertDialogStore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
 import { useCallback, useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
 import { FaCalendar, FaClock, FaHashtag, FaUser } from 'react-icons/fa';
 import { FaFileWaveform, FaRegCircleCheck, FaRegCircleXmark } from 'react-icons/fa6';
 import { IoIosSave } from 'react-icons/io';
@@ -53,8 +53,9 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
 
     const handleValidarTudo = useCallback(async () => {
         if (validandoTudo) return;
-        const confirmado = window.confirm(
-            'Isso vai aprovar TODAS as OS deste chamado, inclusive alguma que já tenha sido reprovada antes. Confirma?'
+        const confirmado = await alertConfirm(
+            'Isso vai aprovar TODAS as OS deste chamado, inclusive alguma que já tenha sido reprovada antes. Confirma?',
+            { title: 'Validar chamado', confirmText: 'Sim, aprovar tudo' }
         );
         if (!confirmado) return;
 
@@ -69,10 +70,10 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
                 const d = await res.json();
                 throw new Error(d.error ?? 'Erro ao validar chamado');
             }
-            toast.success('Chamado validado com sucesso!');
+            alertSuccess('Chamado validado com sucesso!');
             await queryClient.invalidateQueries({ queryKey });
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Erro ao validar chamado');
+            alertError(err instanceof Error ? err.message : 'Erro ao validar chamado');
         } finally {
             setValidandoTudo(false);
         }
@@ -80,12 +81,14 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
 
     return (
         <div className="min-h-screen bg-stone-100 pb-16">
-            <header className="flex flex-col items-center gap-4 bg-teal-700 px-4 py-8 shadow-md shadow-black sm:flex-row sm:justify-between sm:px-10">
-                <div className="flex items-center gap-4">
-                    <FaFileWaveform className="flex-shrink-0 text-white" size={44} />
-                    <div className="flex flex-col gap-1 tracking-widest text-white select-none">
-                        <h1 className="text-xl font-extrabold sm:text-2xl">VALIDAÇÃO DE CHAMADO</h1>
-                        <p className="text-sm font-semibold">
+            <header className="flex items-center justify-between gap-3 bg-teal-700 px-4 py-3 shadow-md shadow-black sm:px-8">
+                <div className="flex items-center gap-3">
+                    <FaFileWaveform className="flex-shrink-0 text-white" size={26} />
+                    <div className="flex flex-col tracking-wide text-white select-none">
+                        <h1 className="text-base font-extrabold sm:text-lg">
+                            VALIDAÇÃO DE CHAMADO
+                        </h1>
+                        <p className="text-xs font-semibold text-teal-100">
                             Nº {String(codChamado).padStart(5, '0')}
                         </p>
                     </div>
@@ -93,14 +96,14 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
                 <Image
                     src="/logo-solutii.png"
                     alt="Solutii"
-                    width={120}
-                    height={34}
+                    width={32}
+                    height={32}
                     priority
-                    style={{ width: '120px', height: 'auto' }}
+                    className="rounded-md"
                 />
             </header>
 
-            <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8 sm:px-10">
+            <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:px-8">
                 {isLoading && (
                     <p className="text-center text-sm font-semibold tracking-widest text-gray-500 select-none">
                         Carregando OS's do chamado...
@@ -125,15 +128,15 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
                             type="button"
                             onClick={handleValidarTudo}
                             disabled={validandoTudo}
-                            className="flex cursor-pointer items-center justify-center gap-2 self-start rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-6 py-3 text-sm font-extrabold tracking-widest text-white shadow-md shadow-black transition-all duration-200 select-none hover:-translate-y-1 hover:from-blue-500 hover:to-blue-600 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="flex cursor-pointer items-center justify-center gap-2 self-start rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-4 py-2 text-xs font-extrabold tracking-wide text-white shadow-sm shadow-black transition-all duration-200 select-none hover:-translate-y-0.5 hover:from-blue-500 hover:to-blue-600 hover:shadow-md hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                            <FaRegCircleCheck size={18} />
+                            <FaRegCircleCheck size={14} />
                             {validandoTudo
                                 ? 'Validando...'
                                 : 'Validar chamado (aprovar todas as OS)'}
                         </button>
 
-                        <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3">
                             {data.data.map((os) => (
                                 <OSItem
                                     // Remonta o card (resetando o estado local do
@@ -171,7 +174,7 @@ function OSItem({ os, token, onSaved }: OSItemProps) {
 
     const handleSalvar = useCallback(async () => {
         if (!concordaPagar && !observacao.trim()) {
-            toast.error('Informe o motivo da reprovação.');
+            alertError('Informe o motivo da reprovação.');
             return;
         }
         setSalvando(true);
@@ -190,19 +193,19 @@ function OSItem({ os, token, onSaved }: OSItemProps) {
                 const d = await res.json();
                 throw new Error(d.error ?? 'Falha ao salvar validação');
             }
-            toast.success(`OS ${os.NUM_OS ?? os.COD_OS} validada com sucesso!`);
+            alertSuccess(`OS ${os.NUM_OS ?? os.COD_OS} validada com sucesso!`);
             onSaved();
         } catch (err) {
-            toast.error(err instanceof Error ? err.message : 'Erro ao salvar validação');
+            alertError(err instanceof Error ? err.message : 'Erro ao salvar validação');
         } finally {
             setSalvando(false);
         }
     }, [concordaPagar, observacao, os.COD_OS, os.NUM_OS, token, onSaved]);
 
     return (
-        <div className="flex flex-col gap-4 rounded-xl border-t border-gray-200 bg-white p-6 shadow-sm shadow-black">
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <Campo icon={FaHashtag} label="Número OS" value={formatarNumeros(os.NUM_OS)} />
+        <div className="flex flex-col gap-2.5 rounded-lg border border-gray-200 bg-white p-3 shadow-sm shadow-black/10">
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
+                <Campo icon={FaHashtag} label="OS" value={formatarNumeros(os.NUM_OS)} />
                 <Campo icon={FaCalendar} label="Data" value={formatarDataParaBR(os.DTINI_OS)} />
                 <Campo
                     icon={FaClock}
@@ -214,87 +217,88 @@ function OSItem({ os, token, onSaved }: OSItemProps) {
                     label="Total"
                     value={formatarHorasTotaisSufixo(os.TOTAL_HORAS_OS)}
                 />
-                <Campo icon={FaUser} label="Consultor(a)" value={os.NOME_RECURSO ?? '-'} />
-                {jaValidada && (
-                    <div className="col-span-2 flex items-center gap-2 sm:col-span-3">
-                        {os.VALCLI_OS === 'SIM' ? (
-                            <FaRegCircleCheck className="text-emerald-600" size={18} />
-                        ) : (
-                            <FaRegCircleXmark className="text-red-600" size={18} />
-                        )}
-                        <span className="text-sm font-bold tracking-widest text-gray-600 select-none">
-                            {os.VALCLI_OS === 'SIM' ? 'Já validada como aprovada' : 'Já reprovada'}
-                            {os.OBSCLI_OS ? ` — ${os.OBSCLI_OS}` : ''}
-                        </span>
-                    </div>
-                )}
+                <Campo icon={FaUser} label="Consultor" value={os.NOME_RECURSO ?? '-'} />
             </div>
 
-            {os.OBS && (
-                <p className="text-sm font-semibold tracking-wide text-gray-600">{os.OBS}</p>
+            {os.OBS && <p className="text-xs font-medium text-gray-600">{os.OBS}</p>}
+
+            {jaValidada && (
+                <div className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1">
+                    {os.VALCLI_OS === 'SIM' ? (
+                        <FaRegCircleCheck className="flex-shrink-0 text-emerald-600" size={13} />
+                    ) : (
+                        <FaRegCircleXmark className="flex-shrink-0 text-red-600" size={13} />
+                    )}
+                    <span className="text-xs font-bold text-gray-600 select-none">
+                        {os.VALCLI_OS === 'SIM' ? 'Já validada como aprovada' : 'Já reprovada'}
+                        {os.OBSCLI_OS ? ` — ${os.OBSCLI_OS}` : ''}
+                    </span>
+                </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <button
-                    type="button"
-                    onClick={() => setConcordaPagar(true)}
-                    className={`flex cursor-pointer items-center gap-3 rounded-md border-t px-4 py-3 shadow-sm shadow-black transition-all duration-200 ${
-                        concordaPagar
-                            ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-500'
-                            : 'border-blue-200 bg-white hover:bg-blue-50'
-                    }`}
-                >
-                    <FaRegCircleCheck
-                        className={concordaPagar ? 'text-blue-700' : 'text-blue-400'}
-                        size={18}
-                    />
-                    <span className="text-sm font-bold tracking-widest text-blue-700 select-none">
-                        OS Aprovada
-                    </span>
-                </button>
-                <button
-                    type="button"
-                    onClick={() => setConcordaPagar(false)}
-                    className={`flex cursor-pointer items-center gap-3 rounded-md border-t px-4 py-3 shadow-sm shadow-black transition-all duration-200 ${
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setConcordaPagar(true)}
+                        className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-all duration-150 ${
+                            concordaPagar
+                                ? 'border-blue-500 bg-blue-100 ring-1 ring-blue-500'
+                                : 'border-blue-200 bg-white hover:bg-blue-50'
+                        }`}
+                    >
+                        <FaRegCircleCheck
+                            className={concordaPagar ? 'text-blue-700' : 'text-blue-400'}
+                            size={13}
+                        />
+                        <span className="text-xs font-bold text-blue-700 select-none">
+                            Aprovada
+                        </span>
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => setConcordaPagar(false)}
+                        className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-all duration-150 ${
+                            !concordaPagar
+                                ? 'border-red-500 bg-red-100 ring-1 ring-red-500'
+                                : 'border-red-200 bg-white hover:bg-red-50'
+                        }`}
+                    >
+                        <FaRegCircleXmark
+                            className={!concordaPagar ? 'text-red-700' : 'text-red-400'}
+                            size={13}
+                        />
+                        <span className="text-xs font-bold text-red-700 select-none">
+                            Reprovada
+                        </span>
+                    </button>
+                </div>
+
+                <input
+                    type="text"
+                    value={observacao}
+                    onChange={(e) => setObservacao(e.target.value)}
+                    maxLength={195}
+                    placeholder={
                         !concordaPagar
-                            ? 'border-red-500 bg-red-100 ring-2 ring-red-500'
-                            : 'border-red-200 bg-white hover:bg-red-50'
+                            ? 'Informe o motivo da reprovação...'
+                            : 'Observação opcional...'
+                    }
+                    className={`min-w-0 flex-1 rounded-md border px-3 py-1.5 text-xs font-medium text-black outline-none placeholder:text-gray-400 ${
+                        !concordaPagar ? 'border-red-200 bg-red-50' : 'border-blue-200 bg-blue-50'
                     }`}
+                />
+
+                <button
+                    type="button"
+                    onClick={handleSalvar}
+                    disabled={salvando}
+                    className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-gradient-to-br from-teal-600 to-teal-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm shadow-black/20 transition-all duration-150 select-none hover:from-teal-500 hover:to-teal-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                    <FaRegCircleXmark
-                        className={!concordaPagar ? 'text-red-700' : 'text-red-400'}
-                        size={18}
-                    />
-                    <span className="text-sm font-bold tracking-widest text-red-700 select-none">
-                        OS Reprovada
-                    </span>
+                    <IoIosSave size={14} />
+                    {salvando ? 'Salvando...' : 'Salvar'}
                 </button>
             </div>
-
-            <textarea
-                value={observacao}
-                onChange={(e) => setObservacao(e.target.value)}
-                rows={2}
-                maxLength={195}
-                placeholder={
-                    !concordaPagar
-                        ? 'Por favor, informe o motivo da reprovação...'
-                        : 'Observação opcional...'
-                }
-                className={`w-full rounded-md px-4 py-2 text-sm font-medium tracking-wide text-black shadow-sm shadow-black outline-none placeholder:text-gray-400 ${
-                    !concordaPagar ? 'bg-red-50' : 'bg-blue-50'
-                }`}
-            />
-
-            <button
-                type="button"
-                onClick={handleSalvar}
-                disabled={salvando}
-                className="flex cursor-pointer items-center justify-center gap-2 self-end rounded-md bg-gradient-to-br from-teal-600 to-teal-700 px-5 py-2 text-sm font-extrabold tracking-widest text-white shadow-md shadow-black transition-all duration-200 select-none hover:-translate-y-1 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-                <IoIosSave size={18} />
-                {salvando ? 'Salvando...' : 'Salvar'}
-            </button>
         </div>
     );
 }
@@ -309,14 +313,12 @@ function Campo({
     value: string;
 }) {
     return (
-        <div>
-            <div className="mb-1 flex items-center gap-1.5">
-                <Icon className="text-gray-500" size={12} />
-                <span className="text-xs font-bold tracking-widest text-gray-500 select-none">
-                    {label}
-                </span>
-            </div>
-            <span className="text-sm font-bold tracking-wide text-black select-none">{value}</span>
+        <div className="flex items-center gap-1.5">
+            <Icon className="flex-shrink-0 text-gray-400" size={11} />
+            <span className="text-[11px] font-semibold tracking-wide text-gray-500 select-none">
+                {label}:
+            </span>
+            <span className="text-xs font-bold text-black select-none">{value}</span>
         </div>
     );
 }

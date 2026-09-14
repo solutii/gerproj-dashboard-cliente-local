@@ -4,6 +4,7 @@
 
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { getClienteTokenHeaders } from '@/lib/auth/cliente-token-client';
+import { alertError, alertWarning } from '@/store/useAlertDialogStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { FaCheckCircle, FaFileExcel, FaFilePdf, FaFileWord, FaImage } from 'react-icons/fa';
@@ -229,7 +230,6 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
     const [arquivos, setArquivos] = useState<File[]>([]);
     const [dragging, setDragging] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [erro, setErro] = useState('');
     const [codChamadoCriado, setCodChamadoCriado] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -283,7 +283,6 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
         setAssunto('');
         setSolicitacao('');
         setArquivos([]);
-        setErro('');
         setCodChamadoCriado(null);
         setRecursoSelecionado(null);
         setTarefaSelecionada(null);
@@ -379,7 +378,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
             }
             return combinados;
         });
-        if (erros.length > 0) setErro(erros.join(' '));
+        if (erros.length > 0) alertWarning(erros.join(' '));
     };
 
     const removeArquivo = (index: number) =>
@@ -391,54 +390,55 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
     };
 
     const handleSubmit = async () => {
-        setErro('');
         if (isAdmin) {
             if (!clienteAtual) {
-                setErro('Nenhum cliente selecionado. Escolha um cliente nos filtros do dashboard.');
+                alertWarning(
+                    'Nenhum cliente selecionado. Escolha um cliente nos filtros do dashboard.'
+                );
                 return;
             }
             if (!prioridadeSelecionada) {
-                setErro('Selecione a prioridade do chamado.');
+                alertWarning('Selecione a prioridade do chamado.');
                 return;
             }
         } else if (!codCliente) {
-            setErro('Nenhum cliente selecionado. Faça login novamente ou selecione um cliente.');
+            alertError('Nenhum cliente selecionado. Faça login novamente ou selecione um cliente.');
             return;
         }
         if (!solicitante.trim()) {
-            setErro('Informe o nome do solicitante.');
+            alertWarning('Informe o nome do solicitante.');
             return;
         }
         if (!email.trim()) {
-            setErro('Informe o e-mail do solicitante.');
+            alertWarning('Informe o e-mail do solicitante.');
             return;
         }
         if (!EMAIL_REGEX.test(email.trim())) {
-            setErro('Informe um e-mail válido.');
+            alertWarning('Informe um e-mail válido.');
             return;
         }
         if (!telefone.trim()) {
-            setErro('Informe o telefone do solicitante.');
+            alertWarning('Informe o telefone do solicitante.');
             return;
         }
         if (!departamento) {
-            setErro('Selecione o departamento.');
+            alertWarning('Selecione o departamento.');
             return;
         }
         if (!area) {
-            setErro('Selecione o módulo.');
+            alertWarning('Selecione o módulo.');
             return;
         }
         if (!classificacao) {
-            setErro('Selecione o tipo de solicitação.');
+            alertWarning('Selecione o tipo de solicitação.');
             return;
         }
         if (!assunto.trim()) {
-            setErro('Informe o assunto do chamado.');
+            alertWarning('Informe o assunto do chamado.');
             return;
         }
         if (!solicitacao.trim()) {
-            setErro('Descreva a sua solicitação.');
+            alertWarning('Descreva a sua solicitação.');
             return;
         }
 
@@ -467,7 +467,9 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
             });
             if (!res.ok) {
                 const d = await res.json();
-                setErro(d.error ?? 'Erro ao abrir chamado.');
+                alertError(
+                    d.error ?? 'Não foi possível abrir o chamado. Tente novamente em instantes.'
+                );
                 return;
             }
             const { cod_chamado } = await res.json();
@@ -485,15 +487,21 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                 });
                 if (!uploadRes.ok) {
                     const d = await uploadRes.json();
-                    setErro(`Chamado aberto, mas houve um erro ao enviar os anexos: ${d.error}`);
+                    alertWarning(
+                        `Chamado nº ${cod_chamado} aberto com sucesso, mas houve um erro ao enviar os anexos: ${d.error}`
+                    );
                     setCodChamadoCriado(cod_chamado);
                     return;
                 }
             }
 
             setCodChamadoCriado(cod_chamado);
-        } catch {
-            setErro('Falha de conexão. Tente novamente.');
+        } catch (err) {
+            alertError(
+                err instanceof Error
+                    ? `Falha de conexão ao abrir o chamado: ${err.message}`
+                    : 'Falha de conexão ao abrir o chamado. Tente novamente.'
+            );
         } finally {
             setLoading(false);
         }
@@ -641,10 +649,9 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     <input
                                         type="text"
                                         value={solicitante}
-                                        onChange={(e) => {
-                                            setSolicitante(capitalizarNome(e.target.value));
-                                            if (erro) setErro('');
-                                        }}
+                                        onChange={(e) =>
+                                            setSolicitante(capitalizarNome(e.target.value))
+                                        }
                                         maxLength={50}
                                         placeholder="Nome completo"
                                         className={inputClass}
@@ -657,10 +664,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     <input
                                         type="email"
                                         value={email}
-                                        onChange={(e) => {
-                                            setEmail(e.target.value);
-                                            if (erro) setErro('');
-                                        }}
+                                        onChange={(e) => setEmail(e.target.value)}
                                         maxLength={250}
                                         placeholder="seuemail@empresa.com"
                                         className={inputClass}
@@ -673,10 +677,9 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     <input
                                         type="tel"
                                         value={telefone}
-                                        onChange={(e) => {
-                                            setTelefone(formatarTelefone(e.target.value));
-                                            if (erro) setErro('');
-                                        }}
+                                        onChange={(e) =>
+                                            setTelefone(formatarTelefone(e.target.value))
+                                        }
                                         maxLength={15}
                                         placeholder="(00) 00000-0000"
                                         className={inputClass}
@@ -696,10 +699,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     opcoes={opcoes.departamentos}
                                     loading={loadingOpcoes}
                                     valorSelecionado={departamento}
-                                    onSelecionar={(o) => {
-                                        setDepartamento(o);
-                                        if (erro) setErro('');
-                                    }}
+                                    onSelecionar={setDepartamento}
                                 />
                                 <SeletorBusca
                                     label={
@@ -711,10 +711,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     opcoes={opcoes.areas}
                                     loading={loadingOpcoes}
                                     valorSelecionado={area}
-                                    onSelecionar={(o) => {
-                                        setArea(o);
-                                        if (erro) setErro('');
-                                    }}
+                                    onSelecionar={setArea}
                                 />
                             </div>
 
@@ -748,10 +745,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     opcoes={opcoes.classificacoes}
                                     loading={loadingOpcoes}
                                     valorSelecionado={classificacao}
-                                    onSelecionar={(o) => {
-                                        setClassificacao(o);
-                                        if (erro) setErro('');
-                                    }}
+                                    onSelecionar={setClassificacao}
                                 />
                             </div>
 
@@ -763,10 +757,7 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                 <input
                                     type="text"
                                     value={assunto}
-                                    onChange={(e) => {
-                                        setAssunto(capitalizarFrases(e.target.value));
-                                        if (erro) setErro('');
-                                    }}
+                                    onChange={(e) => setAssunto(capitalizarFrases(e.target.value))}
                                     maxLength={150}
                                     placeholder="Informe o assunto do chamado..."
                                     className={inputClass}
@@ -787,10 +778,9 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                 </label>
                                 <textarea
                                     value={solicitacao}
-                                    onChange={(e) => {
-                                        setSolicitacao(capitalizarFrases(e.target.value));
-                                        if (erro) setErro('');
-                                    }}
+                                    onChange={(e) =>
+                                        setSolicitacao(capitalizarFrases(e.target.value))
+                                    }
                                     placeholder="Descreva detalhadamente o problema ou a sua necessidade..."
                                     rows={8}
                                     className={`${inputClass} resize-none rounded-md border border-gray-300 p-4 focus:border-[1px]`}
@@ -892,13 +882,6 @@ export function ModalAbrirChamado({ isOpen, onClose }: ModalAbrirChamadoProps) {
                                     </div>
                                 )}
                             </div>
-
-                            {/* Erro */}
-                            {erro && (
-                                <p className="mb-5 flex rounded-lg border border-red-500/50 bg-red-500/20 px-4 py-1 text-xs font-semibold tracking-wider text-red-500 select-none">
-                                    ⚠ {erro}
-                                </p>
-                            )}
 
                             {/* Botões */}
                             <div className="flex gap-4">

@@ -1,6 +1,7 @@
 // src/components/login/Login.tsx
 'use client';
 
+import { alertError, alertWarning } from '@/store/useAlertDialogStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { AnimatePresence, motion } from 'framer-motion';
 import Image from 'next/image';
@@ -196,7 +197,6 @@ export function Login() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
-    const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [showEsqueciSenha, setShowEsqueciSenha] = useState(false);
 
@@ -222,11 +222,10 @@ export function Login() {
 
     const handleSubmit = async (e: { preventDefault: () => void }) => {
         e.preventDefault();
-        setError('');
 
         if (adminMode) {
             if (!clienteSelecionado) {
-                setError('Selecione um cliente para continuar.');
+                alertWarning('Selecione um cliente para continuar.');
                 return;
             }
             setIsLoading(true);
@@ -260,8 +259,12 @@ export function Login() {
                         const data = await res.json();
                         setClientes(data);
                         setAdminMode(true);
-                    } catch {
-                        setError('Erro ao carregar lista de clientes.');
+                    } catch (err) {
+                        alertError(
+                            err instanceof Error
+                                ? `Não foi possível carregar a lista de clientes: ${err.message}`
+                                : 'Não foi possível carregar a lista de clientes.'
+                        );
                     } finally {
                         setLoadingClientes(false);
                     }
@@ -278,16 +281,20 @@ export function Login() {
                     } else if (userData.codRecurso) {
                         router.push('/paginas/tabela-chamados-abertos');
                     } else {
-                        setError('Usuário autenticado, mas sem permissões definidas.');
+                        alertError('Usuário autenticado, mas sem permissões definidas.');
                         setIsLoading(false);
                     }
                 }
             } else {
-                setError('Usuário não cadastrado ou senha inválida.');
+                alertError('Usuário não cadastrado ou senha inválida.');
                 setIsLoading(false);
             }
         } catch (err) {
-            setError('Erro ao tentar fazer login. Tente novamente.');
+            alertError(
+                err instanceof Error
+                    ? `Erro ao tentar fazer login: ${err.message}`
+                    : 'Erro ao tentar fazer login. Tente novamente.'
+            );
             setIsLoading(false);
             console.error(err);
         }
@@ -616,22 +623,6 @@ export function Login() {
                             isOpen={showEsqueciSenha}
                             onClose={() => setShowEsqueciSenha(false)}
                         />
-
-                        {/* Erro */}
-                        <AnimatePresence>
-                            {error && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: -8, scale: 0.97 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                                    transition={{ duration: 0.25 }}
-                                    className="flex items-start gap-3 rounded-xl border border-red-500/15 bg-red-500/8 px-4 py-3"
-                                >
-                                    <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-red-400" />
-                                    <p className="text-sm text-red-300/90">{error}</p>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
 
                         {/* Botão */}
                         <motion.button

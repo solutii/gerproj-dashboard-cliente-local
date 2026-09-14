@@ -8,6 +8,7 @@ import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/format
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { renderizarDoisPrimeirosNomes } from '@/formatters/remover-acentuacao';
+import { alertError } from '@/store/useAlertDialogStore';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useState } from 'react';
@@ -813,7 +814,11 @@ export function ExportarPDFTabelaChamados({
             console.log(`✅ PDF gerado com sucesso em ${(totalTime / 1000).toFixed(2)}s`);
         } catch (error) {
             console.error('❌ Erro ao exportar PDF:', error);
-            alert('Erro ao gerar o PDF. Tente novamente.');
+            alertError(
+                error instanceof Error
+                    ? `Não foi possível gerar o PDF: ${error.message}`
+                    : 'Não foi possível gerar o PDF. Tente novamente.'
+            );
         } finally {
             setIsExporting(false);
             setProgress({ current: 0, total: 0 });

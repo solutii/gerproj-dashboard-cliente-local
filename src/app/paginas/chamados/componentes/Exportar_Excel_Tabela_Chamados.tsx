@@ -8,6 +8,7 @@ import { formatarDataHoraChamado, formatarDataParaBR } from '@/formatters/format
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { renderizarDoisPrimeirosNomes } from '@/formatters/remover-acentuacao';
+import { alertError } from '@/store/useAlertDialogStore';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import { useState } from 'react';
@@ -929,7 +930,11 @@ export function ExportarExcelTabelaChamados({
             console.log(`✅ Excel gerado com sucesso em ${(totalTime / 1000).toFixed(2)}s`);
         } catch (error) {
             console.error('❌ Erro ao exportar Excel:', error);
-            alert('Erro ao gerar o Excel. Tente novamente.');
+            alertError(
+                error instanceof Error
+                    ? `Não foi possível gerar o Excel: ${error.message}`
+                    : 'Não foi possível gerar o Excel. Tente novamente.'
+            );
         } finally {
             setIsExporting(false);
             setProgress({ current: 0, total: 0 });

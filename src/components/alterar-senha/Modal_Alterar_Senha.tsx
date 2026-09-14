@@ -2,9 +2,10 @@
 
 'use client';
 
+import { alertError, alertSuccess, alertWarning } from '@/store/useAlertDialogStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useState } from 'react';
-import { FaCheckCircle, FaKey } from 'react-icons/fa';
+import { FaKey } from 'react-icons/fa';
 import { IoClose } from 'react-icons/io5';
 
 const inputClass =
@@ -36,15 +37,11 @@ export function ModalAlterarSenha({ isOpen, onClose }: ModalAlterarSenhaProps) {
     const [senhaNova, setSenhaNova] = useState('');
     const [confirmarSenha, setConfirmarSenha] = useState('');
     const [loading, setLoading] = useState(false);
-    const [erro, setErro] = useState('');
-    const [sucesso, setSucesso] = useState(false);
 
     const resetFormulario = () => {
         setSenhaAtual('');
         setSenhaNova('');
         setConfirmarSenha('');
-        setErro('');
-        setSucesso(false);
     };
 
     const handleFecharLimpar = () => {
@@ -53,26 +50,24 @@ export function ModalAlterarSenha({ isOpen, onClose }: ModalAlterarSenhaProps) {
     };
 
     const handleSubmit = async () => {
-        setErro('');
-
         if (!senhaAtual.trim()) {
-            setErro('Informe a senha atual.');
+            alertWarning('Informe a senha atual.');
             return;
         }
 
         const errosForca = validarForcaSenha(senhaNova);
         if (errosForca.length > 0) {
-            setErro(`A nova senha precisa ter: ${errosForca.join(', ')}.`);
+            alertWarning(`A nova senha precisa ter: ${errosForca.join(', ')}.`);
             return;
         }
 
         if (senhaNova !== confirmarSenha) {
-            setErro('A confirmação não corresponde à nova senha.');
+            alertWarning('A confirmação não corresponde à nova senha digitada.');
             return;
         }
 
         if (!userEmail) {
-            setErro('Usuário não identificado. Faça login novamente.');
+            alertError('Usuário não identificado. Faça login novamente e repita a operação.');
             return;
         }
 
@@ -85,12 +80,18 @@ export function ModalAlterarSenha({ isOpen, onClose }: ModalAlterarSenhaProps) {
             });
             const d = await res.json();
             if (!res.ok) {
-                setErro(d.error ?? 'Erro ao alterar senha.');
+                alertError(
+                    d.error ??
+                        'Não foi possível alterar a senha. Verifique se a senha atual está correta.'
+                );
                 return;
             }
-            setSucesso(true);
+            await alertSuccess('Senha alterada com sucesso!');
+            handleFecharLimpar();
         } catch {
-            setErro('Falha de conexão. Tente novamente.');
+            alertError(
+                'Falha de conexão ao tentar alterar a senha. Verifique sua internet e tente novamente.'
+            );
         } finally {
             setLoading(false);
         }
@@ -124,93 +125,59 @@ export function ModalAlterarSenha({ isOpen, onClose }: ModalAlterarSenhaProps) {
                 </header>
 
                 <div className="flex flex-col gap-7 px-10 py-8">
-                    {sucesso ? (
-                        <div className="flex flex-col items-center justify-center gap-5 py-10">
-                            <FaCheckCircle className="text-teal-600" size={64} />
-                            <h2 className="text-center text-2xl font-extrabold tracking-widest text-black select-none">
-                                Senha alterada com sucesso!
-                            </h2>
-                            <button
-                                onClick={handleFecharLimpar}
-                                className="mt-2 cursor-pointer rounded-md bg-teal-600 px-8 py-3 text-lg font-semibold text-white shadow-md shadow-black transition-all duration-300 hover:-translate-y-1 hover:bg-teal-500 hover:shadow-none active:scale-95"
-                            >
-                                Fechar
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            <div>
-                                <label className={labelClass}>Senha atual:</label>
-                                <input
-                                    type="password"
-                                    value={senhaAtual}
-                                    onChange={(e) => {
-                                        setSenhaAtual(e.target.value);
-                                        if (erro) setErro('');
-                                    }}
-                                    className={inputClass}
-                                    autoComplete="current-password"
-                                />
-                            </div>
+                    <div>
+                        <label className={labelClass}>Senha atual:</label>
+                        <input
+                            type="password"
+                            value={senhaAtual}
+                            onChange={(e) => setSenhaAtual(e.target.value)}
+                            className={inputClass}
+                            autoComplete="current-password"
+                        />
+                    </div>
 
-                            <div>
-                                <label className={labelClass}>Nova senha:</label>
-                                <input
-                                    type="password"
-                                    value={senhaNova}
-                                    onChange={(e) => {
-                                        setSenhaNova(e.target.value);
-                                        if (erro) setErro('');
-                                    }}
-                                    className={inputClass}
-                                    autoComplete="new-password"
-                                />
-                                <p className="mt-2 text-sm tracking-wide text-gray-400 select-none">
-                                    Mínimo 8 caracteres, com maiúscula, minúscula, número e
-                                    caractere especial.
-                                </p>
-                            </div>
+                    <div>
+                        <label className={labelClass}>Nova senha:</label>
+                        <input
+                            type="password"
+                            value={senhaNova}
+                            onChange={(e) => setSenhaNova(e.target.value)}
+                            className={inputClass}
+                            autoComplete="new-password"
+                        />
+                        <p className="mt-2 text-sm tracking-wide text-gray-400 select-none">
+                            Mínimo 8 caracteres, com maiúscula, minúscula, número e caractere
+                            especial.
+                        </p>
+                    </div>
 
-                            <div>
-                                <label className={labelClass}>Confirmar nova senha:</label>
-                                <input
-                                    type="password"
-                                    value={confirmarSenha}
-                                    onChange={(e) => {
-                                        setConfirmarSenha(e.target.value);
-                                        if (erro) setErro('');
-                                    }}
-                                    className={inputClass}
-                                    autoComplete="new-password"
-                                />
-                            </div>
+                    <div>
+                        <label className={labelClass}>Confirmar nova senha:</label>
+                        <input
+                            type="password"
+                            value={confirmarSenha}
+                            onChange={(e) => setConfirmarSenha(e.target.value)}
+                            className={inputClass}
+                            autoComplete="new-password"
+                        />
+                    </div>
 
-                            {erro && (
-                                <p className="flex rounded-lg border border-red-500/50 bg-red-500/20 px-4 py-2 text-sm font-semibold tracking-wider text-red-500 select-none">
-                                    ⚠ {erro}
-                                </p>
-                            )}
-
-                            <div className="flex gap-5">
-                                <button
-                                    onClick={handleFecharLimpar}
-                                    disabled={loading}
-                                    className="flex flex-1 items-center justify-center rounded-md bg-red-600 py-3 text-lg font-semibold text-white shadow-md shadow-black transition-all duration-300 hover:-translate-y-1 hover:bg-red-400 hover:shadow-none active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    onClick={handleSubmit}
-                                    disabled={
-                                        loading || !senhaAtual || !senhaNova || !confirmarSenha
-                                    }
-                                    className="flex flex-1 items-center justify-center rounded-md bg-teal-700 py-3 text-lg font-semibold text-white shadow-md shadow-black transition-all duration-300 hover:-translate-y-1 hover:bg-teal-600 hover:shadow-none active:scale-95 disabled:cursor-not-allowed disabled:bg-teal-400 disabled:shadow-none"
-                                >
-                                    {loading ? 'Salvando...' : 'Salvar'}
-                                </button>
-                            </div>
-                        </>
-                    )}
+                    <div className="flex gap-5">
+                        <button
+                            onClick={handleFecharLimpar}
+                            disabled={loading}
+                            className="flex flex-1 items-center justify-center rounded-md bg-red-600 py-3 text-lg font-semibold text-white shadow-md shadow-black transition-all duration-300 hover:-translate-y-1 hover:bg-red-400 hover:shadow-none active:scale-95 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={loading || !senhaAtual || !senhaNova || !confirmarSenha}
+                            className="flex flex-1 items-center justify-center rounded-md bg-teal-700 py-3 text-lg font-semibold text-white shadow-md shadow-black transition-all duration-300 hover:-translate-y-1 hover:bg-teal-600 hover:shadow-none active:scale-95 disabled:cursor-not-allowed disabled:bg-teal-400 disabled:shadow-none"
+                        >
+                            {loading ? 'Salvando...' : 'Salvar'}
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

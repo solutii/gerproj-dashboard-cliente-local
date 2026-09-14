@@ -7,11 +7,11 @@ import { LoadingButton } from '@/components/Loading_Button';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { alertError, alertSuccess } from '@/store/useAlertDialogStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 // =====================================================
 import { memo, useCallback, useEffect, useState } from 'react';
-import toast from 'react-hot-toast';
 import { BsChatSquareTextFill } from 'react-icons/bs';
 import { FaCalendar, FaClock, FaHashtag, FaUser } from 'react-icons/fa';
 import {
@@ -279,7 +279,9 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                 onSave(updatedRow);
             }
 
-            toast.success('Validação salva com sucesso!');
+            alertSuccess(
+                `OS ${formatarNumeros(selectedRow?.NUM_OS ?? '')} ${variables.concordaPagar ? 'aprovada' : 'reprovada'} com sucesso!`
+            );
 
             setTimeout(() => {
                 setModalData({ concordaPagar: true, observacao: '' });
@@ -288,7 +290,9 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
         },
         onError: (error: Error) => {
             console.error('Erro ao processar validação:', error);
-            toast.error(`Erro ao salvar validação: ${error.message}`);
+            alertError(
+                `Não foi possível salvar a validação da OS ${formatarNumeros(selectedRow?.NUM_OS ?? '')}: ${error.message}`
+            );
         },
     });
     // ====================
