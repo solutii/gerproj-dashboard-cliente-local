@@ -1,3 +1,4 @@
+import { assinarSessao } from '@/lib/auth/session';
 import { NextRequest } from 'next/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET, limparCacheChamados, POST } from './route';
@@ -51,11 +52,26 @@ function corpoValido(extra: Record<string, unknown> = {}) {
     };
 }
 
-function criarRequest(body: unknown) {
+function criarRequest(body: unknown, cookie?: string) {
     return new NextRequest('http://localhost/api/chamados', {
         method: 'POST',
         body: JSON.stringify(body),
+        headers: cookie ? { cookie } : undefined,
     });
+}
+
+async function cookieSessaoAdm(): Promise<string> {
+    const token = await assinarSessao({
+        loginType: 'consultor',
+        codUsuario: 1,
+        idUsuario: 'admteste',
+        nomeUsuario: 'Admin Teste',
+        tipoUsuario: 'ADM',
+        permissoes: { permtar: true, perproj1: true, perproj2: true },
+        userEmail: 'admin@solutii.com.br',
+        exp: Date.now() + 60_000,
+    });
+    return `sessao=${token}`;
 }
 
 describe('POST /api/chamados (criar chamado)', () => {
@@ -106,7 +122,10 @@ describe('POST /api/chamados (criar chamado)', () => {
         firebirdQueryMock.mockResolvedValueOnce([]); // CLIENTE ativo -> não encontrado
 
         const response = await POST(
-            criarRequest(corpoValido({ codClienteSelecionado: '99', prioridadeSelecionada: '2' }))
+            criarRequest(
+                corpoValido({ codClienteSelecionado: '99', prioridadeSelecionada: '2' }),
+                await cookieSessaoAdm()
+            )
         );
 
         expect(response.status).toBe(400);
@@ -117,7 +136,9 @@ describe('POST /api/chamados (criar chamado)', () => {
     it('retorna 400 quando o ADM abre o chamado sem informar prioridade válida', async () => {
         firebirdQueryMock.mockResolvedValueOnce([{ COD_CLIENTE: 99 }]); // CLIENTE ativo -> ok
 
-        const response = await POST(criarRequest(corpoValido({ codClienteSelecionado: '99' })));
+        const response = await POST(
+            criarRequest(corpoValido({ codClienteSelecionado: '99' }), await cookieSessaoAdm())
+        );
 
         expect(response.status).toBe(400);
         const body = await response.json();
@@ -127,11 +148,22 @@ describe('POST /api/chamados (criar chamado)', () => {
     it('retorna 400 quando o recurso selecionado é inválido ou inativo', async () => {
         firebirdQueryMock.mockResolvedValueOnce([]); // RECURSO ativo -> não encontrado
 
-        const response = await POST(criarRequest(corpoValido({ codRecursoSelecionado: '50' })));
+        const response = await POST(
+            criarRequest(corpoValido({ codRecursoSelecionado: '50' }), await cookieSessaoAdm())
+        );
 
         expect(response.status).toBe(400);
         const body = await response.json();
         expect(body.error).toBe('Recurso selecionado inválido ou inativo.');
+    });
+
+    it('retorna 403 quando quem não é ADM tenta definir cliente/recurso/prioridade', async () => {
+        const response = await POST(
+            criarRequest(corpoValido({ codClienteSelecionado: '99', prioridadeSelecionada: '2' }))
+        );
+
+        expect(response.status).toBe(403);
+        expect(firebirdQueryMock).not.toHaveBeenCalled();
     });
 
     it('retorna 404 quando o cliente final não é encontrado', async () => {

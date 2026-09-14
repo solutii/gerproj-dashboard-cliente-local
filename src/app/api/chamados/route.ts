@@ -2,6 +2,7 @@
 
 import { safeErrorMessage } from '@/lib/api-error';
 import { resolveCodClienteSeguro } from '@/lib/auth/cliente-token';
+import { SESSAO_COOKIE_NOME, verificarSessao } from '@/lib/auth/session';
 import { firebirdExecute, firebirdQuery } from '@/lib/firebird/firebird-client';
 import { sendMail } from '@/lib/mail/mailer';
 import {
@@ -1509,6 +1510,21 @@ export async function POST(request: NextRequest) {
                 { error: 'Departamento, módulo e tipo de solicitação são obrigatórios.' },
                 { status: 400 }
             );
+        }
+
+        // Só ADM pode definir cliente/recurso/prioridade na abertura — cliente
+        // comum continua abrindo chamado normalmente sem esses campos.
+        if (codClienteSelecionado || codRecursoSelecionado || prioridadeSelecionada) {
+            const sessaoToken = request.cookies.get(SESSAO_COOKIE_NOME)?.value;
+            const sessao = await verificarSessao(sessaoToken);
+            if (!sessao || sessao.loginType !== 'consultor' || sessao.tipoUsuario !== 'ADM') {
+                return NextResponse.json(
+                    {
+                        error: 'Apenas administradores podem definir cliente, recurso ou prioridade na abertura do chamado.',
+                    },
+                    { status: 403 }
+                );
+            }
         }
 
         // ── ADM abrindo em nome de outro cliente: valida a seleção contra o
