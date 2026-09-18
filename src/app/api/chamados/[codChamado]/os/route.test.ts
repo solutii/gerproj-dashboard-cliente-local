@@ -1,6 +1,9 @@
+import { assinarSessao } from '@/lib/auth/session';
 import { NextRequest } from 'next/server';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { GET } from './route';
+
+let cookieConsultor = '';
 
 const { firebirdQueryMock, buscarFeriadosMock } = vi.hoisted(() => ({
     firebirdQueryMock: vi.fn(),
@@ -15,13 +18,106 @@ vi.mock('@/lib/os/feriados-service', () => ({
     buscarFeriados: buscarFeriadosMock,
 }));
 
-function criarRequest(query: string) {
-    return new NextRequest(`http://localhost/api/chamados/55/os${query}`);
+vi.mock('@/lib/auth/link-validacao', () => ({
+    verificarLinkValidacao: (t: string) =>
+        t === 'token-do-55'
+            ? { codChamado: 55, codCliente: '9' }
+            : t === 'token-do-56'
+              ? { codChamado: 56, codCliente: '9' }
+              : null,
+}));
+
+async function cookieSessao(sessao: 'consultor' | { cliente: string }) {
+    const token = await assinarSessao(
+        sessao === 'consultor'
+            ? {
+                  loginType: 'consultor',
+                  codUsuario: 1,
+                  idUsuario: 'u',
+                  nomeUsuario: 'U',
+                  tipoUsuario: 'USU',
+                  permissoes: { permtar: true, perproj1: true, perproj2: true },
+                  userEmail: 'u@s.com',
+                  exp: Date.now() + 60_000,
+              }
+            : {
+                  loginType: 'cliente',
+                  codCliente: sessao.cliente,
+                  codRecurso: null,
+                  nomeRecurso: null,
+                  userEmail: 'c@t.com',
+                  exp: Date.now() + 60_000,
+              }
+    );
+    return `sessao=${token}`;
 }
+
+// Por padrão, sessão de consultor: o codCliente da query continua valendo,
+// como antes de a rota exigir autenticação.
+function criarRequest(query: string, cookie: string = cookieConsultor) {
+    return new NextRequest(`http://localhost/api/chamados/55/os${query}`, {
+        headers: cookie ? { cookie } : undefined,
+    });
+}
+
+beforeAll(async () => {
+    cookieConsultor = await cookieSessao('consultor');
+});
 
 describe('GET /api/chamados/[codChamado]/os', () => {
     afterEach(() => {
         vi.clearAllMocks();
+    });
+
+    it('retorna 401 sem token de link e sem sessão', async () => {
+        const response = await GET(criarRequest('?codCliente=9', ''), {
+            params: { codChamado: '55' },
+        });
+
+        expect(response.status).toBe(401);
+        expect(firebirdQueryMock).not.toHaveBeenCalled();
+    });
+
+    it('retorna 403 quando o token do link é de outro chamado', async () => {
+        const response = await GET(criarRequest('?token=token-do-56', ''), {
+            params: { codChamado: '55' },
+        });
+
+        expect(response.status).toBe(403);
+        expect(firebirdQueryMock).not.toHaveBeenCalled();
+    });
+
+    it('retorna 403 quando o token do link é inválido', async () => {
+        const response = await GET(criarRequest('?token=forjado&codCliente=9', ''), {
+            params: { codChamado: '55' },
+        });
+
+        expect(response.status).toBe(403);
+    });
+
+    it('com token válido, usa o codCliente do token e ignora o da query', async () => {
+        firebirdQueryMock
+            .mockResolvedValueOnce([{ DATA_CHAMADO: '2026-01-06', COD_CLIENTE: 9 }])
+            .mockResolvedValueOnce([]);
+
+        const response = await GET(criarRequest('?token=token-do-55&codCliente=1', ''), {
+            params: { codChamado: '55' },
+        });
+
+        expect(response.status).toBe(200);
+    });
+
+    it('com sessão de cliente, ignora o codCliente da query (bloqueia IDOR)', async () => {
+        firebirdQueryMock
+            .mockResolvedValueOnce([{ DATA_CHAMADO: '2026-01-06', COD_CLIENTE: 9 }])
+            .mockResolvedValueOnce([]);
+
+        const response = await GET(
+            criarRequest('?codCliente=9', await cookieSessao({ cliente: '777' })),
+            { params: { codChamado: '55' } }
+        );
+
+        expect(response.status).toBe(403);
     });
 
     it('retorna 400 quando codChamado não é um número válido', async () => {

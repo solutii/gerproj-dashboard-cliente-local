@@ -87,10 +87,24 @@ describe('POST /api/chamados/[codChamado]/validar-tudo', () => {
         expect(firebirdExecuteMock).not.toHaveBeenCalled();
     });
 
+    it('retorna 409 quando o chamado já foi finalizado (link não permite revalidar)', async () => {
+        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
+        firebirdQueryMock.mockResolvedValueOnce([{ STATUS_CHAMADO: 'FINALIZADO' }]);
+
+        const response = await POST(criarRequest({ token: 'valido' }), {
+            params: { codChamado: '55' },
+        });
+
+        expect(response.status).toBe(409);
+        expect(firebirdExecuteMock).not.toHaveBeenCalled();
+        expect(firebirdExecuteTransactionMock).not.toHaveBeenCalled();
+    });
+
     it('aprova todas as OS e finaliza o chamado atomicamente', async () => {
         verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdExecuteMock.mockResolvedValueOnce(undefined);
         firebirdQueryMock
+            .mockResolvedValueOnce([{ STATUS_CHAMADO: 'AGUARDANDO VALIDACAO' }])
             .mockResolvedValueOnce([{ DATA: null, HORA: null }])
             .mockResolvedValueOnce([{ ID: 501 }]);
         firebirdExecuteTransactionMock.mockResolvedValueOnce(undefined);
@@ -128,6 +142,7 @@ describe('POST /api/chamados/[codChamado]/validar-tudo', () => {
         verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdExecuteMock.mockResolvedValueOnce(undefined);
         firebirdQueryMock
+            .mockResolvedValueOnce([{ STATUS_CHAMADO: 'AGUARDANDO VALIDACAO' }])
             .mockResolvedValueOnce([{ DATA: null, HORA: null }])
             .mockResolvedValueOnce([{ ID: 501 }]);
         firebirdExecuteTransactionMock.mockRejectedValueOnce(new Error('conexão perdida'));

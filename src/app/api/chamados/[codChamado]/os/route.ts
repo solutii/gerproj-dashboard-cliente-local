@@ -1,5 +1,7 @@
 // app/api/chamados/[codChamado]/os/route.ts
 import { safeErrorMessage } from '@/lib/api-error';
+import { verificarLinkValidacao } from '@/lib/auth/link-validacao';
+import { SESSAO_COOKIE_NOME, verificarSessao } from '@/lib/auth/session';
 import { firebirdQuery } from '@/lib/firebird/firebird-client';
 import {
     agregarHorasAdicionais,
@@ -70,9 +72,14 @@ function validarCodChamado(codChamado: string): number | NextResponse {
 
 function validarAutorizacao(
     searchParams: URLSearchParams,
-    codChamado: number
+    codClienteForcado?: string | null
 ): QueryParams | NextResponse {
-    const codCliente = searchParams.get('codCliente')?.trim();
+    // Token do link ou sessão de cliente definem o codCliente no servidor —
+    // o valor da query string só vale para consultores.
+    const codCliente =
+        codClienteForcado !== undefined
+            ? codClienteForcado
+            : searchParams.get('codCliente')?.trim();
     const mes = searchParams.get('mes');
     const ano = searchParams.get('ano');
 
@@ -199,7 +206,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const codChamadoValidado = validarCodChamado(codChamado);
         if (codChamadoValidado instanceof NextResponse) return codChamadoValidado;
 
-        const auth = validarAutorizacao(searchParams, codChamadoValidado);
+        // Rota pública no middleware (usada também pelo /validar/[token], sem
+        // login), então a autenticação é feita aqui: token do link (do MESMO
+        // chamado) ou sessão. Sem nenhum dos dois, 401.
+        let codClienteForcado: string | null | undefined;
+        const linkToken = searchParams.get('token');
+        if (linkToken) {
+            const verificado = verificarLinkValidacao(linkToken);
+            if (!verificado || verificado.codChamado !== codChamadoValidado) {
+                return NextResponse.json({ error: 'Link inválido ou expirado' }, { status: 403 });
+            }
+            codClienteForcado = verificado.codCliente;
+        } else {
+            const sessao = await verificarSessao(request.cookies.get(SESSAO_COOKIE_NOME)?.value);
+            if (!sessao) {
+                return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+            }
+            if (sessao.loginType === 'cliente') codClienteForcado = sessao.codCliente;
+        }
+
+        const auth = validarAutorizacao(searchParams, codClienteForcado);
         if (auth instanceof NextResponse) return auth;
 
         const [dadosChamado, os] = await Promise.all([

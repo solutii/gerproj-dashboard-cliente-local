@@ -21,9 +21,9 @@ interface OSResponse {
     data: OSRowProps[];
 }
 
-async function fetchOS(codChamado: number, codCliente: string): Promise<OSResponse> {
+async function fetchOS(codChamado: number, token: string): Promise<OSResponse> {
     const response = await fetch(
-        `/api/chamados/${codChamado}/os?codCliente=${encodeURIComponent(codCliente)}`
+        `/api/chamados/${codChamado}/os?token=${encodeURIComponent(token)}`
     );
     if (!response.ok) {
         const erro = await response.json();
@@ -48,7 +48,7 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
     );
     const { data, isLoading, isError, error } = useQuery({
         queryKey,
-        queryFn: () => fetchOS(codChamado, codCliente),
+        queryFn: () => fetchOS(codChamado, token),
     });
 
     const handleValidarTudo = useCallback(async () => {

@@ -1,5 +1,6 @@
 import { safeErrorMessage } from '@/lib/api-error';
 import { verificarLinkValidacao } from '@/lib/auth/link-validacao';
+import { SESSAO_COOKIE_NOME, verificarSessao } from '@/lib/auth/session';
 import { NextRequest, NextResponse } from 'next/server';
 import { firebirdExecute, firebirdQuery } from '../../../lib/firebird/firebird-client';
 
@@ -13,18 +14,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Número da OS é obrigatório' }, { status: 400 });
         }
 
-        // Chamado a partir do link de validação (sem login, ver
-        // /validar/[token]) — o token já prova a posse do chamado, então o
-        // codCliente vem dele, ignorando qualquer valor solto enviado.
-        // Chamado normal (dentro da aplicação já logada) continua usando o
-        // codCliente do body como antes.
+        // Rota pública no middleware (o /validar/[token] não tem login), então
+        // a autenticação é feita aqui: token do link (que prova a posse de UM
+        // chamado) ou sessão. Sem nenhum dos dois, 401. Com sessão de cliente,
+        // o codCliente vem da sessão, ignorando o do body.
         let codClienteEfetivo = codCliente;
+        let linkVerificado: { codChamado: number; codCliente: string } | null = null;
         if (linkToken) {
-            const verificado = verificarLinkValidacao(linkToken);
-            if (!verificado) {
+            linkVerificado = verificarLinkValidacao(linkToken);
+            if (!linkVerificado) {
                 return NextResponse.json({ error: 'Link inválido ou expirado' }, { status: 403 });
             }
-            codClienteEfetivo = verificado.codCliente;
+            codClienteEfetivo = linkVerificado.codCliente;
+        } else {
+            const sessao = await verificarSessao(request.cookies.get(SESSAO_COOKIE_NOME)?.value);
+            if (!sessao) {
+                return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+            }
+            if (sessao.loginType === 'cliente') codClienteEfetivo = sessao.codCliente;
         }
 
         if (!codClienteEfetivo) {
@@ -38,8 +45,12 @@ export async function POST(request: NextRequest) {
         // validando — sem isso, qualquer cliente logado poderia aprovar ou
         // reprovar o faturamento de uma OS de outro cliente só sabendo (ou
         // adivinhando) o número dela.
-        const donoOS = await firebirdQuery<{ COD_CLIENTE: number }>(
-            `SELECT CHAMADO.COD_CLIENTE
+        const donoOS = await firebirdQuery<{
+            COD_CLIENTE: number;
+            COD_CHAMADO: number;
+            STATUS_CHAMADO: string | null;
+        }>(
+            `SELECT CHAMADO.COD_CLIENTE, CHAMADO.COD_CHAMADO, CHAMADO.STATUS_CHAMADO
              FROM OS
              JOIN CHAMADO ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
              WHERE OS.COD_OS = ?`,
@@ -55,6 +66,23 @@ export async function POST(request: NextRequest) {
                 { error: 'Você não tem permissão para validar esta OS' },
                 { status: 403 }
             );
+        }
+
+        // Pelo link do e-mail, o acesso é a UM chamado e só enquanto ele não
+        // foi finalizado — depois de validado, o link não permite reverter.
+        if (linkVerificado) {
+            if (Number(donoOS[0].COD_CHAMADO) !== linkVerificado.codChamado) {
+                return NextResponse.json(
+                    { error: 'Você não tem permissão para validar esta OS' },
+                    { status: 403 }
+                );
+            }
+            if (donoOS[0].STATUS_CHAMADO?.trim().toUpperCase() === 'FINALIZADO') {
+                return NextResponse.json(
+                    { error: 'Este chamado já foi validado e não pode mais ser alterado' },
+                    { status: 409 }
+                );
+            }
         }
 
         if (!concordaPagar && !observacao?.trim()) {

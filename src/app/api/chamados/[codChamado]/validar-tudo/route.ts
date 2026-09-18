@@ -121,6 +121,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Link inválido ou expirado' }, { status: 403 });
         }
 
+        const [chamado] = await firebirdQuery<{ STATUS_CHAMADO: string | null }>(
+            `SELECT STATUS_CHAMADO FROM CHAMADO WHERE COD_CHAMADO = ?`,
+            [codChamadoNum]
+        );
+        if (chamado?.STATUS_CHAMADO?.trim().toUpperCase() === 'FINALIZADO') {
+            return NextResponse.json(
+                { error: 'Este chamado já foi validado e não pode mais ser alterado' },
+                { status: 409 }
+            );
+        }
+
         const now = new Date();
         const logvalcli = now.toLocaleString('pt-BR', {
             day: '2-digit',
