@@ -18,6 +18,7 @@ interface OSResponse {
     success: boolean;
     codChamado: number;
     dataChamado: string | null;
+    chamadoFinalizado?: boolean;
     data: OSRowProps[];
 }
 
@@ -122,19 +123,28 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
                     </p>
                 )}
 
+                {data?.chamadoFinalizado && (
+                    <p className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-bold tracking-wide text-emerald-800 select-none">
+                        Este chamado já foi validado e está finalizado. A avaliação está disponível
+                        somente para consulta.
+                    </p>
+                )}
+
                 {data && data.data.length > 0 && (
                     <>
-                        <button
-                            type="button"
-                            onClick={handleValidarTudo}
-                            disabled={validandoTudo}
-                            className="flex cursor-pointer items-center justify-center gap-2 self-start rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-4 py-2 text-xs font-extrabold tracking-wide text-white shadow-sm shadow-black transition-all duration-200 select-none hover:-translate-y-0.5 hover:from-blue-500 hover:to-blue-600 hover:shadow-md hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            <FaRegCircleCheck size={14} />
-                            {validandoTudo
-                                ? 'Validando...'
-                                : 'Validar chamado (aprovar todas as OS)'}
-                        </button>
+                        {!data.chamadoFinalizado && (
+                            <button
+                                type="button"
+                                onClick={handleValidarTudo}
+                                disabled={validandoTudo}
+                                className="flex cursor-pointer items-center justify-center gap-2 self-start rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-4 py-2 text-xs font-extrabold tracking-wide text-white shadow-sm shadow-black transition-all duration-200 select-none hover:-translate-y-0.5 hover:from-blue-500 hover:to-blue-600 hover:shadow-md hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                <FaRegCircleCheck size={14} />
+                                {validandoTudo
+                                    ? 'Validando...'
+                                    : 'Validar chamado (aprovar todas as OS)'}
+                            </button>
+                        )}
 
                         <div className="flex flex-col gap-3">
                             {data.data.map((os) => (
@@ -148,6 +158,7 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
                                     key={`${os.COD_OS}-${os.VALCLI_OS}-${os.OBSCLI_OS}`}
                                     os={os}
                                     token={token}
+                                    somenteLeitura={!!data.chamadoFinalizado}
                                     onSaved={() => queryClient.invalidateQueries({ queryKey })}
                                 />
                             ))}
@@ -162,10 +173,11 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
 interface OSItemProps {
     os: OSRowProps;
     token: string;
+    somenteLeitura: boolean;
     onSaved: () => void;
 }
 
-function OSItem({ os, token, onSaved }: OSItemProps) {
+function OSItem({ os, token, somenteLeitura, onSaved }: OSItemProps) {
     const [concordaPagar, setConcordaPagar] = useState(os.VALCLI_OS === 'SIM');
     const [observacao, setObservacao] = useState(os.OBSCLI_OS ?? '');
     const [salvando, setSalvando] = useState(false);
@@ -236,69 +248,73 @@ function OSItem({ os, token, onSaved }: OSItemProps) {
                 </div>
             )}
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <div className="flex gap-2">
-                    <button
-                        type="button"
-                        onClick={() => setConcordaPagar(true)}
-                        className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-all duration-150 ${
-                            concordaPagar
-                                ? 'border-blue-500 bg-blue-100 ring-1 ring-blue-500'
-                                : 'border-blue-200 bg-white hover:bg-blue-50'
-                        }`}
-                    >
-                        <FaRegCircleCheck
-                            className={concordaPagar ? 'text-blue-700' : 'text-blue-400'}
-                            size={13}
-                        />
-                        <span className="text-xs font-bold text-blue-700 select-none">
-                            Aprovada
-                        </span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => setConcordaPagar(false)}
-                        className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-all duration-150 ${
+            {!somenteLeitura && (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="flex gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setConcordaPagar(true)}
+                            className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-all duration-150 ${
+                                concordaPagar
+                                    ? 'border-blue-500 bg-blue-100 ring-1 ring-blue-500'
+                                    : 'border-blue-200 bg-white hover:bg-blue-50'
+                            }`}
+                        >
+                            <FaRegCircleCheck
+                                className={concordaPagar ? 'text-blue-700' : 'text-blue-400'}
+                                size={13}
+                            />
+                            <span className="text-xs font-bold text-blue-700 select-none">
+                                Aprovada
+                            </span>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setConcordaPagar(false)}
+                            className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-all duration-150 ${
+                                !concordaPagar
+                                    ? 'border-red-500 bg-red-100 ring-1 ring-red-500'
+                                    : 'border-red-200 bg-white hover:bg-red-50'
+                            }`}
+                        >
+                            <FaRegCircleXmark
+                                className={!concordaPagar ? 'text-red-700' : 'text-red-400'}
+                                size={13}
+                            />
+                            <span className="text-xs font-bold text-red-700 select-none">
+                                Reprovada
+                            </span>
+                        </button>
+                    </div>
+
+                    <input
+                        type="text"
+                        value={observacao}
+                        onChange={(e) => setObservacao(e.target.value)}
+                        maxLength={195}
+                        placeholder={
                             !concordaPagar
-                                ? 'border-red-500 bg-red-100 ring-1 ring-red-500'
-                                : 'border-red-200 bg-white hover:bg-red-50'
+                                ? 'Informe o motivo da reprovação...'
+                                : 'Observação opcional...'
+                        }
+                        className={`min-w-0 flex-1 rounded-md border px-3 py-1.5 text-xs font-medium text-black outline-none placeholder:text-gray-400 ${
+                            !concordaPagar
+                                ? 'border-red-200 bg-red-50'
+                                : 'border-blue-200 bg-blue-50'
                         }`}
+                    />
+
+                    <button
+                        type="button"
+                        onClick={handleSalvar}
+                        disabled={salvando}
+                        className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-gradient-to-br from-teal-600 to-teal-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm shadow-black/20 transition-all duration-150 select-none hover:from-teal-500 hover:to-teal-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                        <FaRegCircleXmark
-                            className={!concordaPagar ? 'text-red-700' : 'text-red-400'}
-                            size={13}
-                        />
-                        <span className="text-xs font-bold text-red-700 select-none">
-                            Reprovada
-                        </span>
+                        <IoIosSave size={14} />
+                        {salvando ? 'Salvando...' : 'Salvar'}
                     </button>
                 </div>
-
-                <input
-                    type="text"
-                    value={observacao}
-                    onChange={(e) => setObservacao(e.target.value)}
-                    maxLength={195}
-                    placeholder={
-                        !concordaPagar
-                            ? 'Informe o motivo da reprovação...'
-                            : 'Observação opcional...'
-                    }
-                    className={`min-w-0 flex-1 rounded-md border px-3 py-1.5 text-xs font-medium text-black outline-none placeholder:text-gray-400 ${
-                        !concordaPagar ? 'border-red-200 bg-red-50' : 'border-blue-200 bg-blue-50'
-                    }`}
-                />
-
-                <button
-                    type="button"
-                    onClick={handleSalvar}
-                    disabled={salvando}
-                    className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-gradient-to-br from-teal-600 to-teal-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm shadow-black/20 transition-all duration-150 select-none hover:from-teal-500 hover:to-teal-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                    <IoIosSave size={14} />
-                    {salvando ? 'Salvando...' : 'Salvar'}
-                </button>
-            </div>
+            )}
         </div>
     );
 }

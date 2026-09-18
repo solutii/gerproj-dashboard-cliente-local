@@ -183,7 +183,9 @@ describe('GET /api/chamados/[codChamado]/os', () => {
     it('calcula as horas e os totais das OS do chamado', async () => {
         buscarFeriadosMock.mockResolvedValueOnce([]);
         firebirdQueryMock
-            .mockResolvedValueOnce([{ DATA_CHAMADO: '2026-01-06', COD_CLIENTE: 9 }])
+            .mockResolvedValueOnce([
+                { DATA_CHAMADO: '2026-01-06', COD_CLIENTE: 9, STATUS_CHAMADO: 'ATRIBUIDO' },
+            ])
             .mockResolvedValueOnce([
                 {
                     COD_OS: 1,
@@ -210,11 +212,27 @@ describe('GET /api/chamados/[codChamado]/os', () => {
         const body = await response.json();
         expect(body.success).toBe(true);
         expect(body.dataChamado).toBe('2026-01-06');
+        expect(body.chamadoFinalizado).toBe(false);
         expect(body.totais.quantidade_OS).toBe(1);
         expect(body.totais.total_horas_chamado).toBe(2);
         expect(body.totais.horas_adicional.horasAdicionalGerado).toBe(0);
         expect(body.data[0].TOTAL_HORAS_OS).toBe(2);
         expect(body.data[0].NOME_RECURSO).toBe('Consultor Teste');
+    });
+
+    it('informa chamadoFinalizado=true quando o status é FINALIZADO', async () => {
+        firebirdQueryMock
+            .mockResolvedValueOnce([
+                { DATA_CHAMADO: '2026-01-06', COD_CLIENTE: 9, STATUS_CHAMADO: 'FINALIZADO ' },
+            ])
+            .mockResolvedValueOnce([]);
+
+        const response = await GET(criarRequest('?codCliente=9'), {
+            params: { codChamado: '55' },
+        });
+
+        const body = await response.json();
+        expect(body.chamadoFinalizado).toBe(true);
     });
 
     it('retorna 500 quando a consulta das OS falha', async () => {

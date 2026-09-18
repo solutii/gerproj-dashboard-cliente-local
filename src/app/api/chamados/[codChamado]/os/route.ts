@@ -123,12 +123,13 @@ function validarAutorizacao(
 interface DadosChamado {
     DATA_CHAMADO: Date;
     COD_CLIENTE: number;
+    STATUS_CHAMADO: string | null;
 }
 
 async function buscarDadosChamado(codChamado: number): Promise<DadosChamado | null> {
     try {
         const resultado = await firebirdQuery<DadosChamado>(
-            `SELECT DATA_CHAMADO, COD_CLIENTE FROM CHAMADO WHERE COD_CHAMADO = ?`,
+            `SELECT DATA_CHAMADO, COD_CLIENTE, STATUS_CHAMADO FROM CHAMADO WHERE COD_CHAMADO = ?`,
             [codChamado]
         );
         return resultado.length > 0 ? resultado[0] : null;
@@ -261,6 +262,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 success: true,
                 codChamado: codChamadoValidado,
                 dataChamado,
+                chamadoFinalizado:
+                    dadosChamado?.STATUS_CHAMADO?.trim().toUpperCase() === 'FINALIZADO',
                 totais,
                 data: osProcessadas,
             },

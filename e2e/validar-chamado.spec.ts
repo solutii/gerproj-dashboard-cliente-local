@@ -28,13 +28,14 @@ const OS_FIXTURE = {
     OBSCLI_OS: null,
 };
 
-async function mockApiOS(page: import('@playwright/test').Page) {
+async function mockApiOS(page: import('@playwright/test').Page, chamadoFinalizado = false) {
     await page.route('**/api/chamados/*/os*', async (route) => {
         await route.fulfill({
             json: {
                 success: true,
                 codChamado: COD_CHAMADO,
                 dataChamado: '2026-01-06',
+                chamadoFinalizado,
                 data: [OS_FIXTURE],
             },
         });
@@ -83,6 +84,21 @@ test.describe('Validação de chamado pelo cliente (/validar/[token])', () => {
         await page.getByRole('button', { name: 'Sim, aprovar tudo' }).click();
 
         await expect(page.getByText('Chamado validado com sucesso!')).toBeVisible();
+    });
+
+    test('chamado já finalizado: tela somente leitura, sem botões de validar', async ({ page }) => {
+        const token = assinarLinkValidacao(COD_CHAMADO, COD_CLIENTE);
+
+        await mockApiOS(page, true);
+        await page.goto(`/validar/${token}`);
+
+        await expect(page.getByText('Consultor Teste')).toBeVisible();
+        await expect(page.getByText(/já foi validado e está finalizado/i)).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Aprovada' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Salvar' })).toHaveCount(0);
+        await expect(
+            page.getByRole('button', { name: 'Validar chamado (aprovar todas as OS)' })
+        ).toHaveCount(0);
     });
 
     test('token inválido: mostra tela de link inválido, sem carregar a listagem', async ({
