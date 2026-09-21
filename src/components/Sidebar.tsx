@@ -1,4 +1,5 @@
 import { useClienteIA } from '@/hooks/useClienteIA';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useAuthStore } from '@/store/useAuthStore';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -22,7 +23,7 @@ import { useFiltersStore } from '../store/useFiltersStore';
 import { ModalAbrirChamado } from './abrir-chamado/Modal_Abrir_Chamado';
 import { ModalAlterarSenha } from './alterar-senha/Modal_Alterar_Senha';
 import { IsLoading } from './IsLoading';
-import { TITULO_LOADING_CHAMADOS } from './loading-titles';
+import { TITULO_LOADING_CHAMADOS, ZOOM_PAGINA_CHAMADOS } from './loading-titles';
 import { ModalSaldoHoras } from './saldo-horas/Modal_Saldo_Horas';
 
 // Chave única para reativar o botão "Abrir Chamado" quando o fluxo for liberado.
@@ -189,6 +190,7 @@ export function Sidebar() {
     const { data: clienteIA } = useClienteIA(codCliente);
     const exibeBotaoIA = clienteIA?.exibe ?? false;
 
+    const isDesktop = useIsDesktop();
     const showLabel = isMobile || isHovered || isNavigating;
 
     // Ao ir para Chamados, já mostra o overlay da própria página (o mesmo que
@@ -356,7 +358,9 @@ export function Sidebar() {
                     fingindo saber um progresso que o Next.js não expõe. */}
                 {navegandoParaChamados &&
                     createPortal(
-                        <IsLoading isLoading title={TITULO_LOADING_CHAMADOS} fade={false} />,
+                        <div style={{ zoom: isDesktop ? ZOOM_PAGINA_CHAMADOS : 1 }}>
+                            <IsLoading isLoading title={TITULO_LOADING_CHAMADOS} fade={false} />
+                        </div>,
                         document.body
                     )}
 
