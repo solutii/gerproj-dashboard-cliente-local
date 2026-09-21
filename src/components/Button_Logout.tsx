@@ -1,22 +1,11 @@
 'use client';
 
-import { useAuthStore } from '@/store/useAuthStore';
-import { useRouter } from 'next/navigation';
+import { useSair } from '@/hooks/useSair';
 import { IoLogOut } from 'react-icons/io5';
-import { useFiltersStore } from '../store/useFiltersStore';
 
 // Componente funcional para o botão de logout
 export function ButtonLogout() {
-    const { logout } = useAuthStore(); // Obtém a função de logout do contexto de autenticação
-    const clearFilters = useFiltersStore((state) => state.clearFilters);
-    const router = useRouter(); // Inicializa o hook de navegação para redirecionamento
-
-    // Função chamada ao clicar no botão de logout
-    const handleLogout = () => {
-        logout(); // Realiza o logout do usuário
-        clearFilters(); // Limpa os filtros aplicados
-        router.push('/paginas/login'); // Redireciona o usuário para a página de login
-    };
+    const handleLogout = useSair();
 
     // Renderiza o botão de logout com estilos aprimorados
     return (

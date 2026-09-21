@@ -1,5 +1,6 @@
 import { useClienteIA } from '@/hooks/useClienteIA';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
+import { useSair } from '@/hooks/useSair';
 import { useAuthStore } from '@/store/useAuthStore';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -173,7 +174,7 @@ export function Sidebar() {
     // Chamado, Alterar Senha) não podem re-renderizar a cada mudança de
     // QUALQUER campo da store de auth, só quando os campos que eles
     // realmente usam mudam.
-    const logout = useAuthStore((state) => state.logout);
+    const sair = useSair();
     const codCliente = useAuthStore((state) => state.codCliente);
     const loginType = useAuthStore((state) => state.loginType);
     const tipoUsuario = useAuthStore((state) => state.tipoUsuario);
@@ -261,11 +262,7 @@ export function Sidebar() {
         };
     }, []);
 
-    const handleLogout = () => {
-        logout();
-        clearFilters();
-        router.push('/paginas/login');
-    };
+    const handleLogout = sair;
 
     const handleOpenSaldoModal = () => {
         if (!hasClienteSelecionado) return;

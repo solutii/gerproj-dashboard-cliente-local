@@ -4,6 +4,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode, useState } from 'react';
 import { AlertDialog } from '../components/AlertDialog';
+import { OverlayLogout } from '../components/OverlayLogout';
 import { AuthProvider } from '../components/providers/AuthProvider';
 
 export function ClientProviders({ children }: { children: ReactNode }) {
@@ -14,6 +15,7 @@ export function ClientProviders({ children }: { children: ReactNode }) {
             <AuthProvider>
                 {children}
                 <AlertDialog />
+                <OverlayLogout />
             </AuthProvider>
         </QueryClientProvider>
     );
