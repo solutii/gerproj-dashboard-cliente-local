@@ -2,7 +2,7 @@
 
 'use client';
 
-import { ZOOM_PAGINA_CHAMADOS } from '@/components/loading-titles';
+import { ZOOM_PAGINAS } from '@/components/loading-titles';
 import { ProtecaoRotas } from '@/components/ProtecaoRotas';
 import { Sidebar } from '@/components/Sidebar';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
@@ -15,7 +15,7 @@ interface LayoutProps {
 }
 
 // ===== CONFIGURAÇÃO DE ZOOM =====
-const ZOOM_LEVEL = ZOOM_PAGINA_CHAMADOS; // Mude o valor em components/loading-titles.ts
+const ZOOM_LEVEL = ZOOM_PAGINAS; // Mude o valor em components/loading-titles.ts
 const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL;
 // ================================
 

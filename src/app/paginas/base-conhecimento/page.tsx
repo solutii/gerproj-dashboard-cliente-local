@@ -2,6 +2,8 @@
 
 'use client';
 
+import { IsLoading } from '@/components/IsLoading';
+import { TITULO_LOADING_BASE_CONHECIMENTO } from '@/components/loading-titles';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
 import type { IconType } from 'react-icons';
@@ -101,6 +103,11 @@ export default function BaseConhecimentoPage() {
 
     return (
         <LayoutPaginaBaseConhecimento>
+            <IsLoading
+                isLoading={isLoading}
+                title={TITULO_LOADING_BASE_CONHECIMENTO}
+                fade={false}
+            />
             <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-teal-100 bg-white shadow-md shadow-black/10">
                 {/* ========== HERO ========== */}
                 <div className="relative flex flex-shrink-0 flex-col items-center gap-3 rounded-t-xl bg-gradient-to-br from-teal-700 to-teal-800 px-6 pt-10 pb-16 text-center sm:px-10">
@@ -165,12 +172,6 @@ export default function BaseConhecimentoPage() {
                             );
                         })}
                     </div>
-
-                    {isLoading && (
-                        <p className="text-center text-sm font-semibold tracking-widest text-gray-500 select-none">
-                            Carregando artigos...
-                        </p>
-                    )}
 
                     {isError && (
                         <p className="text-center text-sm font-semibold tracking-widest text-red-600 select-none">

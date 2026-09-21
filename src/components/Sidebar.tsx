@@ -23,7 +23,7 @@ import { useFiltersStore } from '../store/useFiltersStore';
 import { ModalAbrirChamado } from './abrir-chamado/Modal_Abrir_Chamado';
 import { ModalAlterarSenha } from './alterar-senha/Modal_Alterar_Senha';
 import { IsLoading } from './IsLoading';
-import { TITULO_LOADING_CHAMADOS, ZOOM_PAGINA_CHAMADOS } from './loading-titles';
+import { TITULO_LOADING_POR_ROTA, ZOOM_PAGINAS } from './loading-titles';
 import { ModalSaldoHoras } from './saldo-horas/Modal_Saldo_Horas';
 
 // Chave única para reativar o botão "Abrir Chamado" quando o fluxo for liberado.
@@ -193,10 +193,11 @@ export function Sidebar() {
     const isDesktop = useIsDesktop();
     const showLabel = isMobile || isHovered || isNavigating;
 
-    // Ao ir para Chamados, já mostra o overlay da própria página (o mesmo que
-    // ela exibe ao buscar os dados) em vez do spinner do sidebar — sem dois
-    // loadings em sequência com um vão entre eles.
-    const navegandoParaChamados = isNavigating && targetRoute === '/paginas/chamados';
+    // Ao ir para uma página com overlay próprio (Chamados, Dashboard, Base de
+    // Conhecimento), já mostra o overlay dela em vez do spinner do sidebar — sem
+    // dois loadings em sequência com um vão entre eles.
+    const tituloOverlay =
+        isNavigating && targetRoute ? TITULO_LOADING_POR_ROTA[targetRoute] : undefined;
 
     useEffect(() => {
         if (!isNavigating) return;
@@ -356,15 +357,15 @@ export function Sidebar() {
                 {/* Loading Overlay — indeterminado: gira enquanto navega, some
                     exatamente quando a página nova estiver pronta. Sem número
                     fingindo saber um progresso que o Next.js não expõe. */}
-                {navegandoParaChamados &&
+                {tituloOverlay &&
                     createPortal(
-                        <div style={{ zoom: isDesktop ? ZOOM_PAGINA_CHAMADOS : 1 }}>
-                            <IsLoading isLoading title={TITULO_LOADING_CHAMADOS} fade={false} />
+                        <div style={{ zoom: isDesktop ? ZOOM_PAGINAS : 1 }}>
+                            <IsLoading isLoading title={tituloOverlay} fade={false} />
                         </div>,
                         document.body
                     )}
 
-                {isNavigating && !navegandoParaChamados && (
+                {isNavigating && !tituloOverlay && (
                     <div className="absolute inset-0 z-[9999] flex items-center justify-center rounded-lg bg-teal-900 backdrop-blur-md">
                         <div className="flex flex-col items-center gap-6">
                             <div className="relative h-28 w-28">

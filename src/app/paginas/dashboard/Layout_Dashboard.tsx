@@ -1,5 +1,7 @@
 'use client';
 
+import { TITULO_LOADING_DASHBOARD, ZOOM_PAGINAS } from '@/components/loading-titles';
+import { OverlayCarregamentoInicial } from '@/components/OverlayCarregamentoInicial';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useRouter } from 'next/navigation';
@@ -23,7 +25,7 @@ interface LayoutProps {
 }
 
 // ===== CONFIGURAÇÃO DE ZOOM =====
-const ZOOM_LEVEL = 0.67; // Mude apenas este valor
+const ZOOM_LEVEL = ZOOM_PAGINAS; // Mude o valor em components/loading-titles.ts
 const ZOOM_COMPENSATION = 100 / ZOOM_LEVEL; // Calcula automaticamente (ex: 100 / 0.75 = 133.33)
 // ================================
 
@@ -85,6 +87,9 @@ export function LayoutDashboard({ filters, children }: LayoutProps) {
                 </div>
             </main>
             {/* ===== */}
+
+            {/* Overlay da carga inicial — precisa ser o ÚLTIMO filho (ver o hook). */}
+            <OverlayCarregamentoInicial title={TITULO_LOADING_DASHBOARD} />
         </div>
     );
 }
