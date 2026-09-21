@@ -1,0 +1,12 @@
+{
+    // Só para o editor/tsc entenderem os testes e2e (process, require, @playwright/test).
+    // Fica fora do tsconfig principal de propósito: o `next build` não deve
+    // type-checar a pasta e2e.
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "incremental": false,
+        "types": ["node"]
+    },
+    "include": ["./**/*.ts", "../playwright.config.ts"],
+    "exclude": ["../node_modules"]
+}
