@@ -184,7 +184,12 @@ describe('GET /api/chamados/[codChamado]/os', () => {
         buscarFeriadosMock.mockResolvedValueOnce([]);
         firebirdQueryMock
             .mockResolvedValueOnce([
-                { DATA_CHAMADO: '2026-01-06', COD_CLIENTE: 9, STATUS_CHAMADO: 'ATRIBUIDO' },
+                {
+                    DATA_CHAMADO: '2026-01-06',
+                    COD_CLIENTE: 9,
+                    STATUS_CHAMADO: 'ATRIBUIDO',
+                    NOME_CLIENTE: 'CLIENTE TESTE LTDA   ',
+                },
             ])
             .mockResolvedValueOnce([
                 {
@@ -213,6 +218,7 @@ describe('GET /api/chamados/[codChamado]/os', () => {
         expect(body.success).toBe(true);
         expect(body.dataChamado).toBe('2026-01-06');
         expect(body.chamadoFinalizado).toBe(false);
+        expect(body.nomeCliente).toBe('CLIENTE TESTE LTDA');
         expect(body.totais.quantidade_OS).toBe(1);
         expect(body.totais.total_horas_chamado).toBe(2);
         expect(body.totais.horas_adicional.horasAdicionalGerado).toBe(0);

@@ -9,8 +9,7 @@ import { E2E_LINK_VALIDACAO_SECRET } from '../playwright.config';
 process.env.LINK_VALIDACAO_SECRET = E2E_LINK_VALIDACAO_SECRET;
 
 // Precisa rodar depois de setar a env var acima; um import estático seria hoisted.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { assinarLinkValidacao } = require('../src/lib/auth/link-validacao');
+import { assinarLinkValidacao } from '../src/lib/auth/link-validacao';
 
 const COD_CHAMADO = 501;
 const COD_CLIENTE = '9';
@@ -40,6 +39,7 @@ async function mockApiOS(
                 codChamado: COD_CHAMADO,
                 dataChamado: '2026-01-06',
                 chamadoFinalizado,
+                nomeCliente: 'Cliente Teste Ltda',
                 data: Array.isArray(os) ? os : [os],
             },
         });
@@ -57,6 +57,8 @@ test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', 
 
         await expect(page.getByText(`Nº ${String(COD_CHAMADO).padStart(5, '0')}`)).toBeVisible();
         await expect(page.getByText('Consultor Teste')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'VALIDAÇÃO DE CHAMADO' })).toBeVisible();
+        await expect(page.getByText('Cliente Teste Ltda')).toBeVisible();
         await expect(page.getByText(/Para contestar alguma OS, acesse o portal/i)).toBeVisible();
 
         await expect(page.getByRole('button', { name: 'Aprovada' })).toHaveCount(0);

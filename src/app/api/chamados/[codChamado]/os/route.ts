@@ -124,12 +124,16 @@ interface DadosChamado {
     DATA_CHAMADO: Date;
     COD_CLIENTE: number;
     STATUS_CHAMADO: string | null;
+    NOME_CLIENTE: string | null;
 }
 
 async function buscarDadosChamado(codChamado: number): Promise<DadosChamado | null> {
     try {
         const resultado = await firebirdQuery<DadosChamado>(
-            `SELECT DATA_CHAMADO, COD_CLIENTE, STATUS_CHAMADO FROM CHAMADO WHERE COD_CHAMADO = ?`,
+            `SELECT CHAMADO.DATA_CHAMADO, CHAMADO.COD_CLIENTE, CHAMADO.STATUS_CHAMADO, CLIENTE.NOME_CLIENTE
+             FROM CHAMADO
+             LEFT JOIN CLIENTE ON CLIENTE.COD_CLIENTE = CHAMADO.COD_CLIENTE
+             WHERE CHAMADO.COD_CHAMADO = ?`,
             [codChamado]
         );
         return resultado.length > 0 ? resultado[0] : null;
@@ -262,6 +266,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 success: true,
                 codChamado: codChamadoValidado,
                 dataChamado,
+                nomeCliente: dadosChamado?.NOME_CLIENTE?.trim() || null,
                 chamadoFinalizado:
                     dadosChamado?.STATUS_CHAMADO?.trim().toUpperCase() === 'FINALIZADO',
                 totais,

@@ -18,6 +18,7 @@ interface OSResponse {
     codChamado: number;
     dataChamado: string | null;
     chamadoFinalizado?: boolean;
+    nomeCliente?: string | null;
     data: OSRowProps[];
 }
 
@@ -134,13 +135,18 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
             <header className="flex items-center justify-between gap-3 bg-teal-700 px-4 py-3 shadow-md shadow-black sm:px-8">
                 <div className="flex items-center gap-3">
                     <FaFileWaveform className="flex-shrink-0 text-white" size={26} />
-                    <div className="flex flex-col tracking-wide text-white select-none">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 tracking-wide text-white select-none">
                         <h1 className="text-base font-extrabold sm:text-lg">
                             VALIDAÇÃO DE CHAMADO
                         </h1>
-                        <p className="text-xs font-semibold text-teal-100">
+                        <span className="text-sm font-extrabold">
                             Nº {String(codChamado).padStart(5, '0')}
-                        </p>
+                        </span>
+                        {data?.nomeCliente && (
+                            <span className="text-sm font-semibold uppercase">
+                                {data.nomeCliente}
+                            </span>
+                        )}
                     </div>
                 </div>
                 <Image
