@@ -68,21 +68,22 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Pelo link do e-mail, o acesso é a UM chamado e só enquanto ele não
-        // foi finalizado — depois de validado, o link não permite reverter.
-        if (linkVerificado) {
-            if (Number(donoOS[0].COD_CHAMADO) !== linkVerificado.codChamado) {
-                return NextResponse.json(
-                    { error: 'Você não tem permissão para validar esta OS' },
-                    { status: 403 }
-                );
-            }
-            if (donoOS[0].STATUS_CHAMADO?.trim().toUpperCase() === 'FINALIZADO') {
-                return NextResponse.json(
-                    { error: 'Este chamado já foi validado e não pode mais ser alterado' },
-                    { status: 409 }
-                );
-            }
+        // Pelo link do e-mail, o acesso é a UM chamado.
+        if (linkVerificado && Number(donoOS[0].COD_CHAMADO) !== linkVerificado.codChamado) {
+            return NextResponse.json(
+                { error: 'Você não tem permissão para validar esta OS' },
+                { status: 403 }
+            );
+        }
+
+        // Um chamado só é finalizado a partir de AGUARDANDO VALIDACAO (regra do
+        // gerproj-solutii), então depois de FINALIZADO a validação das OS é
+        // definitiva — vale para o link e para o cliente logado.
+        if (donoOS[0].STATUS_CHAMADO?.trim().toUpperCase() === 'FINALIZADO') {
+            return NextResponse.json(
+                { error: 'Este chamado já foi validado e não pode mais ser alterado' },
+                { status: 409 }
+            );
         }
 
         if (!concordaPagar && !observacao?.trim()) {

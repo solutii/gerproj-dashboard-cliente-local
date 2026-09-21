@@ -100,6 +100,19 @@ describe('POST /api/chamados/[codChamado]/validar-tudo', () => {
         expect(firebirdExecuteTransactionMock).not.toHaveBeenCalled();
     });
 
+    it('retorna 409 quando o chamado não está em AGUARDANDO VALIDACAO', async () => {
+        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
+        firebirdQueryMock.mockResolvedValueOnce([{ STATUS_CHAMADO: 'ATRIBUIDO' }]);
+
+        const response = await POST(criarRequest({ token: 'valido' }), {
+            params: { codChamado: '55' },
+        });
+
+        expect(response.status).toBe(409);
+        expect(firebirdExecuteMock).not.toHaveBeenCalled();
+        expect(firebirdExecuteTransactionMock).not.toHaveBeenCalled();
+    });
+
     it('aprova todas as OS e finaliza o chamado atomicamente', async () => {
         verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdExecuteMock.mockResolvedValueOnce(undefined);

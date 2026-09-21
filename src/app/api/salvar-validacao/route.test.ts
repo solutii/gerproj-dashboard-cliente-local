@@ -76,8 +76,22 @@ describe('POST /api/salvar-validacao', () => {
         expect(firebirdExecuteMock).not.toHaveBeenCalled();
     });
 
-    it('com sessão de cliente dono da OS, salva mesmo com o chamado finalizado', async () => {
+    it('com sessão de cliente, também retorna 409 quando o chamado já foi finalizado', async () => {
         firebirdQueryMock.mockResolvedValueOnce([{ ...DONO_OK, STATUS_CHAMADO: 'FINALIZADO' }]);
+
+        const response = await POST(
+            criarRequest(
+                { cod_os: 10, concordaPagar: false, observacao: 'x' },
+                await cookieCliente('9')
+            )
+        );
+
+        expect(response.status).toBe(409);
+        expect(firebirdExecuteMock).not.toHaveBeenCalled();
+    });
+
+    it('com sessão de cliente e chamado não finalizado, salva normalmente', async () => {
+        firebirdQueryMock.mockResolvedValueOnce([DONO_OK]);
         firebirdExecuteMock.mockResolvedValueOnce(undefined);
 
         const response = await POST(

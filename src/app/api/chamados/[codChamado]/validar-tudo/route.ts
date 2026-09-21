@@ -125,9 +125,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             `SELECT STATUS_CHAMADO FROM CHAMADO WHERE COD_CHAMADO = ?`,
             [codChamadoNum]
         );
-        if (chamado?.STATUS_CHAMADO?.trim().toUpperCase() === 'FINALIZADO') {
+        const statusAtual = chamado?.STATUS_CHAMADO?.trim().toUpperCase();
+        if (statusAtual === 'FINALIZADO') {
             return NextResponse.json(
                 { error: 'Este chamado já foi validado e não pode mais ser alterado' },
+                { status: 409 }
+            );
+        }
+        // Mesma regra do gerproj-solutii: só se finaliza a partir de
+        // AGUARDANDO VALIDACAO.
+        if (statusAtual !== 'AGUARDANDO VALIDACAO') {
+            return NextResponse.json(
+                { error: 'Este chamado não está aguardando validação' },
                 { status: 409 }
             );
         }

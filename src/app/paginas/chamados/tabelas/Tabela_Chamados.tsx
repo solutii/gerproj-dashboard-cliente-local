@@ -820,6 +820,12 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
                 selectedRow={selectedOS}
                 onClose={handleCloseModalOS}
                 onSave={handleSaveValidation}
+                somenteLeitura={
+                    dadosCompletosFiltrados
+                        .find((c) => c.COD_CHAMADO === selectedChamado)
+                        ?.STATUS_CHAMADO?.trim()
+                        .toUpperCase() === 'FINALIZADO'
+                }
             />
             <ModalAssuntoSolicitacaoChamado
                 isOpen={isModalSolicitacaoOpen}

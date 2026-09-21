@@ -39,6 +39,7 @@ interface ModalValidacaoOSProps {
     selectedRow: OSRowProps | null;
     onClose: () => void;
     onSave: (updatedRow: OSRowProps) => void;
+    somenteLeitura?: boolean;
 }
 // ==========
 
@@ -242,7 +243,13 @@ const saveValidationApi = async ({
 // ===================
 
 // ==================== COMPONENTE PRINCIPAL ====================
-export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalValidacaoOSProps) {
+export function ModalValidarOS({
+    isOpen,
+    selectedRow,
+    onClose,
+    onSave,
+    somenteLeitura = false,
+}: ModalValidacaoOSProps) {
     const queryClient = useQueryClient();
     const codCliente = useAuthStore((state) => state.codCliente);
 
@@ -298,25 +305,33 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
     // ====================
 
     // Handler para mudança do radio
-    const handleRadioChange = useCallback((approved: boolean) => {
-        setModalData((prev) => ({
-            ...prev,
-            concordaPagar: approved,
-        }));
-        if (approved) setValidationError('');
-    }, []);
+    const handleRadioChange = useCallback(
+        (approved: boolean) => {
+            if (somenteLeitura) return;
+            setModalData((prev) => ({
+                ...prev,
+                concordaPagar: approved,
+            }));
+            if (approved) setValidationError('');
+        },
+        [somenteLeitura]
+    );
     // ===================
 
     // Handler para mudança na observação
-    const handleObservacaoChange = useCallback((value: string) => {
-        const trimmed = value.replace(/^\s+/, '');
-        const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+    const handleObservacaoChange = useCallback(
+        (value: string) => {
+            if (somenteLeitura) return;
+            const trimmed = value.replace(/^\s+/, '');
+            const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
 
-        setModalData((prev) => ({
-            ...prev,
-            observacao: formatted,
-        }));
-    }, []);
+            setModalData((prev) => ({
+                ...prev,
+                observacao: formatted,
+            }));
+        },
+        [somenteLeitura]
+    );
     // ===================
 
     // Validação do formulário antes de salvar
@@ -543,7 +558,9 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                                         name="validacao"
                                         checked={modalData.concordaPagar}
                                         onChange={() => handleRadioChange(true)}
-                                        disabled={saveValidationMutation.isPending}
+                                        disabled={
+                                            saveValidationMutation.isPending || somenteLeitura
+                                        }
                                         className="h-5 w-5 cursor-pointer text-blue-600 transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                     />
                                 </div>
@@ -575,7 +592,9 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                                         name="validacao"
                                         checked={!modalData.concordaPagar}
                                         onChange={() => handleRadioChange(false)}
-                                        disabled={saveValidationMutation.isPending}
+                                        disabled={
+                                            saveValidationMutation.isPending || somenteLeitura
+                                        }
                                         className="h-5 w-5 cursor-pointer text-red-600 transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                                     />
                                 </div>
@@ -632,7 +651,7 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                                             ? 'Por favor, informe o motivo da reprovação...'
                                             : 'Digite uma observação, se necessário...'
                                     }
-                                    disabled={saveValidationMutation.isPending}
+                                    disabled={saveValidationMutation.isPending || somenteLeitura}
                                 />
 
                                 <div className="mt-1 flex justify-end">
@@ -667,26 +686,32 @@ export function ModalValidarOS({ isOpen, selectedRow, onClose, onSave }: ModalVa
                         {/* === */}
 
                         {/* === BOTÃO SALVAR === */}
-                        <div className="flex items-center justify-end">
-                            <button
-                                type="button"
-                                onClick={handleSubmit}
-                                disabled={saveValidationMutation.isPending || !isFormValid()}
-                                className="flex cursor-pointer items-center justify-center gap-2 rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-6 py-3 text-lg font-extrabold tracking-widest text-white shadow-md shadow-black transition-all duration-200 select-none hover:-translate-y-1 hover:from-blue-500 hover:to-blue-600 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                                {saveValidationMutation.isPending ? (
-                                    <>
-                                        <LoadingButton size={24} />
-                                        <span>Salvando...</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <IoIosSave className="text-white" size={24} />
-                                        <span>Salvar</span>
-                                    </>
-                                )}
-                            </button>
-                        </div>
+                        {somenteLeitura ? (
+                            <p className="rounded-md bg-emerald-50 px-3 py-2 text-center text-sm font-bold tracking-widest text-emerald-800 select-none">
+                                Chamado finalizado — validação disponível somente para consulta.
+                            </p>
+                        ) : (
+                            <div className="flex items-center justify-end">
+                                <button
+                                    type="button"
+                                    onClick={handleSubmit}
+                                    disabled={saveValidationMutation.isPending || !isFormValid()}
+                                    className="flex cursor-pointer items-center justify-center gap-2 rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-6 py-3 text-lg font-extrabold tracking-widest text-white shadow-md shadow-black transition-all duration-200 select-none hover:-translate-y-1 hover:from-blue-500 hover:to-blue-600 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    {saveValidationMutation.isPending ? (
+                                        <>
+                                            <LoadingButton size={24} />
+                                            <span>Salvando...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <IoIosSave className="text-white" size={24} />
+                                            <span>Salvar</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
                         {/* === */}
                     </div>
                     {/* ========== */}
