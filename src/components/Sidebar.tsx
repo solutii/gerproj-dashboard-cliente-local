@@ -163,7 +163,6 @@ export function Sidebar() {
     const [isOpen, setIsOpen] = useState(false);
     const [isHovered, setIsHovered] = useState(false);
     const hoverExpandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [isModalSaldoOpen, setIsModalSaldoOpen] = useState(false);
     const [isModalAbrirChamadoOpen, setIsModalAbrirChamadoOpen] = useState(false);
     const [isModalAlterarSenhaOpen, setIsModalAlterarSenhaOpen] = useState(false);
@@ -207,22 +206,6 @@ export function Sidebar() {
         setTargetRoute(null);
     }, [pathname]);
 
-    // Rede de segurança: se por algum motivo a navegação nunca completar
-    // (chunk que falha ao carregar, erro de render da rota), o overlay não
-    // fica preso pra sempre. Tem que ser folgado: a primeira abertura de uma
-    // rota (compilação em dev, chunk frio) pode passar de 8s, e fechar o
-    // overlay antes de a rota trocar deixa o usuário olhando a tela antiga.
-    useEffect(() => {
-        if (!isNavigating) return;
-
-        const timeout = setTimeout(() => {
-            setIsNavigating(false);
-            setTargetRoute(null);
-        }, 60000);
-
-        return () => clearTimeout(timeout);
-    }, [isNavigating]);
-
     useEffect(() => {
         const handleResize = () => {
             const mobile = window.innerWidth < 1024;
@@ -241,6 +224,8 @@ export function Sidebar() {
     const handleNavigation = (e: React.MouseEvent<HTMLAnchorElement>, route: string) => {
         if (pathname === route) return;
         e.preventDefault();
+        // Já navegando: ignora cliques extras (evita dois router.push seguidos).
+        if (isNavigating) return;
         setIsNavigating(true);
         setTargetRoute(route);
 
@@ -248,13 +233,7 @@ export function Sidebar() {
             setIsOpen(false);
         }
 
-        // Cancela uma navegação pendente — clicar em dois links rápido
-        // (dentro dos 300ms) disparava dois `router.push` em sequência.
-        if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
-        navigationTimeoutRef.current = setTimeout(() => {
-            navigationTimeoutRef.current = null;
-            router.push(route);
-        }, 300);
+        router.push(route);
     };
 
     const toggleSidebar = () => {
@@ -276,7 +255,6 @@ export function Sidebar() {
     useEffect(() => {
         return () => {
             if (hoverExpandTimeoutRef.current) clearTimeout(hoverExpandTimeoutRef.current);
-            if (navigationTimeoutRef.current) clearTimeout(navigationTimeoutRef.current);
         };
     }, []);
 
