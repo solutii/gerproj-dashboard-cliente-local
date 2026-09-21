@@ -31,7 +31,7 @@ const OS_FIXTURE = {
 async function mockApiOS(
     page: import('@playwright/test').Page,
     chamadoFinalizado = false,
-    os: Record<string, unknown> = OS_FIXTURE
+    os: Record<string, unknown> | Record<string, unknown>[] = OS_FIXTURE
 ) {
     await page.route('**/api/chamados/*/os*', async (route) => {
         await route.fulfill({
@@ -40,7 +40,7 @@ async function mockApiOS(
                 codChamado: COD_CHAMADO,
                 dataChamado: '2026-01-06',
                 chamadoFinalizado,
-                data: [os],
+                data: Array.isArray(os) ? os : [os],
             },
         });
     });
@@ -62,9 +62,88 @@ test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', 
         await expect(page.getByRole('button', { name: 'Aprovada' })).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Reprovada' })).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Salvar' })).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Validar Chamado' })).toBeVisible();
+    });
+
+    test("texto de instrução concorda com a quantidade de OS (a OS / as OS's)", async ({
+        page,
+    }) => {
+        const token = assinarLinkValidacao(COD_CHAMADO, COD_CLIENTE);
+
+        await mockApiOS(page);
+        await page.goto(`/paginas/validar/${token}`);
         await expect(
-            page.getByRole('button', { name: 'Validar chamado (aprovar todas as OS)' })
+            page.getByText(
+                /Confira a OS abaixo\. Para contestar alguma OS, acesse o portal do cliente, ou fale com o setor responsável\./
+            )
         ).toBeVisible();
+    });
+
+    test('várias OS: instrução no plural, label "Obs:", cores do status e ordenação', async ({
+        page,
+    }) => {
+        const token = assinarLinkValidacao(COD_CHAMADO, COD_CLIENTE);
+
+        await mockApiOS(page, false, [
+            {
+                ...OS_FIXTURE,
+                COD_OS: 1,
+                NUM_OS: '000010',
+                DTINI_OS: '2026-01-06',
+                OBS: 'obs-A',
+                VALCLI_OS: 'SIM',
+            },
+            {
+                ...OS_FIXTURE,
+                COD_OS: 2,
+                NUM_OS: '000030',
+                DTINI_OS: '2026-01-08',
+                OBS: 'obs-B',
+                VALCLI_OS: 'NAO',
+                OBSCLI_OS: 'motivo',
+            },
+            {
+                ...OS_FIXTURE,
+                COD_OS: 3,
+                NUM_OS: '000020',
+                DTINI_OS: '2026-01-07',
+                OBS: 'obs-C',
+                VALCLI_OS: 'SIM',
+            },
+        ]);
+        await page.goto(`/paginas/validar/${token}`);
+
+        await expect(page.getByText(/Confira as OS's abaixo\./)).toBeVisible();
+        await expect(page.getByText('Obs:').first()).toBeVisible();
+
+        const aprovada = page.getByText('Aprovada', { exact: true }).first().locator('..');
+        const reprovada = page
+            .getByText(/^Reprovada/)
+            .first()
+            .locator('..');
+        await expect(aprovada).toHaveClass(/bg-emerald-100/);
+        await expect(reprovada).toHaveClass(/bg-red-100/);
+        await expect(aprovada).toHaveClass(/w-fit/);
+
+        const ordemObs = async () =>
+            (await page.locator('p', { hasText: 'Obs:' }).allTextContents()).map((t) =>
+                t.replace('Obs:', '').trim()
+            );
+
+        // padrão: data mais recente primeiro
+        expect(await ordemObs()).toEqual(['obs-B', 'obs-C', 'obs-A']);
+
+        await page.getByLabel('Ordenar por').selectOption('os-asc');
+        expect(await ordemObs()).toEqual(['obs-A', 'obs-C', 'obs-B']);
+
+        await page.getByLabel('Ordenar por').selectOption('os-desc');
+        expect(await ordemObs()).toEqual(['obs-B', 'obs-C', 'obs-A']);
+
+        await page.getByLabel('Ordenar por').selectOption('data-asc');
+        expect(await ordemObs()).toEqual(['obs-A', 'obs-C', 'obs-B']);
+
+        await page.getByLabel('Ordenar por').selectOption('status');
+        expect((await ordemObs())[0]).toBe('obs-B');
     });
 
     test('OS reprovada: só avisa antes de confirmar, e valida mesmo assim se confirmar', async ({
@@ -86,7 +165,7 @@ test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', 
         await page.goto(`/paginas/validar/${token}`);
         await expect(page.getByText(/Reprovada — Horas divergentes/)).toBeVisible();
 
-        await page.getByRole('button', { name: 'Validar chamado (aprovar todas as OS)' }).click();
+        await page.getByRole('button', { name: 'Validar Chamado' }).click();
 
         await expect(page.getByText(/tem 1 OS reprovada/i)).toBeVisible();
         await page.getByRole('button', { name: 'Sim, aprovar tudo' }).click();
@@ -105,7 +184,7 @@ test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', 
 
         await page.goto(`/paginas/validar/${token}`);
 
-        await page.getByRole('button', { name: 'Validar chamado (aprovar todas as OS)' }).click();
+        await page.getByRole('button', { name: 'Validar Chamado' }).click();
 
         await expect(page.getByText(/Isso vai aprovar TODAS as OS/i)).toBeVisible();
         await page.getByRole('button', { name: 'Sim, aprovar tudo' }).click();
@@ -123,9 +202,7 @@ test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', 
         await expect(page.getByText(/já foi validado e está finalizado/i)).toBeVisible();
         await expect(page.getByRole('button', { name: 'Aprovada' })).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Salvar' })).toHaveCount(0);
-        await expect(
-            page.getByRole('button', { name: 'Validar chamado (aprovar todas as OS)' })
-        ).toHaveCount(0);
+        await expect(page.getByRole('button', { name: 'Validar Chamado' })).toHaveCount(0);
     });
 
     test('link antigo (/validar/[token]) de e-mails já enviados redireciona pro caminho novo', async ({

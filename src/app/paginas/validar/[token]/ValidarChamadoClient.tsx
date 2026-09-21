@@ -21,6 +21,48 @@ interface OSResponse {
     data: OSRowProps[];
 }
 
+type Ordenacao = 'data-desc' | 'data-asc' | 'os-asc' | 'os-desc' | 'status';
+
+const OPCOES_ORDENACAO: { valor: Ordenacao; rotulo: string }[] = [
+    { valor: 'data-desc', rotulo: 'Data: mais recente primeiro' },
+    { valor: 'data-asc', rotulo: 'Data: mais antiga primeiro' },
+    { valor: 'os-asc', rotulo: 'Nº da OS: crescente' },
+    { valor: 'os-desc', rotulo: 'Nº da OS: decrescente' },
+    { valor: 'status', rotulo: 'Status: reprovadas primeiro' },
+];
+
+function timestamp(data: string): number {
+    const t = Date.parse(data);
+    return Number.isNaN(t) ? 0 : t;
+}
+
+function ordenarOS(lista: OSRowProps[], ordenacao: Ordenacao): OSRowProps[] {
+    const porNumero = (a: OSRowProps, b: OSRowProps) => Number(a.NUM_OS) - Number(b.NUM_OS);
+    const copia = [...lista];
+
+    switch (ordenacao) {
+        case 'data-asc':
+            return copia.sort(
+                (a, b) => timestamp(a.DTINI_OS) - timestamp(b.DTINI_OS) || porNumero(a, b)
+            );
+        case 'os-asc':
+            return copia.sort(porNumero);
+        case 'os-desc':
+            return copia.sort((a, b) => porNumero(b, a));
+        case 'status': {
+            const peso = (os: OSRowProps) => (os.VALCLI_OS === 'NAO' ? 0 : 1);
+            return copia.sort(
+                (a, b) => peso(a) - peso(b) || timestamp(b.DTINI_OS) - timestamp(a.DTINI_OS)
+            );
+        }
+        case 'data-desc':
+        default:
+            return copia.sort(
+                (a, b) => timestamp(b.DTINI_OS) - timestamp(a.DTINI_OS) || porNumero(b, a)
+            );
+    }
+}
+
 async function fetchOS(codChamado: number, token: string): Promise<OSResponse> {
     const response = await fetch(
         `/api/chamados/${codChamado}/os?token=${encodeURIComponent(token)}`
@@ -41,6 +83,7 @@ interface ValidarChamadoClientProps {
 export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarChamadoClientProps) {
     const queryClient = useQueryClient();
     const [validandoTudo, setValidandoTudo] = useState(false);
+    const [ordenacao, setOrdenacao] = useState<Ordenacao>('data-desc');
 
     const queryKey = useMemo(
         () => ['validar-os', codChamado, codCliente],
@@ -50,6 +93,8 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
         queryKey,
         queryFn: () => fetchOS(codChamado, token),
     });
+
+    const osOrdenadas = useMemo(() => ordenarOS(data?.data ?? [], ordenacao), [data, ordenacao]);
 
     const handleValidarTudo = useCallback(async () => {
         if (validandoTudo) return;
@@ -136,29 +181,49 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
 
                 {data && data.data.length > 0 && (
                     <>
-                        {!data.chamadoFinalizado && (
-                            <button
-                                type="button"
-                                onClick={handleValidarTudo}
-                                disabled={validandoTudo}
-                                className="flex cursor-pointer items-center justify-center gap-2 self-start rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-4 py-2 text-xs font-extrabold tracking-wide text-white shadow-sm shadow-black transition-all duration-200 select-none hover:-translate-y-0.5 hover:from-blue-500 hover:to-blue-600 hover:shadow-md hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <label
+                                htmlFor="ordenar-os"
+                                className="flex items-center gap-2 text-xs font-bold tracking-wide text-gray-600 select-none"
                             >
-                                <FaRegCircleCheck size={14} />
-                                {validandoTudo
-                                    ? 'Validando...'
-                                    : 'Validar chamado (aprovar todas as OS)'}
-                            </button>
-                        )}
+                                Ordenar por
+                                <select
+                                    id="ordenar-os"
+                                    value={ordenacao}
+                                    onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
+                                    className="cursor-pointer rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold tracking-wide text-black outline-none focus:border-teal-500"
+                                >
+                                    {OPCOES_ORDENACAO.map((opcao) => (
+                                        <option key={opcao.valor} value={opcao.valor}>
+                                            {opcao.rotulo}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+
+                            {!data.chamadoFinalizado && (
+                                <button
+                                    type="button"
+                                    onClick={handleValidarTudo}
+                                    disabled={validandoTudo}
+                                    className="flex cursor-pointer items-center justify-center gap-2 rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-4 py-2 text-xs font-extrabold tracking-wide text-white shadow-sm shadow-black transition-all duration-200 select-none hover:-translate-y-0.5 hover:from-blue-500 hover:to-blue-600 hover:shadow-md hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    <FaRegCircleCheck size={14} />
+                                    {validandoTudo ? 'Validando...' : 'Validar Chamado'}
+                                </button>
+                            )}
+                        </div>
 
                         {!data.chamadoFinalizado && (
                             <p className="text-xs font-semibold tracking-wide text-gray-500 select-none">
-                                Confira as OS abaixo. Para contestar alguma OS, acesse o portal ou
-                                fale com o consultor responsável.
+                                Confira {data.data.length > 1 ? "as OS's" : 'a OS'} abaixo. Para
+                                contestar alguma OS, acesse o portal do cliente, ou fale com o setor
+                                responsável.
                             </p>
                         )}
 
                         <div className="flex flex-col gap-3">
-                            {data.data.map((os) => (
+                            {osOrdenadas.map((os) => (
                                 <OSItem key={os.COD_OS} os={os} />
                             ))}
                         </div>
@@ -190,16 +255,31 @@ function OSItem({ os }: { os: OSRowProps }) {
                 <Campo icon={FaUser} label="Consultor" value={os.NOME_RECURSO ?? '-'} />
             </div>
 
-            {os.OBS && <p className="text-xs font-medium text-gray-600">{os.OBS}</p>}
+            {os.OBS && (
+                <p className="text-xs font-medium text-gray-600">
+                    <span className="mr-1 font-bold text-gray-800 select-none">Obs:</span>
+                    {os.OBS}
+                </p>
+            )}
 
             {validada && (
-                <div className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1">
+                <div
+                    className={`flex w-fit max-w-full items-center gap-1.5 rounded-md border px-2.5 py-1 ${
+                        os.VALCLI_OS === 'SIM'
+                            ? 'border-emerald-300 bg-emerald-100'
+                            : 'border-red-300 bg-red-100'
+                    }`}
+                >
                     {os.VALCLI_OS === 'SIM' ? (
-                        <FaRegCircleCheck className="flex-shrink-0 text-emerald-600" size={13} />
+                        <FaRegCircleCheck className="flex-shrink-0 text-emerald-700" size={13} />
                     ) : (
-                        <FaRegCircleXmark className="flex-shrink-0 text-red-600" size={13} />
+                        <FaRegCircleXmark className="flex-shrink-0 text-red-700" size={13} />
                     )}
-                    <span className="text-xs font-bold text-gray-600 select-none">
+                    <span
+                        className={`text-xs font-bold select-none ${
+                            os.VALCLI_OS === 'SIM' ? 'text-emerald-800' : 'text-red-800'
+                        }`}
+                    >
                         {os.VALCLI_OS === 'SIM' ? 'Aprovada' : 'Reprovada'}
                         {os.OBSCLI_OS ? ` — ${os.OBSCLI_OS}` : ''}
                     </span>
