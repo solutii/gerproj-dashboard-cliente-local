@@ -14,6 +14,7 @@ import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { TabelaOS } from '@/app/paginas/chamados/tabelas/Tabela_OS';
 import { IsError } from '@/components/IsError';
 import { IsLoading } from '@/components/IsLoading';
+import { TITULO_LOADING_CHAMADOS } from '@/components/loading-titles';
 import { useHorasAdicionais } from '@/hooks/useHorasAdicionais';
 import { useHorasPorMes } from '@/hooks/useHorasPorMes';
 import { useIsDesktop } from '@/hooks/useIsDesktop';
@@ -728,7 +729,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
         return <IsError isError={true} error={new Error('Você precisa estar logado')} title={''} />;
 
     if (isLoading)
-        return <IsLoading isLoading={isLoading} title="Buscando Chamados no banco de dados..." />;
+        return <IsLoading isLoading={isLoading} title={TITULO_LOADING_CHAMADOS} fade={false} />;
 
     if (error) return <IsError isError={!!error} error={error as Error} title={''} />;
 

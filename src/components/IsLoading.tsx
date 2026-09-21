@@ -5,15 +5,20 @@ interface LoadingOverlayProps {
     isLoading: boolean;
     title: string;
     icon?: React.ReactNode;
+    fade?: boolean;
 }
 
-export function IsLoading({ isLoading, title, icon }: LoadingOverlayProps) {
+export function IsLoading({ isLoading, title, icon, fade = true }: LoadingOverlayProps) {
     if (!isLoading) return null;
 
     const text = 'aguarde, carregando informações';
 
     return (
-        <div className="animate-in fade-in fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm duration-200">
+        <div
+            className={`fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm ${
+                fade ? 'animate-in fade-in duration-200' : ''
+            }`}
+        >
             <div className="flex flex-col items-center justify-center gap-6">
                 <div className="relative">
                     <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-200 via-blue-400 to-blue-600 opacity-20 blur-xl"></div>

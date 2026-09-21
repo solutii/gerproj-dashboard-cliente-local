@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { IconType } from 'react-icons';
 import { FaBook } from 'react-icons/fa';
 import {
@@ -20,6 +21,8 @@ import { PiTimerFill } from 'react-icons/pi';
 import { useFiltersStore } from '../store/useFiltersStore';
 import { ModalAbrirChamado } from './abrir-chamado/Modal_Abrir_Chamado';
 import { ModalAlterarSenha } from './alterar-senha/Modal_Alterar_Senha';
+import { IsLoading } from './IsLoading';
+import { TITULO_LOADING_CHAMADOS } from './loading-titles';
 import { ModalSaldoHoras } from './saldo-horas/Modal_Saldo_Horas';
 
 // Chave única para reativar o botão "Abrir Chamado" quando o fluxo for liberado.
@@ -188,6 +191,11 @@ export function Sidebar() {
     const exibeBotaoIA = clienteIA?.exibe ?? false;
 
     const showLabel = isMobile || isHovered || isNavigating;
+
+    // Ao ir para Chamados, já mostra o overlay da própria página (o mesmo que
+    // ela exibe ao buscar os dados) em vez do spinner do sidebar — sem dois
+    // loadings em sequência com um vão entre eles.
+    const navegandoParaChamados = isNavigating && targetRoute === '/paginas/chamados';
 
     useEffect(() => {
         if (!isNavigating) return;
@@ -366,7 +374,13 @@ export function Sidebar() {
                 {/* Loading Overlay — indeterminado: gira enquanto navega, some
                     exatamente quando a página nova estiver pronta. Sem número
                     fingindo saber um progresso que o Next.js não expõe. */}
-                {isNavigating && (
+                {navegandoParaChamados &&
+                    createPortal(
+                        <IsLoading isLoading title={TITULO_LOADING_CHAMADOS} fade={false} />,
+                        document.body
+                    )}
+
+                {isNavigating && !navegandoParaChamados && (
                     <div className="absolute inset-0 z-[9999] flex items-center justify-center rounded-lg bg-teal-900 backdrop-blur-md">
                         <div className="flex flex-col items-center gap-6">
                             <div className="relative h-28 w-28">
