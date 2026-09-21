@@ -13,7 +13,7 @@ import { alertConfirm, alertError, alertSuccess } from '@/store/useAlertDialogSt
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
 import { FaCalendar, FaClock, FaHashtag, FaUser } from 'react-icons/fa';
-import { FaRegCircleCheck, FaRegCircleXmark } from 'react-icons/fa6';
+import { FaCircleCheck, FaRegCircleCheck, FaRegCircleXmark } from 'react-icons/fa6';
 import { CabecalhoValidacao } from './CabecalhoValidacao';
 
 interface OSResponse {
@@ -159,10 +159,23 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
                     )}
 
                     {data?.chamadoFinalizado && (
-                        <p className="rounded-md bg-emerald-50 px-3 py-2 text-xs font-bold tracking-wide text-emerald-800 select-none">
-                            Este chamado já foi validado e está finalizado. A avaliação está
-                            disponível somente para consulta.
-                        </p>
+                        <div
+                            role="status"
+                            className="flex items-center gap-3 rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-100 via-emerald-50 to-teal-50 px-4 py-3 shadow-sm shadow-emerald-900/10 select-none"
+                        >
+                            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md shadow-emerald-900/30 sm:h-11 sm:w-11">
+                                <FaCircleCheck size={20} />
+                            </span>
+                            <div className="flex min-w-0 flex-col gap-0.5">
+                                <p className="text-sm font-extrabold tracking-widest text-emerald-900 uppercase sm:text-base">
+                                    Chamado validado
+                                </p>
+                                <p className="text-xs font-semibold tracking-wide text-emerald-800 sm:text-sm">
+                                    Este chamado já foi validado e está finalizado. A avaliação está
+                                    disponível somente para consulta.
+                                </p>
+                            </div>
+                        </div>
                     )}
 
                     {data && data.data.length > 0 && (
