@@ -92,22 +92,26 @@ export function CabecalhoValidacao({ codChamado, nomeCliente }: CabecalhoValidac
                 <div className="h-px w-full bg-gradient-to-r from-cyan-500/70 via-purple-500/60 to-orange-500/70" />
 
                 {/* Título, número do chamado e cliente */}
-                <div className="flex items-center justify-center gap-4">
-                    <span className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-purple-600 shadow-lg shadow-purple-900/40 sm:h-14 sm:w-14">
-                        <FaFileWaveform className="text-white" size={26} />
-                    </span>
+                <div className="flex justify-center">
+                    {/* Grade de 2 linhas: o ícone e a linha "título + número" ficam
+                        na 1ª e se centralizam na vertical entre si; o nome do cliente
+                        desce para a 2ª, alinhado à esquerda, sob o texto. */}
+                    <div className="grid max-w-full grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-1 text-white select-none">
+                        <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-500 to-purple-600 shadow-lg shadow-purple-900/40 sm:h-14 sm:w-14">
+                            <FaFileWaveform className="text-white" size={26} />
+                        </span>
 
-                    <div className="flex min-w-0 flex-col items-center gap-1 text-center text-white select-none">
-                        <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-0.5">
+                        <div className="flex flex-wrap items-baseline justify-center gap-x-3 gap-y-0.5 text-center">
                             <h1 className="text-sm font-extrabold tracking-[0.2em] text-cyan-300 uppercase sm:text-base">
-                                VALIDAÇÃO DE CHAMADO
+                                VALIDAÇÃO DO CHAMADO
                             </h1>
                             <span className="text-xl font-black tracking-wider sm:text-3xl">
                                 Nº {String(codChamado).padStart(5, '0')}
                             </span>
                         </div>
+
                         {nomeCliente && (
-                            <p className="flex items-center gap-2 self-start text-left text-sm font-semibold tracking-wide uppercase sm:text-base">
+                            <p className="col-start-2 flex items-center gap-2 text-left text-sm font-semibold tracking-wide uppercase sm:text-base">
                                 <FaBuilding
                                     className="hidden flex-shrink-0 text-cyan-300 sm:block"
                                     size={13}
