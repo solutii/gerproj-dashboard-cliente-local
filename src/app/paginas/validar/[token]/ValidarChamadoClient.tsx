@@ -8,10 +8,10 @@ import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-h
 import { formatarNumeros } from '@/formatters/formatar-numeros';
 import { alertConfirm, alertError, alertSuccess } from '@/store/useAlertDialogStore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import Image from 'next/image';
 import { useCallback, useMemo, useState } from 'react';
 import { FaCalendar, FaClock, FaHashtag, FaUser } from 'react-icons/fa';
-import { FaFileWaveform, FaRegCircleCheck, FaRegCircleXmark } from 'react-icons/fa6';
+import { FaRegCircleCheck, FaRegCircleXmark } from 'react-icons/fa6';
+import { CabecalhoValidacao } from './CabecalhoValidacao';
 
 interface OSResponse {
     success: boolean;
@@ -132,32 +132,7 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
 
     return (
         <div className="min-h-screen bg-stone-100 pb-16">
-            <header className="flex items-center justify-between gap-3 bg-teal-700 px-4 py-3 shadow-md shadow-black sm:px-8">
-                <div className="flex items-center gap-3">
-                    <FaFileWaveform className="flex-shrink-0 text-white" size={26} />
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 tracking-wide text-white select-none">
-                        <h1 className="text-base font-extrabold sm:text-lg">
-                            VALIDAÇÃO DE CHAMADO
-                        </h1>
-                        <span className="text-sm font-extrabold">
-                            Nº {String(codChamado).padStart(5, '0')}
-                        </span>
-                        {data?.nomeCliente && (
-                            <span className="text-sm font-semibold uppercase">
-                                {data.nomeCliente}
-                            </span>
-                        )}
-                    </div>
-                </div>
-                <Image
-                    src="/logo-solutii.png"
-                    alt="Solutii"
-                    width={32}
-                    height={32}
-                    priority
-                    className="rounded-md"
-                />
-            </header>
+            <CabecalhoValidacao codChamado={codChamado} nomeCliente={data?.nomeCliente} />
 
             <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-6 sm:px-8">
                 {isLoading && (
