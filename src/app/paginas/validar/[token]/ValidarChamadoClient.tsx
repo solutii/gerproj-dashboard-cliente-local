@@ -3,6 +3,7 @@
 'use client';
 
 import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
+import { IsLoading } from '@/components/IsLoading';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
@@ -140,12 +141,6 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
 
             <div className="relative z-10 flex-shrink-0 bg-stone-100 shadow-[0_10px_12px_-10px_rgba(0,0,0,0.35)]">
                 <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 pt-4 pb-3 sm:px-8">
-                    {isLoading && (
-                        <p className="text-center text-sm font-semibold tracking-widest text-gray-500 select-none">
-                            Carregando OS's do chamado...
-                        </p>
-                    )}
-
                     {isError && (
                         <p className="text-center text-sm font-semibold tracking-widest text-red-600 select-none">
                             {error instanceof Error
@@ -169,39 +164,45 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
 
                     {data && data.data.length > 0 && (
                         <>
-                            <div className="flex items-center justify-between gap-3">
-                                <label
-                                    htmlFor="ordenar-os"
-                                    className="flex min-w-0 flex-1 items-center gap-2 text-xs font-bold tracking-wide text-gray-600 select-none sm:flex-none"
-                                >
-                                    <span className="hidden sm:inline">Ordenar por</span>
-                                    <select
-                                        id="ordenar-os"
-                                        aria-label="Ordenar por"
-                                        value={ordenacao}
-                                        onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
-                                        className="min-w-0 flex-1 cursor-pointer rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold tracking-wide text-black outline-none focus:border-teal-500 sm:flex-none"
-                                    >
-                                        {OPCOES_ORDENACAO.map((opcao) => (
-                                            <option key={opcao.valor} value={opcao.valor}>
-                                                {opcao.rotulo}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
+                            {(data.data.length > 1 || !data.chamadoFinalizado) && (
+                                <div className="flex items-center justify-between gap-3">
+                                    {data.data.length > 1 && (
+                                        <label
+                                            htmlFor="ordenar-os"
+                                            className="flex min-w-0 flex-1 items-center gap-2 text-xs font-bold tracking-wide text-gray-600 select-none sm:flex-none"
+                                        >
+                                            <span className="hidden sm:inline">Ordenar por</span>
+                                            <select
+                                                id="ordenar-os"
+                                                aria-label="Ordenar por"
+                                                value={ordenacao}
+                                                onChange={(e) =>
+                                                    setOrdenacao(e.target.value as Ordenacao)
+                                                }
+                                                className="min-w-0 flex-1 cursor-pointer rounded-md border border-gray-300 bg-white px-2 py-1.5 text-xs font-semibold tracking-wide text-black outline-none focus:border-teal-500 sm:flex-none"
+                                            >
+                                                {OPCOES_ORDENACAO.map((opcao) => (
+                                                    <option key={opcao.valor} value={opcao.valor}>
+                                                        {opcao.rotulo}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </label>
+                                    )}
 
-                                {!data.chamadoFinalizado && (
-                                    <button
-                                        type="button"
-                                        onClick={handleValidarTudo}
-                                        disabled={validandoTudo}
-                                        className="flex flex-shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-4 py-2 text-xs font-extrabold tracking-wide text-white shadow-sm shadow-black transition-all duration-200 select-none hover:-translate-y-0.5 hover:from-blue-500 hover:to-blue-600 hover:shadow-md hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                                    >
-                                        <FaRegCircleCheck size={14} />
-                                        {validandoTudo ? 'Validando...' : 'Validar Chamado'}
-                                    </button>
-                                )}
-                            </div>
+                                    {!data.chamadoFinalizado && (
+                                        <button
+                                            type="button"
+                                            onClick={handleValidarTudo}
+                                            disabled={validandoTudo}
+                                            className="ml-auto flex flex-shrink-0 cursor-pointer items-center justify-center gap-2 rounded-md bg-gradient-to-br from-blue-600 to-blue-700 px-4 py-2 text-xs font-extrabold tracking-wide text-white shadow-sm shadow-black transition-all duration-200 select-none hover:-translate-y-0.5 hover:from-blue-500 hover:to-blue-600 hover:shadow-md hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            <FaRegCircleCheck size={14} />
+                                            {validandoTudo ? 'Validando...' : 'Validar Chamado'}
+                                        </button>
+                                    )}
+                                </div>
+                            )}
 
                             {!data.chamadoFinalizado && (
                                 <p className="text-xs font-semibold tracking-wide text-gray-500 select-none">
@@ -222,6 +223,8 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
                     ))}
                 </div>
             </div>
+
+            <IsLoading isLoading={isLoading} title="Carregando OS's do chamado..." />
         </div>
     );
 }

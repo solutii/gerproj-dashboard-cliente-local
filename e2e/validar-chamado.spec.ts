@@ -63,6 +63,8 @@ test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', 
 
         await expect(page.getByRole('button', { name: 'Aprovada' })).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Reprovada' })).toHaveCount(0);
+        // Com uma única OS não há o que ordenar.
+        await expect(page.getByLabel('Ordenar por')).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Salvar' })).toHaveCount(0);
         await expect(page.getByRole('button', { name: 'Validar Chamado' })).toBeVisible();
     });
@@ -116,6 +118,7 @@ test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', 
         await page.goto(`/paginas/validar/${token}`);
 
         await expect(page.getByText(/Confira as OS's abaixo\./)).toBeVisible();
+        await expect(page.getByLabel('Ordenar por')).toBeVisible();
         await expect(page.getByText('Obs:').first()).toBeVisible();
 
         const aprovada = page.getByText('Aprovada', { exact: true }).first().locator('..');
@@ -183,6 +186,29 @@ test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', 
         // ...e a lista rolou (a primeira OS subiu).
         const depoisPrimeira = await primeiraOS.boundingBox();
         expect(depoisPrimeira!.y).toBeLessThan(antesPrimeira!.y);
+    });
+
+    test('enquanto carrega as OS mostra o overlay de loading e depois some', async ({ page }) => {
+        const token = assinarLinkValidacao(COD_CHAMADO, COD_CLIENTE);
+
+        await page.route('**/api/chamados/*/os*', async (route) => {
+            await new Promise((r) => setTimeout(r, 1500));
+            await route.fulfill({
+                json: {
+                    success: true,
+                    codChamado: COD_CHAMADO,
+                    dataChamado: '2026-01-06',
+                    chamadoFinalizado: false,
+                    data: [OS_FIXTURE],
+                },
+            });
+        });
+
+        await page.goto(`/paginas/validar/${token}`);
+        await expect(page.getByText("Carregando OS's do chamado...")).toBeVisible();
+
+        await expect(page.getByText('Consultor Teste')).toBeVisible();
+        await expect(page.getByText("Carregando OS's do chamado...")).toHaveCount(0);
     });
 
     test('OS reprovada: só avisa antes de confirmar, e valida mesmo assim se confirmar', async ({
