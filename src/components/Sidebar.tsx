@@ -209,14 +209,16 @@ export function Sidebar() {
 
     // Rede de segurança: se por algum motivo a navegação nunca completar
     // (chunk que falha ao carregar, erro de render da rota), o overlay não
-    // fica preso pra sempre.
+    // fica preso pra sempre. Tem que ser folgado: a primeira abertura de uma
+    // rota (compilação em dev, chunk frio) pode passar de 8s, e fechar o
+    // overlay antes de a rota trocar deixa o usuário olhando a tela antiga.
     useEffect(() => {
         if (!isNavigating) return;
 
         const timeout = setTimeout(() => {
             setIsNavigating(false);
             setTargetRoute(null);
-        }, 8000);
+        }, 60000);
 
         return () => clearTimeout(timeout);
     }, [isNavigating]);
