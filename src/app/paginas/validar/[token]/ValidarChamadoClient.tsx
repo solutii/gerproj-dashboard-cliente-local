@@ -4,9 +4,11 @@
 
 import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { IsLoading } from '@/components/IsLoading';
+import { ZOOM_PAGINAS } from '@/components/loading-titles';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { alertConfirm, alertError, alertSuccess } from '@/store/useAlertDialogStore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useCallback, useMemo, useState } from 'react';
@@ -84,6 +86,7 @@ interface ValidarChamadoClientProps {
 
 export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarChamadoClientProps) {
     const queryClient = useQueryClient();
+    const isDesktop = useIsDesktop();
     const [validandoTudo, setValidandoTudo] = useState(false);
     const [ordenacao, setOrdenacao] = useState<Ordenacao>('data-desc');
 
@@ -224,7 +227,10 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
                 </div>
             </div>
 
-            <IsLoading isLoading={isLoading} title="Carregando OS's do chamado..." />
+            {/* Mesmo zoom das demais telas do portal (0.67 no desktop), para o overlay ter o mesmo tamanho. */}
+            <div style={{ zoom: isDesktop ? ZOOM_PAGINAS : 1 }}>
+                <IsLoading isLoading={isLoading} title="Carregando OS's do chamado..." />
+            </div>
         </div>
     );
 }
