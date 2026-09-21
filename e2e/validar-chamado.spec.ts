@@ -8,8 +8,8 @@ import { E2E_LINK_VALIDACAO_SECRET } from '../playwright.config';
 // mesma chave (nunca a real do .env).
 process.env.LINK_VALIDACAO_SECRET = E2E_LINK_VALIDACAO_SECRET;
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports -- precisa
-// rodar depois de setar a env var acima; um import estático seria hoisted.
+// Precisa rodar depois de setar a env var acima; um import estático seria hoisted.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { assinarLinkValidacao } = require('../src/lib/auth/link-validacao');
 
 const COD_CHAMADO = 501;

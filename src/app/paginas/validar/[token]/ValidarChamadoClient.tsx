@@ -102,7 +102,7 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
         const mensagem =
             qtdReprovadas > 0
                 ? `Este chamado tem ${qtdReprovadas} OS reprovada${qtdReprovadas > 1 ? 's' : ''}. Ao validar, TODAS as OS serão aprovadas e ${qtdReprovadas > 1 ? 'as reprovações serão desfeitas' : 'a reprovação será desfeita'}. Para contestar alguma OS, acesse o portal. Confirma?`
-                : 'Isso vai aprovar TODAS as OS deste chamado. Confirma?';
+                : "Isso vai aprovar TODAS as OS's deste chamado. Confirma?";
         const confirmado = await alertConfirm(mensagem, {
             title: 'Validar chamado',
             confirmText: 'Sim, aprovar tudo',
