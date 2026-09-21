@@ -15,6 +15,7 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { BsChatSquareTextFill } from 'react-icons/bs';
 import { FaCalendar, FaClock, FaHashtag, FaUser } from 'react-icons/fa';
 import {
+    FaCircleCheck,
     FaFileWaveform,
     FaRegCircleCheck,
     FaRegCirclePause,
@@ -541,155 +542,214 @@ export function ModalValidarOS({
                         </div>
                         {/* === */}
 
-                        {/* === INPUTS RADIO APROVAÇÃO | REPROVAÇÃO === */}
-                        <div className="grid grid-cols-2 gap-4">
-                            {/* INPUT OS APROVADA */}
-                            <div
-                                onClick={() => handleRadioChange(true)}
-                                className={`group relative flex cursor-pointer items-center gap-4 rounded-md border-t shadow-sm shadow-black transition-all duration-200 hover:shadow-lg hover:shadow-black ${
-                                    modalData.concordaPagar
-                                        ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-500'
-                                        : 'border-blue-200 bg-white hover:bg-blue-50'
-                                } py-3 pl-4`}
-                            >
-                                <div className="relative flex items-center">
-                                    <input
-                                        type="radio"
-                                        name="validacao"
-                                        checked={modalData.concordaPagar}
-                                        onChange={() => handleRadioChange(true)}
-                                        disabled={
-                                            saveValidationMutation.isPending || somenteLeitura
-                                        }
-                                        className="h-5 w-5 cursor-pointer text-blue-600 transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                    <span
-                                        className={`text-base font-bold tracking-widest select-none ${
-                                            modalData.concordaPagar
-                                                ? 'font-extrabold text-blue-700'
-                                                : 'text-blue-600'
-                                        }`}
-                                    >
-                                        OS Aprovada
+                        {/* === RESULTADO (chamado finalizado: somente leitura, sem formulário) === */}
+                        {somenteLeitura && (
+                            <div className="flex flex-col gap-3">
+                                <div
+                                    className={`flex items-center gap-3 rounded-md border-t px-4 py-3 shadow-sm shadow-black ${
+                                        selectedRow.VALCLI_OS === 'SIM'
+                                            ? 'border-blue-500 bg-blue-100 text-blue-700'
+                                            : selectedRow.VALCLI_OS === 'NAO'
+                                              ? 'border-red-500 bg-red-100 text-red-700'
+                                              : 'border-slate-300 bg-slate-100 text-slate-700'
+                                    }`}
+                                >
+                                    {selectedRow.VALCLI_OS === 'SIM' ? (
+                                        <FaRegCircleCheck className="flex-shrink-0" size={26} />
+                                    ) : selectedRow.VALCLI_OS === 'NAO' ? (
+                                        <FaRegCircleXmark className="flex-shrink-0" size={26} />
+                                    ) : null}
+                                    <span className="text-lg font-extrabold tracking-widest select-none">
+                                        {selectedRow.VALCLI_OS === 'SIM'
+                                            ? 'OS Aprovada'
+                                            : selectedRow.VALCLI_OS === 'NAO'
+                                              ? 'OS Reprovada'
+                                              : 'Sem validação registrada'}
                                     </span>
                                 </div>
-                            </div>
 
-                            {/* INPUT OS RECUSADA */}
-                            <div
-                                onClick={() => handleRadioChange(false)}
-                                className={`group relative flex cursor-pointer items-center gap-4 rounded-md border-t shadow-sm shadow-black transition-all duration-200 hover:shadow-lg hover:shadow-black ${
-                                    !modalData.concordaPagar
-                                        ? 'border-red-500 bg-red-100 ring-2 ring-red-500'
-                                        : 'border-red-200 bg-white hover:bg-red-50'
-                                } py-3 pl-4`}
-                            >
-                                <div className="relative flex items-center">
-                                    <input
-                                        type="radio"
-                                        name="validacao"
-                                        checked={!modalData.concordaPagar}
-                                        onChange={() => handleRadioChange(false)}
-                                        disabled={
-                                            saveValidationMutation.isPending || somenteLeitura
-                                        }
-                                        className="h-5 w-5 cursor-pointer text-red-600 transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
-                                    />
-                                </div>
-                                <div className="flex-1">
-                                    <span
-                                        className={`text-base font-bold tracking-widest select-none ${
-                                            !modalData.concordaPagar
-                                                ? 'font-extrabold text-red-700'
-                                                : 'text-red-600'
-                                        }`}
-                                    >
-                                        OS Reprovada
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        {/* === */}
-
-                        {/* === OBSERVAÇÃO === */}
-                        <div className="flex flex-col">
-                            <label
-                                htmlFor="observacao"
-                                className="mb-1 block text-xs font-bold tracking-widest text-black select-none"
-                            >
-                                {!modalData.concordaPagar ? (
-                                    <>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-1.5 w-1.5 rounded-full bg-red-700"></div>
-                                            Observação obrigatória
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-blue-700"></div>
-                                        Observação opcional
+                                {modalData.observacao.trim() && (
+                                    <div className="flex flex-col">
+                                        <span className="mb-1 flex items-center gap-2 text-xs font-bold tracking-widest text-black select-none">
+                                            <span className="h-1.5 w-1.5 rounded-full bg-slate-700" />
+                                            Observação
+                                        </span>
+                                        <p
+                                            className={`rounded-xl border-t px-4 py-3 font-medium tracking-widest break-words whitespace-pre-wrap text-black shadow-sm shadow-black ${
+                                                selectedRow.VALCLI_OS === 'NAO'
+                                                    ? 'border-red-200 bg-red-100'
+                                                    : 'border-blue-200 bg-blue-100'
+                                            }`}
+                                        >
+                                            {modalData.observacao}
+                                        </p>
                                     </div>
                                 )}
-                            </label>
-                            {/* = */}
-                            <div className="relative">
-                                <textarea
-                                    id="observacao"
-                                    value={modalData.observacao}
-                                    onChange={(e) => handleObservacaoChange(e.target.value)}
-                                    rows={4}
-                                    maxLength={195}
-                                    className={`w-full cursor-pointer rounded-xl px-4 pt-4 font-medium tracking-widest text-black shadow-sm shadow-black transition-all duration-200 select-none placeholder:text-sm placeholder:font-bold placeholder:tracking-widest placeholder:text-slate-500 hover:shadow-lg hover:shadow-black focus:ring focus:outline-none ${
-                                        !modalData.concordaPagar
-                                            ? 'border-t border-red-200 bg-red-100 focus:border-none focus:shadow-none focus:ring-2 focus:ring-red-500'
-                                            : 'border-t border-blue-200 bg-blue-100 focus:border-none focus:shadow-none focus:ring-2 focus:ring-blue-500'
-                                    }`}
-                                    placeholder={
-                                        !modalData.concordaPagar
-                                            ? 'Por favor, informe o motivo da reprovação...'
-                                            : 'Digite uma observação, se necessário...'
-                                    }
-                                    disabled={saveValidationMutation.isPending || somenteLeitura}
-                                />
-
-                                <div className="mt-1 flex justify-end">
-                                    <span
-                                        className={`text-xs font-bold tracking-widest ${
-                                            modalData.observacao.length > 170
-                                                ? 'text-red-600'
-                                                : 'text-slate-500'
-                                        }`}
-                                    >
-                                        {modalData.observacao.length}/195
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                        {/* === */}
-
-                        {/* === ALERTA === */}
-                        {validationError && (
-                            <div className="animate-in fade-in slide-in-from-top-2 rounded-md border-t border-yellow-200 bg-yellow-100 py-1 pl-4 shadow-sm shadow-black transition-all duration-200">
-                                <div className="flex items-center justify-center gap-2">
-                                    <LuTriangleAlert
-                                        className="flex-shrink-0 text-yellow-700"
-                                        size={20}
-                                    />
-                                    <p className="flex-1 text-sm font-bold tracking-widest text-yellow-700 select-none">
-                                        {validationError}
-                                    </p>
-                                </div>
                             </div>
                         )}
                         {/* === */}
 
+                        {!somenteLeitura && (
+                            <>
+                                {/* === INPUTS RADIO APROVAÇÃO | REPROVAÇÃO === */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    {/* INPUT OS APROVADA */}
+                                    <div
+                                        onClick={() => handleRadioChange(true)}
+                                        className={`group relative flex cursor-pointer items-center gap-4 rounded-md border-t shadow-sm shadow-black transition-all duration-200 hover:shadow-lg hover:shadow-black ${
+                                            modalData.concordaPagar
+                                                ? 'border-blue-500 bg-blue-100 ring-2 ring-blue-500'
+                                                : 'border-blue-200 bg-white hover:bg-blue-50'
+                                        } py-3 pl-4`}
+                                    >
+                                        <div className="relative flex items-center">
+                                            <input
+                                                type="radio"
+                                                name="validacao"
+                                                checked={modalData.concordaPagar}
+                                                onChange={() => handleRadioChange(true)}
+                                                disabled={saveValidationMutation.isPending}
+                                                className="h-5 w-5 cursor-pointer text-blue-600 transition-all duration-200 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <span
+                                                className={`text-base font-bold tracking-widest select-none ${
+                                                    modalData.concordaPagar
+                                                        ? 'font-extrabold text-blue-700'
+                                                        : 'text-blue-600'
+                                                }`}
+                                            >
+                                                OS Aprovada
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* INPUT OS RECUSADA */}
+                                    <div
+                                        onClick={() => handleRadioChange(false)}
+                                        className={`group relative flex cursor-pointer items-center gap-4 rounded-md border-t shadow-sm shadow-black transition-all duration-200 hover:shadow-lg hover:shadow-black ${
+                                            !modalData.concordaPagar
+                                                ? 'border-red-500 bg-red-100 ring-2 ring-red-500'
+                                                : 'border-red-200 bg-white hover:bg-red-50'
+                                        } py-3 pl-4`}
+                                    >
+                                        <div className="relative flex items-center">
+                                            <input
+                                                type="radio"
+                                                name="validacao"
+                                                checked={!modalData.concordaPagar}
+                                                onChange={() => handleRadioChange(false)}
+                                                disabled={saveValidationMutation.isPending}
+                                                className="h-5 w-5 cursor-pointer text-red-600 transition-all duration-200 focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <span
+                                                className={`text-base font-bold tracking-widest select-none ${
+                                                    !modalData.concordaPagar
+                                                        ? 'font-extrabold text-red-700'
+                                                        : 'text-red-600'
+                                                }`}
+                                            >
+                                                OS Reprovada
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* === */}
+
+                                {/* === OBSERVAÇÃO === */}
+                                <div className="flex flex-col">
+                                    <label
+                                        htmlFor="observacao"
+                                        className="mb-1 block text-xs font-bold tracking-widest text-black select-none"
+                                    >
+                                        {!modalData.concordaPagar ? (
+                                            <>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="h-1.5 w-1.5 rounded-full bg-red-700"></div>
+                                                    Observação obrigatória
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-blue-700"></div>
+                                                Observação opcional
+                                            </div>
+                                        )}
+                                    </label>
+                                    {/* = */}
+                                    <div className="relative">
+                                        <textarea
+                                            id="observacao"
+                                            value={modalData.observacao}
+                                            onChange={(e) => handleObservacaoChange(e.target.value)}
+                                            rows={4}
+                                            maxLength={195}
+                                            className={`w-full cursor-pointer rounded-xl px-4 pt-4 font-medium tracking-widest text-black shadow-sm shadow-black transition-all duration-200 select-none placeholder:text-sm placeholder:font-bold placeholder:tracking-widest placeholder:text-slate-500 hover:shadow-lg hover:shadow-black focus:ring focus:outline-none ${
+                                                !modalData.concordaPagar
+                                                    ? 'border-t border-red-200 bg-red-100 focus:border-none focus:shadow-none focus:ring-2 focus:ring-red-500'
+                                                    : 'border-t border-blue-200 bg-blue-100 focus:border-none focus:shadow-none focus:ring-2 focus:ring-blue-500'
+                                            }`}
+                                            placeholder={
+                                                !modalData.concordaPagar
+                                                    ? 'Por favor, informe o motivo da reprovação...'
+                                                    : 'Digite uma observação, se necessário...'
+                                            }
+                                            disabled={saveValidationMutation.isPending}
+                                        />
+
+                                        <div className="mt-1 flex justify-end">
+                                            <span
+                                                className={`text-xs font-bold tracking-widest ${
+                                                    modalData.observacao.length > 170
+                                                        ? 'text-red-600'
+                                                        : 'text-slate-500'
+                                                }`}
+                                            >
+                                                {modalData.observacao.length}/195
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {/* === */}
+
+                                {/* === ALERTA === */}
+                                {validationError && (
+                                    <div className="animate-in fade-in slide-in-from-top-2 rounded-md border-t border-yellow-200 bg-yellow-100 py-1 pl-4 shadow-sm shadow-black transition-all duration-200">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <LuTriangleAlert
+                                                className="flex-shrink-0 text-yellow-700"
+                                                size={20}
+                                            />
+                                            <p className="flex-1 text-sm font-bold tracking-widest text-yellow-700 select-none">
+                                                {validationError}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                                {/* === */}
+                            </>
+                        )}
                         {/* === BOTÃO SALVAR === */}
                         {somenteLeitura ? (
-                            <p className="rounded-md bg-emerald-50 px-3 py-2 text-center text-sm font-bold tracking-widest text-emerald-800 select-none">
-                                Chamado finalizado — validação disponível somente para consulta.
-                            </p>
+                            <div
+                                role="status"
+                                className="flex items-center gap-3 rounded-xl border border-emerald-300 bg-gradient-to-r from-emerald-100 via-emerald-50 to-teal-50 px-4 py-3 shadow-sm shadow-emerald-900/10 select-none"
+                            >
+                                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-md shadow-emerald-900/30">
+                                    <FaCircleCheck size={18} />
+                                </span>
+                                <div className="flex min-w-0 flex-col gap-0.5">
+                                    <p className="text-sm font-extrabold tracking-widest text-emerald-900 uppercase">
+                                        Chamado finalizado
+                                    </p>
+                                    <p className="text-xs font-semibold tracking-wide text-emerald-800">
+                                        A validação desta OS está disponível somente para consulta.
+                                    </p>
+                                </div>
+                            </div>
                         ) : (
                             <div className="flex items-center justify-end">
                                 <button
