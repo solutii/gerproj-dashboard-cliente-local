@@ -367,8 +367,8 @@ export function Login() {
                                     Solutii Sistemas
                                 </p>
                                 <p className="inline-flex gap-1 text-sm font-semibold tracking-wider text-white select-none">
-                                    <p className="text-cyan-500">Tecnologia</p> &amp;{' '}
-                                    <p className="text-orange-500">Consultoria</p>
+                                    <span className="text-cyan-500">Tecnologia</span> &amp;{' '}
+                                    <span className="text-orange-500">Consultoria</span>
                                 </p>
                             </div>
                         </motion.div>
