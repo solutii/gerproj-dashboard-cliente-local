@@ -97,7 +97,13 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
     if (!isOpen) return null;
 
     if (isLoading) {
-        return <IsLoading isLoading={isLoading} title="Carregando dados de saldo de horas..." />;
+        return (
+            <IsLoading
+                isLoading={isLoading}
+                title="Carregando dados de saldo de horas..."
+                fade={false}
+            />
+        );
     }
 
     if (error) {
@@ -113,8 +119,11 @@ export function ModalSaldoHoras({ isOpen, onClose }: ModalSaldoHorasProps) {
     // ================================================================================
     // RENDERIZAÇÃO PRINCIPAL
     // ================================================================================
+    // Sem fade no fundo: o overlay de loading (sem fade) fica no lugar até o
+    // modal abrir, então o fundo não pode reaparecer do zero e piscar a tela
+    // de trás.
     return (
-        <div className="animate-in fade-in fixed inset-0 z-50 flex items-center justify-center transition-all duration-200 ease-out">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
             {/* OVERLAY */}
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
