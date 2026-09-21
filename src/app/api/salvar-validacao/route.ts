@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Número da OS é obrigatório' }, { status: 400 });
         }
 
-        // Rota pública no middleware (o /validar/[token] não tem login), então
+        // Rota pública no middleware (o /paginas/validar/[token] não tem login), então
         // a autenticação é feita aqui: token do link (que prova a posse de UM
         // chamado) ou sessão. Sem nenhum dos dois, 401. Com sessão de cliente,
         // o codCliente vem da sessão, ignorando o do body.

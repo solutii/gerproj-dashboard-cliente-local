@@ -4,7 +4,7 @@
 // específico, sem exigir login — usado no botão do email "chamado aguardando
 // validação" disparado quando o STATUS_CHAMADO vira FINALIZADO. Gerado só
 // por POST /api/gerar-link-validacao (protegido por chave interna, chamado
-// pelo sistema Delphi) e consumido em /validar/[token].
+// pelo sistema Delphi) e consumido em /paginas/validar/[token].
 //
 // Deliberadamente separado do cliente-token.ts (login normal): esse token
 // não abre a aplicação inteira, só a tela de validação daquele chamado.

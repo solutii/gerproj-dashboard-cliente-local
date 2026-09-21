@@ -207,7 +207,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const codChamadoValidado = validarCodChamado(codChamado);
         if (codChamadoValidado instanceof NextResponse) return codChamadoValidado;
 
-        // Rota pública no middleware (usada também pelo /validar/[token], sem
+        // Rota pública no middleware (usada também pelo /paginas/validar/[token], sem
         // login), então a autenticação é feita aqui: token do link (do MESMO
         // chamado) ou sessão. Sem nenhum dos dois, 401.
         let codClienteForcado: string | null | undefined;

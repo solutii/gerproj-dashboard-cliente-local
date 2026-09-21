@@ -23,7 +23,7 @@ const LIMITE_GERAL_JANELA_MS = 60_000;
 // Protegidas por mecanismo próprio (chave interna, token HMAC do link de
 // e-mail), são o próprio ponto de entrada, ou precisam funcionar mesmo sem
 // sessão (logout). /os é usada tanto pela tela logada quanto pelo fluxo
-// público /validar/[token] (ver spec — correção pós-brainstorm).
+// público /paginas/validar/[token] (ver spec — correção pós-brainstorm).
 const ROTAS_PUBLICAS = new Set([
     '/api/login',
     '/api/esqueci-senha',

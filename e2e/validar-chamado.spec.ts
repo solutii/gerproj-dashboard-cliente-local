@@ -42,7 +42,7 @@ async function mockApiOS(page: import('@playwright/test').Page, chamadoFinalizad
     });
 }
 
-test.describe('Validação de chamado pelo cliente (/validar/[token])', () => {
+test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', () => {
     test('token válido: lista a OS e aprova individualmente', async ({ page }) => {
         const token = assinarLinkValidacao(COD_CHAMADO, COD_CLIENTE);
 
@@ -57,7 +57,7 @@ test.describe('Validação de chamado pelo cliente (/validar/[token])', () => {
             });
         });
 
-        await page.goto(`/validar/${token}`);
+        await page.goto(`/paginas/validar/${token}`);
 
         await expect(page.getByText(`Nº ${String(COD_CHAMADO).padStart(5, '0')}`)).toBeVisible();
         await expect(page.getByText('Consultor Teste')).toBeVisible();
@@ -76,7 +76,7 @@ test.describe('Validação de chamado pelo cliente (/validar/[token])', () => {
             await route.fulfill({ json: { success: true } });
         });
 
-        await page.goto(`/validar/${token}`);
+        await page.goto(`/paginas/validar/${token}`);
 
         await page.getByRole('button', { name: 'Validar chamado (aprovar todas as OS)' }).click();
 
@@ -90,7 +90,7 @@ test.describe('Validação de chamado pelo cliente (/validar/[token])', () => {
         const token = assinarLinkValidacao(COD_CHAMADO, COD_CLIENTE);
 
         await mockApiOS(page, true);
-        await page.goto(`/validar/${token}`);
+        await page.goto(`/paginas/validar/${token}`);
 
         await expect(page.getByText('Consultor Teste')).toBeVisible();
         await expect(page.getByText(/já foi validado e está finalizado/i)).toBeVisible();
@@ -99,6 +99,18 @@ test.describe('Validação de chamado pelo cliente (/validar/[token])', () => {
         await expect(
             page.getByRole('button', { name: 'Validar chamado (aprovar todas as OS)' })
         ).toHaveCount(0);
+    });
+
+    test('link antigo (/validar/[token]) de e-mails já enviados redireciona pro caminho novo', async ({
+        page,
+    }) => {
+        const token = assinarLinkValidacao(COD_CHAMADO, COD_CLIENTE);
+
+        await mockApiOS(page);
+        await page.goto(`/validar/${token}`);
+
+        await expect(page).toHaveURL(new RegExp(`/paginas/validar/${token}`));
+        await expect(page.getByText('Consultor Teste')).toBeVisible();
     });
 
     test('token inválido: mostra tela de link inválido, sem carregar a listagem', async ({
@@ -110,7 +122,7 @@ test.describe('Validação de chamado pelo cliente (/validar/[token])', () => {
             await route.abort();
         });
 
-        await page.goto('/validar/token-forjado-invalido');
+        await page.goto('/paginas/validar/token-forjado-invalido');
 
         await expect(page.getByText('Link inválido ou expirado')).toBeVisible();
         await expect(page.getByRole('link', { name: 'Ir para o login' })).toBeVisible();

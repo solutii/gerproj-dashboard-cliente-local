@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        return NextResponse.json({ url: `${baseUrl}/validar/${token}` }, { status: 200 });
+        return NextResponse.json({ url: `${baseUrl}/paginas/validar/${token}` }, { status: 200 });
     } catch (error) {
         console.error('[API GERAR-LINK-VALIDACAO] Erro:', error);
         return NextResponse.json({ error: 'Erro interno do servidor' }, { status: 500 });

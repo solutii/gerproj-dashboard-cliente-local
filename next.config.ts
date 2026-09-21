@@ -82,6 +82,19 @@ const nextConfig: NextConfig = {
         return config;
     },
 
+    // A tela de validação mudou de /validar/[token] para /paginas/validar/[token].
+    // E-mails já enviados (link válido por 30 dias) ainda apontam pro caminho
+    // antigo, então ele continua funcionando via redirecionamento.
+    async redirects() {
+        return [
+            {
+                source: '/validar/:token',
+                destination: '/paginas/validar/:token',
+                permanent: false,
+            },
+        ];
+    },
+
     async headers() {
         return [
             {

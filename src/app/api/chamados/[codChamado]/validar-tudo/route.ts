@@ -1,7 +1,7 @@
 // src/app/api/chamados/[codChamado]/validar-tudo/route.ts
 //
 // Aprova TODAS as OS's de um chamado de uma vez (checkbox "Validar chamado"
-// da tela /validar/[token]) — sobrescreve inclusive alguma OS que já
+// da tela /paginas/validar/[token]) — sobrescreve inclusive alguma OS que já
 // estivesse reprovada, por decisão explícita do fluxo. Exige um token de
 // link-validacao válido para o MESMO chamado — não aceita um codCliente
 // solto, diferente de /api/salvar-validacao (que também aceita chamadas de

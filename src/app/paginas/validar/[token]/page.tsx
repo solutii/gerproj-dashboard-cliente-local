@@ -1,4 +1,4 @@
-// src/app/validar/[token]/page.tsx
+// src/app/paginas/validar/[token]/page.tsx
 //
 // Página pública (sem login) acessada pelo botão do email de "chamado
 // aguardando validação" — verifica o token server-side (precisa de

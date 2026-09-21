@@ -4,7 +4,7 @@ const PORT = 3100;
 const baseURL = `http://localhost:${PORT}`;
 
 // Segredo usado SÓ pelos testes e2e para assinar/validar o token de
-// /validar/[token] — nunca o LINK_VALIDACAO_SECRET real do .env, para não
+// /paginas/validar/[token] — nunca o LINK_VALIDACAO_SECRET real do .env, para não
 // depender (nem arriscar tocar) no Firebird real de produção/desenvolvimento.
 export const E2E_LINK_VALIDACAO_SECRET = 'e2e-test-secret-nao-usar-em-producao';
 

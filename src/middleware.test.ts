@@ -51,7 +51,7 @@ describe('middleware', () => {
         expect(response.status).toBe(200);
     });
 
-    it('deixa passar a leitura de OS sem cookie (usada pelo fluxo público /validar/[token])', async () => {
+    it('deixa passar a leitura de OS sem cookie (usada pelo fluxo público /paginas/validar/[token])', async () => {
         const response = await middleware(criarRequest('/api/chamados/501/os'));
         expect(response.status).toBe(200);
     });

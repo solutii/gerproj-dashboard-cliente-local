@@ -1,4 +1,4 @@
-// src/app/validar/[token]/ValidarChamadoClient.tsx
+// src/app/paginas/validar/[token]/ValidarChamadoClient.tsx
 
 'use client';
 
