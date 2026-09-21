@@ -56,6 +56,11 @@ describe('middleware', () => {
         expect(response.status).toBe(200);
     });
 
+    it('retorna 401 em /api/salvar-validacao sem sessão (não é mais rota pública)', async () => {
+        const response = await middleware(criarRequest('/api/salvar-validacao'));
+        expect(response.status).toBe(401);
+    });
+
     it('retorna 401 numa rota protegida sem cookie de sessão', async () => {
         const response = await middleware(criarRequest('/api/chamados'));
         expect(response.status).toBe(401);

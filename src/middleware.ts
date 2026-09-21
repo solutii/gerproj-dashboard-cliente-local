@@ -29,7 +29,6 @@ const ROTAS_PUBLICAS = new Set([
     '/api/esqueci-senha',
     '/api/logout',
     '/api/gerar-link-validacao',
-    '/api/salvar-validacao',
 ]);
 
 const REGEX_VALIDAR_TUDO = /^\/api\/chamados\/\d+\/validar-tudo$/;

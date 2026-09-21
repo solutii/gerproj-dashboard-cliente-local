@@ -1,5 +1,4 @@
 import { safeErrorMessage } from '@/lib/api-error';
-import { verificarLinkValidacao } from '@/lib/auth/link-validacao';
 import { SESSAO_COOKIE_NOME, verificarSessao } from '@/lib/auth/session';
 import { NextRequest, NextResponse } from 'next/server';
 import { firebirdExecute, firebirdQuery } from '../../../lib/firebird/firebird-client';
@@ -7,32 +6,21 @@ import { firebirdExecute, firebirdQuery } from '../../../lib/firebird/firebird-c
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const { cod_os, concordaPagar, observacao, codCliente, linkToken } = body;
+        const { cod_os, concordaPagar, observacao, codCliente } = body;
 
         // Validações
         if (!cod_os) {
             return NextResponse.json({ error: 'Número da OS é obrigatório' }, { status: 400 });
         }
 
-        // Rota pública no middleware (o /paginas/validar/[token] não tem login), então
-        // a autenticação é feita aqui: token do link (que prova a posse de UM
-        // chamado) ou sessão. Sem nenhum dos dois, 401. Com sessão de cliente,
-        // o codCliente vem da sessão, ignorando o do body.
-        let codClienteEfetivo = codCliente;
-        let linkVerificado: { codChamado: number; codCliente: string } | null = null;
-        if (linkToken) {
-            linkVerificado = verificarLinkValidacao(linkToken);
-            if (!linkVerificado) {
-                return NextResponse.json({ error: 'Link inválido ou expirado' }, { status: 403 });
-            }
-            codClienteEfetivo = linkVerificado.codCliente;
-        } else {
-            const sessao = await verificarSessao(request.cookies.get(SESSAO_COOKIE_NOME)?.value);
-            if (!sessao) {
-                return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
-            }
-            if (sessao.loginType === 'cliente') codClienteEfetivo = sessao.codCliente;
+        // Só com sessão (a tela pública /paginas/validar/[token] não decide OS por
+        // OS — só aprova o chamado inteiro, via validar-tudo). Com sessão de
+        // cliente, o codCliente vem da sessão, ignorando o do body.
+        const sessao = await verificarSessao(request.cookies.get(SESSAO_COOKIE_NOME)?.value);
+        if (!sessao) {
+            return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
         }
+        const codClienteEfetivo = sessao.loginType === 'cliente' ? sessao.codCliente : codCliente;
 
         if (!codClienteEfetivo) {
             return NextResponse.json(
@@ -68,17 +56,9 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Pelo link do e-mail, o acesso é a UM chamado.
-        if (linkVerificado && Number(donoOS[0].COD_CHAMADO) !== linkVerificado.codChamado) {
-            return NextResponse.json(
-                { error: 'Você não tem permissão para validar esta OS' },
-                { status: 403 }
-            );
-        }
-
         // Um chamado só é finalizado a partir de AGUARDANDO VALIDACAO (regra do
         // gerproj-solutii), então depois de FINALIZADO a validação das OS é
-        // definitiva — vale para o link e para o cliente logado.
+        // definitiva.
         if (donoOS[0].STATUS_CHAMADO?.trim().toUpperCase() === 'FINALIZADO') {
             return NextResponse.json(
                 { error: 'Este chamado já foi validado e não pode mais ser alterado' },

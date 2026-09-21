@@ -3,19 +3,14 @@ import { NextRequest } from 'next/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { POST } from './route';
 
-const { firebirdQueryMock, firebirdExecuteMock, verificarLinkValidacaoMock } = vi.hoisted(() => ({
+const { firebirdQueryMock, firebirdExecuteMock } = vi.hoisted(() => ({
     firebirdQueryMock: vi.fn(),
     firebirdExecuteMock: vi.fn(),
-    verificarLinkValidacaoMock: vi.fn(),
 }));
 
 vi.mock('@/lib/firebird/firebird-client', () => ({
     firebirdQuery: firebirdQueryMock,
     firebirdExecute: firebirdExecuteMock,
-}));
-
-vi.mock('@/lib/auth/link-validacao', () => ({
-    verificarLinkValidacao: verificarLinkValidacaoMock,
 }));
 
 function criarRequest(body: unknown, cookie?: string) {
@@ -40,6 +35,20 @@ async function cookieCliente(codCliente: string) {
     return `sessao=${token}`;
 }
 
+async function cookieConsultor() {
+    const token = await assinarSessao({
+        loginType: 'consultor',
+        codUsuario: 1,
+        idUsuario: 'u',
+        nomeUsuario: 'U',
+        tipoUsuario: 'USU',
+        permissoes: { permtar: true, perproj1: true, perproj2: true },
+        userEmail: 'u@s.com',
+        exp: Date.now() + 60_000,
+    });
+    return `sessao=${token}`;
+}
+
 describe('POST /api/salvar-validacao', () => {
     afterEach(() => {
         vi.clearAllMocks();
@@ -53,9 +62,9 @@ describe('POST /api/salvar-validacao', () => {
         expect(firebirdQueryMock).not.toHaveBeenCalled();
     });
 
-    it('retorna 401 sem link e sem sessão (não confia em codCliente solto)', async () => {
+    it('retorna 401 sem sessão (não confia em codCliente solto nem em link)', async () => {
         const response = await POST(
-            criarRequest({ cod_os: 10, concordaPagar: true, codCliente: '9' })
+            criarRequest({ cod_os: 10, concordaPagar: true, codCliente: '9', linkToken: 'x' })
         );
 
         expect(response.status).toBe(401);
@@ -76,7 +85,18 @@ describe('POST /api/salvar-validacao', () => {
         expect(firebirdExecuteMock).not.toHaveBeenCalled();
     });
 
-    it('com sessão de cliente, também retorna 409 quando o chamado já foi finalizado', async () => {
+    it('retorna 404 quando a OS não existe', async () => {
+        firebirdQueryMock.mockResolvedValueOnce([]);
+
+        const response = await POST(
+            criarRequest({ cod_os: 10, concordaPagar: true }, await cookieCliente('9'))
+        );
+
+        expect(response.status).toBe(404);
+        expect(firebirdExecuteMock).not.toHaveBeenCalled();
+    });
+
+    it('retorna 409 quando o chamado já foi finalizado', async () => {
         firebirdQueryMock.mockResolvedValueOnce([{ ...DONO_OK, STATUS_CHAMADO: 'FINALIZADO' }]);
 
         const response = await POST(
@@ -90,87 +110,14 @@ describe('POST /api/salvar-validacao', () => {
         expect(firebirdExecuteMock).not.toHaveBeenCalled();
     });
 
-    it('com sessão de cliente e chamado não finalizado, salva normalmente', async () => {
-        firebirdQueryMock.mockResolvedValueOnce([DONO_OK]);
-        firebirdExecuteMock.mockResolvedValueOnce(undefined);
-
-        const response = await POST(
-            criarRequest({ cod_os: 10, concordaPagar: true }, await cookieCliente('9'))
-        );
-
-        expect(response.status).toBe(200);
-    });
-
-    it('retorna 409 pelo link quando o chamado já foi finalizado', async () => {
-        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
-        firebirdQueryMock.mockResolvedValueOnce([{ ...DONO_OK, STATUS_CHAMADO: 'FINALIZADO' }]);
-
-        const response = await POST(
-            criarRequest({ cod_os: 10, concordaPagar: false, observacao: 'x', linkToken: 't' })
-        );
-
-        expect(response.status).toBe(409);
-        expect(firebirdExecuteMock).not.toHaveBeenCalled();
-    });
-
-    it('retorna 403 quando a OS é de outro chamado do mesmo cliente que o do link', async () => {
-        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
-        firebirdQueryMock.mockResolvedValueOnce([{ ...DONO_OK, COD_CHAMADO: 56 }]);
-
-        const response = await POST(
-            criarRequest({ cod_os: 10, concordaPagar: true, linkToken: 't' })
-        );
-
-        expect(response.status).toBe(403);
-        expect(firebirdExecuteMock).not.toHaveBeenCalled();
-    });
-
-    it('retorna 403 quando o link de validação é inválido', async () => {
-        verificarLinkValidacaoMock.mockReturnValue(null);
-
-        const response = await POST(
-            criarRequest({ cod_os: 10, concordaPagar: true, linkToken: 'token-invalido' })
-        );
-
-        expect(response.status).toBe(403);
-        expect(firebirdQueryMock).not.toHaveBeenCalled();
-    });
-
-    it('retorna 404 quando a OS não existe', async () => {
-        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
-        firebirdQueryMock.mockResolvedValueOnce([]);
-
-        const response = await POST(
-            criarRequest({ cod_os: 10, concordaPagar: true, linkToken: 'token-valido' })
-        );
-
-        expect(response.status).toBe(404);
-        expect(firebirdExecuteMock).not.toHaveBeenCalled();
-    });
-
-    it('retorna 403 quando a OS pertence a outro cliente', async () => {
-        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
-        firebirdQueryMock.mockResolvedValueOnce([{ ...DONO_OK, COD_CLIENTE: 999 }]);
-
-        const response = await POST(
-            criarRequest({ cod_os: 10, concordaPagar: true, linkToken: 'token-valido' })
-        );
-
-        expect(response.status).toBe(403);
-        expect(firebirdExecuteMock).not.toHaveBeenCalled();
-    });
-
     it('retorna 400 quando reprova sem informar observação', async () => {
-        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdQueryMock.mockResolvedValueOnce([DONO_OK]);
 
         const response = await POST(
-            criarRequest({
-                cod_os: 10,
-                concordaPagar: false,
-                observacao: '  ',
-                linkToken: 'token-valido',
-            })
+            criarRequest(
+                { cod_os: 10, concordaPagar: false, observacao: '  ' },
+                await cookieCliente('9')
+            )
         );
 
         expect(response.status).toBe(400);
@@ -178,17 +125,14 @@ describe('POST /api/salvar-validacao', () => {
     });
 
     it('aprova a OS e grava VALCLI_OS=SIM, OBSCLI_OS=null', async () => {
-        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdQueryMock.mockResolvedValueOnce([DONO_OK]);
         firebirdExecuteMock.mockResolvedValueOnce(undefined);
 
         const response = await POST(
-            criarRequest({
-                cod_os: 10,
-                concordaPagar: true,
-                observacao: '',
-                linkToken: 'token-valido',
-            })
+            criarRequest(
+                { cod_os: 10, concordaPagar: true, observacao: '' },
+                await cookieCliente('9')
+            )
         );
 
         expect(response.status).toBe(200);
@@ -205,22 +149,37 @@ describe('POST /api/salvar-validacao', () => {
     });
 
     it('reprova a OS e grava VALCLI_OS=NAO com a observação informada', async () => {
-        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdQueryMock.mockResolvedValueOnce([DONO_OK]);
         firebirdExecuteMock.mockResolvedValueOnce(undefined);
 
         const response = await POST(
-            criarRequest({
-                cod_os: 10,
-                concordaPagar: false,
-                observacao: 'Horas divergentes do combinado',
-                linkToken: 'token-valido',
-            })
+            criarRequest(
+                {
+                    cod_os: 10,
+                    concordaPagar: false,
+                    observacao: 'Horas divergentes do combinado',
+                },
+                await cookieCliente('9')
+            )
         );
 
         expect(response.status).toBe(200);
         const [, params] = firebirdExecuteMock.mock.calls[0];
         expect(params[0]).toBe('NAO');
         expect(params[1]).toBe('Horas divergentes do combinado');
+    });
+
+    it('consultor logado usa o codCliente do body (cliente selecionado nos filtros)', async () => {
+        firebirdQueryMock.mockResolvedValueOnce([DONO_OK]);
+        firebirdExecuteMock.mockResolvedValueOnce(undefined);
+
+        const response = await POST(
+            criarRequest(
+                { cod_os: 10, concordaPagar: true, codCliente: '9' },
+                await cookieConsultor()
+            )
+        );
+
+        expect(response.status).toBe(200);
     });
 });

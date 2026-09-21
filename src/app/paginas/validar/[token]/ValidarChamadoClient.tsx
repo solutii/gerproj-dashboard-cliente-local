@@ -12,7 +12,6 @@ import Image from 'next/image';
 import { useCallback, useMemo, useState } from 'react';
 import { FaCalendar, FaClock, FaHashtag, FaUser } from 'react-icons/fa';
 import { FaFileWaveform, FaRegCircleCheck, FaRegCircleXmark } from 'react-icons/fa6';
-import { IoIosSave } from 'react-icons/io';
 
 interface OSResponse {
     success: boolean;
@@ -54,10 +53,15 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
 
     const handleValidarTudo = useCallback(async () => {
         if (validandoTudo) return;
-        const confirmado = await alertConfirm(
-            'Isso vai aprovar TODAS as OS deste chamado, inclusive alguma que já tenha sido reprovada antes. Confirma?',
-            { title: 'Validar chamado', confirmText: 'Sim, aprovar tudo' }
-        );
+        const qtdReprovadas = data?.data.filter((os) => os.VALCLI_OS === 'NAO').length ?? 0;
+        const mensagem =
+            qtdReprovadas > 0
+                ? `Este chamado tem ${qtdReprovadas} OS reprovada${qtdReprovadas > 1 ? 's' : ''}. Ao validar, TODAS as OS serão aprovadas e ${qtdReprovadas > 1 ? 'as reprovações serão desfeitas' : 'a reprovação será desfeita'}. Para contestar alguma OS, acesse o portal. Confirma?`
+                : 'Isso vai aprovar TODAS as OS deste chamado. Confirma?';
+        const confirmado = await alertConfirm(mensagem, {
+            title: 'Validar chamado',
+            confirmText: 'Sim, aprovar tudo',
+        });
         if (!confirmado) return;
 
         setValidandoTudo(true);
@@ -78,7 +82,7 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
         } finally {
             setValidandoTudo(false);
         }
-    }, [validandoTudo, codChamado, token, queryClient, queryKey]);
+    }, [validandoTudo, data, codChamado, token, queryClient, queryKey]);
 
     return (
         <div className="min-h-screen bg-stone-100 pb-16">
@@ -146,21 +150,16 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
                             </button>
                         )}
 
+                        {!data.chamadoFinalizado && (
+                            <p className="text-xs font-semibold tracking-wide text-gray-500 select-none">
+                                Confira as OS abaixo. Para contestar alguma OS, acesse o portal ou
+                                fale com o consultor responsável.
+                            </p>
+                        )}
+
                         <div className="flex flex-col gap-3">
                             {data.data.map((os) => (
-                                <OSItem
-                                    // Remonta o card (resetando o estado local do
-                                    // formulário) sempre que o VALCLI_OS/OBSCLI_OS
-                                    // vindos do servidor mudam — sem isso, depois de
-                                    // "Validar chamado" ou salvar, o card ficava
-                                    // mostrando a seleção/observação antigas mesmo
-                                    // com o resumo já refletindo o valor novo.
-                                    key={`${os.COD_OS}-${os.VALCLI_OS}-${os.OBSCLI_OS}`}
-                                    os={os}
-                                    token={token}
-                                    somenteLeitura={!!data.chamadoFinalizado}
-                                    onSaved={() => queryClient.invalidateQueries({ queryKey })}
-                                />
+                                <OSItem key={os.COD_OS} os={os} />
                             ))}
                         </div>
                     </>
@@ -170,49 +169,8 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
     );
 }
 
-interface OSItemProps {
-    os: OSRowProps;
-    token: string;
-    somenteLeitura: boolean;
-    onSaved: () => void;
-}
-
-function OSItem({ os, token, somenteLeitura, onSaved }: OSItemProps) {
-    const [concordaPagar, setConcordaPagar] = useState(os.VALCLI_OS === 'SIM');
-    const [observacao, setObservacao] = useState(os.OBSCLI_OS ?? '');
-    const [salvando, setSalvando] = useState(false);
-
-    const jaValidada = os.VALCLI_OS === 'SIM' || os.VALCLI_OS === 'NAO';
-
-    const handleSalvar = useCallback(async () => {
-        if (!concordaPagar && !observacao.trim()) {
-            alertError('Informe o motivo da reprovação.');
-            return;
-        }
-        setSalvando(true);
-        try {
-            const res = await fetch('/api/salvar-validacao', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    cod_os: os.COD_OS,
-                    concordaPagar,
-                    observacao: observacao.trim() || null,
-                    linkToken: token,
-                }),
-            });
-            if (!res.ok) {
-                const d = await res.json();
-                throw new Error(d.error ?? 'Falha ao salvar validação');
-            }
-            alertSuccess(`OS ${os.NUM_OS ?? os.COD_OS} validada com sucesso!`);
-            onSaved();
-        } catch (err) {
-            alertError(err instanceof Error ? err.message : 'Erro ao salvar validação');
-        } finally {
-            setSalvando(false);
-        }
-    }, [concordaPagar, observacao, os.COD_OS, os.NUM_OS, token, onSaved]);
+function OSItem({ os }: { os: OSRowProps }) {
+    const validada = os.VALCLI_OS === 'SIM' || os.VALCLI_OS === 'NAO';
 
     return (
         <div className="flex flex-col gap-2.5 rounded-lg border border-gray-200 bg-white p-3 shadow-sm shadow-black/10">
@@ -234,7 +192,7 @@ function OSItem({ os, token, somenteLeitura, onSaved }: OSItemProps) {
 
             {os.OBS && <p className="text-xs font-medium text-gray-600">{os.OBS}</p>}
 
-            {jaValidada && (
+            {validada && (
                 <div className="flex items-center gap-1.5 rounded-md bg-gray-50 px-2 py-1">
                     {os.VALCLI_OS === 'SIM' ? (
                         <FaRegCircleCheck className="flex-shrink-0 text-emerald-600" size={13} />
@@ -242,77 +200,9 @@ function OSItem({ os, token, somenteLeitura, onSaved }: OSItemProps) {
                         <FaRegCircleXmark className="flex-shrink-0 text-red-600" size={13} />
                     )}
                     <span className="text-xs font-bold text-gray-600 select-none">
-                        {os.VALCLI_OS === 'SIM' ? 'Já validada como aprovada' : 'Já reprovada'}
+                        {os.VALCLI_OS === 'SIM' ? 'Aprovada' : 'Reprovada'}
                         {os.OBSCLI_OS ? ` — ${os.OBSCLI_OS}` : ''}
                     </span>
-                </div>
-            )}
-
-            {!somenteLeitura && (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setConcordaPagar(true)}
-                            className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-all duration-150 ${
-                                concordaPagar
-                                    ? 'border-blue-500 bg-blue-100 ring-1 ring-blue-500'
-                                    : 'border-blue-200 bg-white hover:bg-blue-50'
-                            }`}
-                        >
-                            <FaRegCircleCheck
-                                className={concordaPagar ? 'text-blue-700' : 'text-blue-400'}
-                                size={13}
-                            />
-                            <span className="text-xs font-bold text-blue-700 select-none">
-                                Aprovada
-                            </span>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setConcordaPagar(false)}
-                            className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-3 py-1.5 transition-all duration-150 ${
-                                !concordaPagar
-                                    ? 'border-red-500 bg-red-100 ring-1 ring-red-500'
-                                    : 'border-red-200 bg-white hover:bg-red-50'
-                            }`}
-                        >
-                            <FaRegCircleXmark
-                                className={!concordaPagar ? 'text-red-700' : 'text-red-400'}
-                                size={13}
-                            />
-                            <span className="text-xs font-bold text-red-700 select-none">
-                                Reprovada
-                            </span>
-                        </button>
-                    </div>
-
-                    <input
-                        type="text"
-                        value={observacao}
-                        onChange={(e) => setObservacao(e.target.value)}
-                        maxLength={195}
-                        placeholder={
-                            !concordaPagar
-                                ? 'Informe o motivo da reprovação...'
-                                : 'Observação opcional...'
-                        }
-                        className={`min-w-0 flex-1 rounded-md border px-3 py-1.5 text-xs font-medium text-black outline-none placeholder:text-gray-400 ${
-                            !concordaPagar
-                                ? 'border-red-200 bg-red-50'
-                                : 'border-blue-200 bg-blue-50'
-                        }`}
-                    />
-
-                    <button
-                        type="button"
-                        onClick={handleSalvar}
-                        disabled={salvando}
-                        className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md bg-gradient-to-br from-teal-600 to-teal-700 px-4 py-1.5 text-xs font-bold text-white shadow-sm shadow-black/20 transition-all duration-150 select-none hover:from-teal-500 hover:to-teal-600 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                        <IoIosSave size={14} />
-                        {salvando ? 'Salvando...' : 'Salvar'}
-                    </button>
                 </div>
             )}
         </div>
