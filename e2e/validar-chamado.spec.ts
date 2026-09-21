@@ -148,6 +148,43 @@ test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', 
         expect((await ordemObs())[0]).toBe('obs-B');
     });
 
+    test('ao rolar, cabeçalho, ordenação e botão ficam fixos e só as OS rolam', async ({
+        page,
+    }) => {
+        const token = assinarLinkValidacao(COD_CHAMADO, COD_CLIENTE);
+
+        const muitasOS = Array.from({ length: 15 }, (_, n) => ({
+            ...OS_FIXTURE,
+            COD_OS: 100 + n,
+            NUM_OS: String(200 + n).padStart(6, '0'),
+            OBS: `obs-${n}`,
+        }));
+        await mockApiOS(page, false, muitasOS);
+        await page.setViewportSize({ width: 1280, height: 700 });
+        await page.goto(`/paginas/validar/${token}`);
+
+        const cabecalho = page.locator('header');
+        const botao = page.getByRole('button', { name: 'Validar Chamado' });
+        await expect(botao).toBeVisible();
+
+        const antesCabecalho = await cabecalho.boundingBox();
+        const antesBotao = await botao.boundingBox();
+        const primeiraOS = page.locator('p', { hasText: 'obs-0' }).first();
+        const antesPrimeira = await primeiraOS.boundingBox();
+
+        await page.locator('div.overflow-y-auto').evaluate((el) => {
+            el.scrollTop = 600;
+        });
+
+        // Cabeçalho e botão não se mexem...
+        expect(await cabecalho.boundingBox()).toEqual(antesCabecalho);
+        expect(await botao.boundingBox()).toEqual(antesBotao);
+        await expect(botao).toBeInViewport();
+        // ...e a lista rolou (a primeira OS subiu).
+        const depoisPrimeira = await primeiraOS.boundingBox();
+        expect(depoisPrimeira!.y).toBeLessThan(antesPrimeira!.y);
+    });
+
     test('OS reprovada: só avisa antes de confirmar, e valida mesmo assim se confirmar', async ({
         page,
     }) => {
