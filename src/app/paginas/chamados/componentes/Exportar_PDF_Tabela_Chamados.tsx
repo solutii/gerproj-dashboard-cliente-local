@@ -838,7 +838,7 @@ export function ExportarPDFTabelaChamados({
                           : 'Gerando PDF...'
                       : 'Exportar para PDF'
             }
-            className={`group cursor-pointer rounded-md bg-gradient-to-br from-red-600 to-red-700 p-3 shadow-md shadow-black transition-all duration-200 hover:scale-115 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+            className={`group cursor-pointer rounded-md border border-red-800 bg-red-600 p-3 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.35),inset_0_-2px_3px_rgba(0,0,0,0.35),0_1px_1px_rgba(0,0,0,0.3),0_8px_20px_-5px_rgba(185,28,28,0.7)] transition-all duration-200 hover:scale-115 hover:shadow-xl hover:shadow-black active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
         >
             {isExporting ? (
                 <div className="flex flex-col items-center gap-1">

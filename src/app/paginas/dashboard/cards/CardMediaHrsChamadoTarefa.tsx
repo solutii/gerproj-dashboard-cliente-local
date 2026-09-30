@@ -109,7 +109,7 @@ const MediaCard = ({ label, value, icon, gradient, textGradient }: MediaCardProp
 
 // ==================== SKELETON LOADING ====================
 const SkeletonLoadingCard = () => (
-    <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-cyan-200 bg-gradient-to-br from-white via-cyan-50/30 to-cyan-100/20 shadow-lg sm:h-64 lg:h-72">
+    <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-cyan-200 bg-white bg-gradient-to-br from-white via-cyan-50/30 to-cyan-100/20 shadow-lg sm:h-64 lg:h-72">
         <div className="flex h-full items-center justify-center">
             <LoadingRingSpinner palette="cyan-blue" />
         </div>

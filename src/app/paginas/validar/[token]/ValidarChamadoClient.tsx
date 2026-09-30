@@ -2,6 +2,7 @@
 
 'use client';
 
+import { ModalAvaliarChamado } from '@/app/paginas/chamados/modais/Modal_Avaliar_Chamado';
 import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { IsLoading } from '@/components/IsLoading';
 import { ZOOM_PAGINAS } from '@/components/loading-titles';
@@ -22,6 +23,9 @@ interface OSResponse {
     dataChamado: string | null;
     chamadoFinalizado?: boolean;
     nomeCliente?: string | null;
+    assuntoChamado?: string | null;
+    solicitacaoChamado?: string | null;
+    chamadoAvaliado?: boolean;
     data: OSRowProps[];
 }
 
@@ -89,6 +93,9 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
     const isDesktop = useIsDesktop();
     const [validandoTudo, setValidandoTudo] = useState(false);
     const [ordenacao, setOrdenacao] = useState<Ordenacao>('data-desc');
+    // Abre logo após validar o chamado — ao validar, ele já é finalizado
+    // automaticamente, então é o melhor momento pra pedir a avaliação.
+    const [isAvaliacaoOpen, setIsAvaliacaoOpen] = useState(false);
 
     const queryKey = useMemo(
         () => ['validar-os', codChamado, codCliente],
@@ -126,6 +133,9 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
                 throw new Error(d.error ?? 'Erro ao validar chamado');
             }
             alertSuccess('Chamado validado com sucesso!');
+            if (!data?.chamadoAvaliado) {
+                setIsAvaliacaoOpen(true);
+            }
             await queryClient.invalidateQueries({ queryKey });
         } catch (err) {
             alertError(err instanceof Error ? err.message : 'Erro ao validar chamado');
@@ -244,6 +254,16 @@ export function ValidarChamadoClient({ token, codChamado, codCliente }: ValidarC
             <div style={{ zoom: isDesktop ? ZOOM_PAGINAS : 1 }}>
                 <IsLoading isLoading={isLoading} title="Carregando OS's do chamado..." />
             </div>
+
+            <ModalAvaliarChamado
+                isOpen={isAvaliacaoOpen}
+                onClose={() => setIsAvaliacaoOpen(false)}
+                codChamado={codChamado}
+                assuntoChamado={data?.assuntoChamado ?? null}
+                solicitacaoChamado={data?.solicitacaoChamado ?? null}
+                onSave={() => queryClient.invalidateQueries({ queryKey })}
+                token={token}
+            />
         </div>
     );
 }

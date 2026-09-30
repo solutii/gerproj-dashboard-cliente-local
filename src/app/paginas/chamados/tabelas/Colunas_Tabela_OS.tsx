@@ -43,21 +43,28 @@ export interface OSRowProps {
 // =====================================================
 const EMPTY_VALUE = '---------------';
 
+// Mesma técnica de profundidade dos pills de totais e dos badges de horas:
+// degradê com contraste + brilho no topo (inset claro) + friso escuro embaixo
+// por dentro (inset escuro) + sombra colada e espalhada na cor do próprio
+// status, em vez de uma cor chapada com sombra genérica.
 const VALIDATION_STYLES = {
     SIM: {
-        container: 'border-green-600 bg-green-500 text-black',
+        container:
+            'border-green-700 bg-gradient-to-b from-green-400 to-green-600 text-black shadow-[inset_0_1.5px_0_rgba(255,255,255,0.5),inset_0_-2px_2px_rgba(21,87,36,0.35),0_1px_1px_rgba(21,87,36,0.3),0_6px_14px_-5px_rgba(21,87,36,0.65)]',
         icon: 'text-black',
         label: 'Aprovada',
         Icon: FaCheck,
     },
     NAO: {
-        container: 'border-red-600 bg-red-500 text-white',
+        container:
+            'border-red-700 bg-gradient-to-b from-red-400 to-red-600 text-white shadow-[inset_0_1.5px_0_rgba(255,255,255,0.5),inset_0_-2px_2px_rgba(127,29,29,0.35),0_1px_1px_rgba(127,29,29,0.3),0_6px_14px_-5px_rgba(127,29,29,0.65)]',
         icon: 'text-white',
         label: 'Reprovada',
         Icon: MdClose,
     },
     DEFAULT: {
-        container: 'border-gray-400 bg-gray-300 text-black',
+        container:
+            'border-gray-500 bg-gradient-to-b from-gray-200 to-gray-400 text-gray-900 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(55,65,81,0.25),0_1px_1px_rgba(55,65,81,0.2),0_6px_14px_-5px_rgba(55,65,81,0.45)]',
         icon: '',
         label: null,
         Icon: null,
@@ -105,7 +112,7 @@ const ValidacaoBadge = React.memo(function ValidacaoBadge({ status }: ValidacaoB
 
     return (
         <div
-            className={`flex items-center justify-center gap-2 rounded border px-4 py-1.5 text-sm font-extrabold tracking-wide shadow-sm shadow-black select-none ${config.container}`}
+            className={`flex items-center justify-center gap-2 rounded border px-4 py-1.5 text-sm font-extrabold tracking-wide select-none ${config.container}`}
         >
             {IconComponent && <IconComponent className={config.icon} size={18} />}
             {config.label || status || EMPTY_VALUE}
@@ -195,14 +202,18 @@ const HorasAdicionaisBreakdown = React.memo(function HorasAdicionaisBreakdown({
     horas,
 }: HorasAdicionaisBreakdownProps) {
     return (
-        <div className="flex flex-col gap-1 p-0.5">
+        <div className="flex flex-col gap-2.5 p-0.5">
+            {/* Mesma técnica de profundidade dos pills de totais da OS: degradê
+                com contraste + brilho no topo (inset claro) + friso escuro
+                embaixo por dentro (inset escuro) + sombra colada e espalhada
+                na própria cor do badge. */}
             {/* Horas sem adicional (comercial + janela 05–08) */}
             {horas.temAdicional && horas.horasSemAdicional > 0 && (
-                <div className="flex items-center justify-between gap-2 rounded border border-green-300 bg-green-100 px-2 py-0.5">
-                    <span className="text-sm font-extrabold tracking-wide text-green-700 select-none">
+                <div className="flex items-center justify-between gap-2 rounded border border-green-400 bg-gradient-to-b from-green-50 to-green-300 px-2 py-0.5 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(21,128,61,0.25),0_1px_1px_rgba(21,128,61,0.25),0_6px_14px_-5px_rgba(21,128,61,0.55)]">
+                    <span className="text-sm font-extrabold tracking-wide text-green-900 select-none">
                         HR Comercial
                     </span>
-                    <span className="text-sm font-extrabold tracking-wide text-green-700 select-none">
+                    <span className="text-sm font-extrabold tracking-wide text-green-900 select-none">
                         {formatarHorasRelogio(horas.horasSemAdicional)}
                     </span>
                 </div>
@@ -210,11 +221,11 @@ const HorasAdicionaisBreakdown = React.memo(function HorasAdicionaisBreakdown({
 
             {/* Horas com adicional: bruto → equivalente */}
             {horas.temAdicional && horas.horasAdicionalGerado > 0 && (
-                <div className="flex items-center justify-between gap-2 rounded border border-orange-300 bg-orange-100 px-2 py-0.5">
-                    <span className="text-sm font-extrabold tracking-wide text-orange-700 select-none">
+                <div className="flex items-center justify-between gap-2 rounded border border-orange-400 bg-gradient-to-b from-orange-50 to-orange-300 px-2 py-0.5 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(194,65,12,0.25),0_1px_1px_rgba(194,65,12,0.25),0_6px_14px_-5px_rgba(194,65,12,0.55)]">
+                    <span className="text-sm font-extrabold tracking-wide text-orange-900 select-none">
                         HR Não Comercial
                     </span>
-                    <span className="text-sm font-extrabold tracking-wide text-orange-700 select-none">
+                    <span className="text-sm font-extrabold tracking-wide text-orange-900 select-none">
                         {formatarHorasRelogio(horas.horasComAdicional)}
                     </span>
                 </div>
@@ -222,22 +233,22 @@ const HorasAdicionaisBreakdown = React.memo(function HorasAdicionaisBreakdown({
 
             {/* Adicional gerado */}
             {horas.temAdicional && horas.horasAdicionalGerado > 0 && (
-                <div className="flex items-center justify-between gap-2 rounded border border-yellow-300 bg-yellow-100 px-2 py-0.5">
-                    <span className="text-sm font-extrabold tracking-wide text-yellow-700 select-none">
+                <div className="flex items-center justify-between gap-2 rounded border border-yellow-400 bg-gradient-to-b from-yellow-50 to-yellow-300 px-2 py-0.5 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(161,98,7,0.25),0_1px_1px_rgba(161,98,7,0.25),0_6px_14px_-5px_rgba(161,98,7,0.55)]">
+                    <span className="text-sm font-extrabold tracking-wide text-yellow-900 select-none">
                         HR Adicional
                     </span>
-                    <span className="text-sm font-extrabold tracking-wide text-yellow-700 select-none">
+                    <span className="text-sm font-extrabold tracking-wide text-yellow-900 select-none">
                         +{formatarHorasRelogio(horas.horasAdicionalGerado)}
                     </span>
                 </div>
             )}
 
             {/* Total equivalente — sempre visível */}
-            <div className="flex items-center justify-between gap-2 rounded border border-purple-300 bg-purple-100 px-2 py-0.5">
-                <span className="text-sm font-extrabold tracking-wide text-purple-700 select-none">
+            <div className="flex items-center justify-between gap-2 rounded border border-purple-400 bg-gradient-to-b from-purple-50 to-purple-300 px-2 py-0.5 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(126,34,206,0.25),0_1px_1px_rgba(126,34,206,0.25),0_6px_14px_-5px_rgba(126,34,206,0.55)]">
+                <span className="text-sm font-extrabold tracking-wide text-purple-900 select-none">
                     Total HR
                 </span>
-                <span className="text-sm font-extrabold tracking-wide text-purple-700 select-none">
+                <span className="text-sm font-extrabold tracking-wide text-purple-900 select-none">
                     {formatarHorasRelogio(horas.totalHorasEquivalente)}
                 </span>
             </div>

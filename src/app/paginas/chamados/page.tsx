@@ -47,7 +47,7 @@ function TabelaComFiltros({ onDataChange }: TabelaComFiltrosProps) {
     ]);
 
     return (
-        <div className="flex h-full flex-col overflow-hidden">
+        <div className="flex h-full flex-col overflow-hidden p-2">
             <div className="min-h-0 flex-1">
                 <TabelaChamados key={tableKey} onDataChange={onDataChange} />
             </div>

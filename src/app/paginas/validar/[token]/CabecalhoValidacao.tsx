@@ -103,7 +103,11 @@ export function CabecalhoValidacao({ codChamado, nomeCliente }: CabecalhoValidac
                                 VALIDAÇÃO DO CHAMADO
                             </h1>
                             <span className="text-xl font-black tracking-wider sm:text-3xl">
-                                Nº {String(codChamado).padStart(5, '0')}
+                                #{' '}
+                                {codChamado.toLocaleString('pt-BR', {
+                                    minimumIntegerDigits: 5,
+                                    useGrouping: true,
+                                })}
                             </span>
                         </div>
                         {nomeCliente && (

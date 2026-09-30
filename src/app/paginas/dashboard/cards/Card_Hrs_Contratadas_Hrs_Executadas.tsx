@@ -137,7 +137,7 @@ const HorasBar = ({
 
 // ==================== SKELETON LOADING ====================
 const SkeletonLoadingCard = () => (
-    <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-blue-200 bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20 shadow-lg sm:h-64 lg:h-72">
+    <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-blue-200 bg-white bg-gradient-to-br from-white via-blue-50/30 to-blue-100/20 shadow-lg sm:h-64 lg:h-72">
         <div className="flex h-full items-center justify-center">
             <LoadingRingSpinner palette="blue-indigo" />
         </div>

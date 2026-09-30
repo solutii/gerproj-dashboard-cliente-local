@@ -1,6 +1,9 @@
 // app/api/chamados/[codChamado]/avaliacao/route.ts
 import { safeErrorMessage } from '@/lib/api-error';
+import { verificarLinkValidacao } from '@/lib/auth/link-validacao';
+import { SESSAO_COOKIE_NOME, verificarSessao } from '@/lib/auth/session';
 import { firebirdExecute, firebirdQuery } from '@/lib/firebird/firebird-client';
+import { excedeuLimite, obterIp } from '@/lib/rate-limit';
 import { NextRequest, NextResponse } from 'next/server';
 
 interface RouteParams {
@@ -190,6 +193,14 @@ async function salvarAvaliacao(
 // ==================== HANDLER POST ====================
 export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
+        const ip = obterIp(request);
+        if (excedeuLimite(`avaliacao:${ip}`, 20, 10 * 60 * 1000)) {
+            return NextResponse.json(
+                { error: 'Muitas solicitações. Tente novamente em alguns minutos.' },
+                { status: 429 }
+            );
+        }
+
         const { codChamado } = await params;
 
         // Validar código do chamado
@@ -208,12 +219,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         const { avaliacao, observacao } = validacao;
 
-        const codCliente = body.codCliente ? String(body.codCliente).trim() : '';
-        if (!codCliente) {
-            return NextResponse.json(
-                { error: "Parâmetro 'codCliente' é obrigatório" },
-                { status: 400 }
-            );
+        // Rota pública no middleware (também usada pelo /paginas/validar/[token],
+        // sem login), então a autorização é feita aqui: token do link (do MESMO
+        // chamado) ou sessão de cliente. Sem nenhum dos dois, 401 — nunca confia
+        // num codCliente solto vindo do corpo da requisição.
+        let codCliente: string | undefined;
+        const linkToken = typeof body.token === 'string' ? body.token : undefined;
+        if (linkToken) {
+            const verificado = verificarLinkValidacao(linkToken);
+            if (!verificado || verificado.codChamado !== codChamadoValidado) {
+                return NextResponse.json({ error: 'Link inválido ou expirado' }, { status: 403 });
+            }
+            codCliente = verificado.codCliente;
+        } else {
+            const sessao = await verificarSessao(request.cookies.get(SESSAO_COOKIE_NOME)?.value);
+            if (!sessao || sessao.loginType !== 'cliente' || !sessao.codCliente) {
+                return NextResponse.json({ error: 'Não autenticado' }, { status: 401 });
+            }
+            codCliente = sessao.codCliente;
         }
 
         // Verificar se o chamado pode ser avaliado

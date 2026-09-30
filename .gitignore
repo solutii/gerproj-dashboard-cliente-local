@@ -28,6 +28,7 @@
 .DS_Store
 *.pem
 *.rar
+*.zip
 
 # debug
 npm-debug.log*

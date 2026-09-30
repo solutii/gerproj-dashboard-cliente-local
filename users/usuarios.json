@@ -93,5 +93,10 @@
     "email": "rogerio.jlf.1@gmail.com",
     "password": "$2b$10$ch4I9uuvec4cZ0ZqUk16QOXMvBod8j5vwl8aI.NRyl2IiagyZuCm6",
     "cod_cliente": "172"
+  },
+  {
+    "email": "portoseco@portoseco.com.br",
+    "password": "$2b$10$Ir.v8WEwBiziPE4u8/BGfu4JgPcDA74fXGVgRtzJaqDRp2tLBa9/S",
+    "cod_cliente": "173"
   }
 ]

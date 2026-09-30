@@ -48,12 +48,18 @@ export interface ChamadoRowProps {
 
 // ========== CONSTANTES ==========
 const STATUS_STYLES: Record<string, string> = {
-    'EM ATENDIMENTO': 'bg-purple-300 border border-purple-500 text-black',
-    FINALIZADO: 'bg-green-300 border border-green-500 text-black',
-    STANDBY: 'bg-orange-300 border border-orange-500 text-black',
-    ATRIBUIDO: 'bg-cyan-300 border border-cyan-500 text-black',
-    'AGUARDANDO VALIDACAO': 'bg-yellow-300 border border-yellow-500 text-black',
-    DEFAULT: 'bg-gray-300 border border-gray-500 text-black',
+    'EM ATENDIMENTO':
+        'border-purple-500 bg-purple-500 text-purple-950 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(126,34,206,0.35),0_1px_1px_rgba(126,34,206,0.3),0_8px_20px_-5px_rgba(126,34,206,0.6)]',
+    FINALIZADO:
+        'border-green-500 bg-green-500 text-green-950 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(21,128,61,0.35),0_1px_1px_rgba(21,128,61,0.3),0_8px_20px_-5px_rgba(21,128,61,0.6)]',
+    STANDBY:
+        'border-orange-500 bg-orange-500 text-orange-950 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(194,65,12,0.35),0_1px_1px_rgba(194,65,12,0.3),0_8px_20px_-5px_rgba(194,65,12,0.6)]',
+    ATRIBUIDO:
+        'border-cyan-500 bg-cyan-500 text-cyan-950 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(14,116,144,0.35),0_1px_1px_rgba(14,116,144,0.3),0_8px_20px_-5px_rgba(14,116,144,0.6)]',
+    'AGUARDANDO VALIDACAO':
+        'border-yellow-500 bg-yellow-500 text-yellow-950 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(161,98,7,0.35),0_1px_1px_rgba(161,98,7,0.3),0_8px_20px_-5px_rgba(161,98,7,0.6)]',
+    DEFAULT:
+        'border-gray-500 bg-gray-500 text-gray-950 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(55,65,81,0.35),0_1px_1px_rgba(55,65,81,0.3),0_8px_20px_-5px_rgba(55,65,81,0.6)]',
 };
 
 const EMPTY_VALUE = '==========';
@@ -137,7 +143,7 @@ const StatusBadge = React.memo(function StatusBadge({
     return (
         <div className="flex w-full items-center gap-2">
             <div
-                className={`flex items-center justify-center gap-2 rounded px-4 py-1.5 text-sm font-extrabold tracking-wide select-none ${styles} ${isFinalizado ? 'flex-1' : 'w-full'}`}
+                className={`flex items-center justify-center gap-2 rounded border px-4 py-1.5 text-sm font-extrabold tracking-wide select-none ${styles} ${isFinalizado ? 'flex-1' : 'w-full'}`}
             >
                 <span className="flex-1">{status}</span>
                 {isFinalizado && foiAvaliado && (
@@ -149,11 +155,11 @@ const StatusBadge = React.memo(function StatusBadge({
                             {Array.from({ length: 5 }).map((_, i) => (
                                 <MdOutlineStar
                                     key={i}
-                                    size={14}
+                                    size={18}
                                     className={
                                         i < avaliacaoValor
-                                            ? 'fill-yellow-600 text-yellow-600'
-                                            : 'fill-white/50 text-white/50'
+                                            ? 'fill-yellow-600 text-yellow-600 drop-shadow-[0_1px_2px_rgba(161,98,7,0.6)]'
+                                            : 'fill-white/50 text-white/50 drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]'
                                     }
                                 />
                             ))}
@@ -161,17 +167,17 @@ const StatusBadge = React.memo(function StatusBadge({
                     </div>
                 )}
             </div>
-            {isFinalizado && (
+            {isFinalizado && !foiAvaliado && (
                 <button
                     onClick={(e) => {
                         e.stopPropagation();
                         onAvaliar?.();
                     }}
-                    title={foiAvaliado ? 'Reavaliar chamado' : 'Avaliar chamado'}
+                    title="Avaliar chamado"
                 >
                     <BiSolidLike
-                        className="cursor-pointer text-purple-600 transition-all duration-200 hover:scale-140 active:scale-95"
-                        size={32}
+                        className="cursor-pointer text-purple-600 drop-shadow-[0_2px_3px_rgba(126,34,206,0.5)] transition-all duration-200 hover:scale-140 active:scale-95"
+                        size={28}
                     />
                 </button>
             )}
@@ -189,8 +195,8 @@ const ActionButton = React.memo(function ActionButton({ onClick, title }: Action
     return (
         <button onClick={onClick} title={title}>
             <MdOpenInNew
-                className="cursor-pointer text-purple-600 transition-all duration-200 hover:scale-140 hover:-rotate-45 active:scale-95"
-                size={32}
+                className="cursor-pointer text-purple-600 drop-shadow-[0_2px_3px_rgba(126,34,206,0.5)] transition-all duration-200 hover:scale-140 hover:-rotate-45 active:scale-95"
+                size={28}
             />
         </button>
     );
@@ -201,8 +207,8 @@ const HistoricoButton = React.memo(function HistoricoButton({ onClick, title }: 
     return (
         <button onClick={onClick} title={title}>
             <MdHistory
-                className="cursor-pointer text-teal-600 transition-all duration-200 hover:scale-140 active:scale-95"
-                size={30}
+                className="cursor-pointer text-teal-600 drop-shadow-[0_2px_3px_rgba(13,148,136,0.5)] transition-all duration-200 hover:scale-140 active:scale-95"
+                size={28}
             />
         </button>
     );

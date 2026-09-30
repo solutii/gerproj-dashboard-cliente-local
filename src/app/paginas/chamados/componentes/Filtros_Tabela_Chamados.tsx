@@ -1068,7 +1068,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
     );
 
     const selectClassName =
-        'w-full cursor-pointer rounded-md bg-white p-1.5 text-sm font-bold tracking-widest shadow-xs shadow-black transition-all duration-200 select-none hover:shadow-md hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:opacity-30';
+        'w-full cursor-pointer rounded-md bg-white p-1.5 text-sm font-bold tracking-widest shadow-xs shadow-black transition-all duration-200 select-none hover:shadow-md hover:shadow-black focus:ring-2 focus:ring-purple-600 focus:outline-none disabled:cursor-not-allowed disabled:text-gray-400';
 
     return (
         <FiltrosContext.Provider value={filtrosAtuais}>
@@ -1095,7 +1095,7 @@ export function FiltrosTabelaChamados({ children, dadosChamados = [] }: FiltrosC
                                 {filtrosAplicados.map((filtro, index) => (
                                     <div
                                         key={`${filtro.campo}-${index}`}
-                                        className="group flex items-center gap-4 rounded-full border-t border-purple-300 bg-purple-100 px-6 py-1 text-sm font-extrabold tracking-widest text-black shadow-sm shadow-black"
+                                        className="group flex items-center gap-4 rounded-full border border-gray-500 bg-gray-500 px-6 py-1 text-sm font-extrabold tracking-widest text-white shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(55,65,81,0.35),0_1px_1px_rgba(55,65,81,0.3),0_8px_20px_-5px_rgba(55,65,81,0.6)]"
                                     >
                                         <span>{filtro.label}</span>
                                     </div>

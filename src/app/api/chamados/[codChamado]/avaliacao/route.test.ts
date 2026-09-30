@@ -1,15 +1,27 @@
 import { NextRequest } from 'next/server';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GET, POST } from './route';
 
-const { firebirdQueryMock, firebirdExecuteMock } = vi.hoisted(() => ({
-    firebirdQueryMock: vi.fn(),
-    firebirdExecuteMock: vi.fn(),
-}));
+const { firebirdQueryMock, firebirdExecuteMock, verificarLinkValidacaoMock, excedeuLimiteMock } =
+    vi.hoisted(() => ({
+        firebirdQueryMock: vi.fn(),
+        firebirdExecuteMock: vi.fn(),
+        verificarLinkValidacaoMock: vi.fn(),
+        excedeuLimiteMock: vi.fn(),
+    }));
 
 vi.mock('@/lib/firebird/firebird-client', () => ({
     firebirdQuery: firebirdQueryMock,
     firebirdExecute: firebirdExecuteMock,
+}));
+
+vi.mock('@/lib/auth/link-validacao', () => ({
+    verificarLinkValidacao: verificarLinkValidacaoMock,
+}));
+
+vi.mock('@/lib/rate-limit', () => ({
+    excedeuLimite: excedeuLimiteMock,
+    obterIp: () => '127.0.0.1',
 }));
 
 function criarRequest(body: unknown) {
@@ -20,12 +32,27 @@ function criarRequest(body: unknown) {
 }
 
 describe('POST /api/chamados/[codChamado]/avaliacao', () => {
+    beforeEach(() => {
+        excedeuLimiteMock.mockReturnValue(false);
+    });
+
     afterEach(() => {
         vi.clearAllMocks();
     });
 
+    it('retorna 429 quando o rate limit foi excedido', async () => {
+        excedeuLimiteMock.mockReturnValue(true);
+
+        const response = await POST(criarRequest({ avaliacao: 5, token: 'valido' }), {
+            params: { codChamado: '55' },
+        });
+
+        expect(response.status).toBe(429);
+        expect(verificarLinkValidacaoMock).not.toHaveBeenCalled();
+    });
+
     it('retorna 400 quando codChamado não é um número válido', async () => {
-        const response = await POST(criarRequest({ avaliacao: 5, codCliente: '9' }), {
+        const response = await POST(criarRequest({ avaliacao: 5, token: 'valido' }), {
             params: { codChamado: 'abc' },
         });
         expect(response.status).toBe(400);
@@ -33,26 +60,56 @@ describe('POST /api/chamados/[codChamado]/avaliacao', () => {
     });
 
     it('retorna 400 quando a avaliação está fora do intervalo 1-5', async () => {
-        const response = await POST(criarRequest({ avaliacao: 6, codCliente: '9' }), {
+        const response = await POST(criarRequest({ avaliacao: 6, token: 'valido' }), {
             params: { codChamado: '55' },
         });
         expect(response.status).toBe(400);
         expect(firebirdQueryMock).not.toHaveBeenCalled();
     });
 
+    it('retorna 401 quando não há token nem sessão', async () => {
+        const response = await POST(criarRequest({ avaliacao: 5 }), {
+            params: { codChamado: '55' },
+        });
+        expect(response.status).toBe(401);
+        expect(firebirdQueryMock).not.toHaveBeenCalled();
+    });
+
+    it('retorna 403 quando o token é inválido ou expirado', async () => {
+        verificarLinkValidacaoMock.mockReturnValue(null);
+
+        const response = await POST(criarRequest({ avaliacao: 5, token: 'invalido' }), {
+            params: { codChamado: '55' },
+        });
+        expect(response.status).toBe(403);
+        expect(firebirdQueryMock).not.toHaveBeenCalled();
+    });
+
+    it('retorna 403 quando o token é de outro chamado', async () => {
+        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 999, codCliente: '9' });
+
+        const response = await POST(criarRequest({ avaliacao: 5, token: 'de-outro-chamado' }), {
+            params: { codChamado: '55' },
+        });
+        expect(response.status).toBe(403);
+        expect(firebirdQueryMock).not.toHaveBeenCalled();
+    });
+
     it('retorna 404 quando o chamado não existe', async () => {
+        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdQueryMock.mockResolvedValueOnce([]);
-        const response = await POST(criarRequest({ avaliacao: 5, codCliente: '9' }), {
+        const response = await POST(criarRequest({ avaliacao: 5, token: 'valido' }), {
             params: { codChamado: '55' },
         });
         expect(response.status).toBe(404);
     });
 
     it('retorna 403 quando o chamado pertence a outro cliente', async () => {
+        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdQueryMock.mockResolvedValueOnce([
             { STATUS_CHAMADO: 'FINALIZADO', AVALIA_CHAMADO: 1, COD_CLIENTE: 999 },
         ]);
-        const response = await POST(criarRequest({ avaliacao: 5, codCliente: '9' }), {
+        const response = await POST(criarRequest({ avaliacao: 5, token: 'valido' }), {
             params: { codChamado: '55' },
         });
         expect(response.status).toBe(403);
@@ -60,10 +117,11 @@ describe('POST /api/chamados/[codChamado]/avaliacao', () => {
     });
 
     it('retorna 400 quando o chamado ainda não está finalizado', async () => {
+        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdQueryMock.mockResolvedValueOnce([
             { STATUS_CHAMADO: 'EM ATENDIMENTO', AVALIA_CHAMADO: 1, COD_CLIENTE: 9 },
         ]);
-        const response = await POST(criarRequest({ avaliacao: 5, codCliente: '9' }), {
+        const response = await POST(criarRequest({ avaliacao: 5, token: 'valido' }), {
             params: { codChamado: '55' },
         });
         expect(response.status).toBe(400);
@@ -73,10 +131,11 @@ describe('POST /api/chamados/[codChamado]/avaliacao', () => {
     });
 
     it('retorna 400 quando o chamado já foi avaliado', async () => {
+        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdQueryMock.mockResolvedValueOnce([
             { STATUS_CHAMADO: 'FINALIZADO', AVALIA_CHAMADO: 4, COD_CLIENTE: 9 },
         ]);
-        const response = await POST(criarRequest({ avaliacao: 5, codCliente: '9' }), {
+        const response = await POST(criarRequest({ avaliacao: 5, token: 'valido' }), {
             params: { codChamado: '55' },
         });
         expect(response.status).toBe(400);
@@ -86,13 +145,18 @@ describe('POST /api/chamados/[codChamado]/avaliacao', () => {
     });
 
     it('salva a avaliação quando o chamado está finalizado e ainda não foi avaliado', async () => {
+        verificarLinkValidacaoMock.mockReturnValue({ codChamado: 55, codCliente: '9' });
         firebirdQueryMock.mockResolvedValueOnce([
             { STATUS_CHAMADO: 'FINALIZADO', AVALIA_CHAMADO: 1, COD_CLIENTE: 9 },
         ]);
         firebirdExecuteMock.mockResolvedValueOnce(undefined);
 
         const response = await POST(
-            criarRequest({ avaliacao: 5, observacao: 'Ótimo atendimento', codCliente: '9' }),
+            criarRequest({
+                avaliacao: 5,
+                observacao: 'Ótimo atendimento',
+                token: 'valido',
+            }),
             { params: { codChamado: '55' } }
         );
 

@@ -74,7 +74,7 @@ export function ModalAssuntoSolicitacaoChamado({
                 {/* ========== */}
 
                 {/* ========== CONTEÚDO ========== */}
-                <div className="flex flex-1 flex-col gap-10 overflow-y-auto bg-stone-300 px-6 py-10">
+                <div className="flex flex-1 flex-col gap-10 overflow-y-auto bg-stone-100 px-6 py-10">
                     <div className="flex flex-col gap-6">
                         <div className="rounded-md border bg-white p-6 text-justify tracking-widest text-black shadow-md shadow-black select-none">
                             <p className="font-bold">Assunto:</p>

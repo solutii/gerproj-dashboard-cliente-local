@@ -2,8 +2,6 @@
 
 'use client';
 
-import { ExportarExcelTabelaChamados } from '@/app/paginas/chamados/componentes/Exportar_Excel_Tabela_Chamados';
-import { ExportarPDFTabelaChamados } from '@/app/paginas/chamados/componentes/Exportar_PDF_Tabela_Chamados';
 import { useFiltrosChamado } from '@/app/paginas/chamados/componentes/Filtros_Tabela_Chamados';
 import { RedimensionarColunas } from '@/app/paginas/chamados/componentes/Redimensionar_Colunas';
 import { ModalAssuntoSolicitacaoChamado } from '@/app/paginas/chamados/modais/Modal_Assunto_Solicitacao_Chamado';
@@ -28,6 +26,7 @@ import {
     getCoreRowModel,
     useReactTable,
 } from '@tanstack/react-table';
+import dynamic from 'next/dynamic';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BsEraserFill } from 'react-icons/bs';
 import { FaEraser, FaSearch } from 'react-icons/fa';
@@ -42,6 +41,24 @@ import {
 } from 'react-icons/md';
 import { TbMoodEmptyFilled } from 'react-icons/tb';
 import { ChamadoRowProps, getColunasChamados } from './Colunas_Tabela_Chamados';
+
+// ExcelJS e jsPDF são pesados (milhares de módulos) e só são usados quando
+// o usuário de fato clica em exportar — carregar sob demanda em vez de no
+// bundle/compile inicial da página de Chamados.
+const ExportarExcelTabelaChamados = dynamic(
+    () =>
+        import('@/app/paginas/chamados/componentes/Exportar_Excel_Tabela_Chamados').then(
+            (m) => m.ExportarExcelTabelaChamados
+        ),
+    { ssr: false }
+);
+const ExportarPDFTabelaChamados = dynamic(
+    () =>
+        import('@/app/paginas/chamados/componentes/Exportar_PDF_Tabela_Chamados').then(
+            (m) => m.ExportarPDFTabelaChamados
+        ),
+    { ssr: false }
+);
 
 // =====================================================
 // CONFIGURAÇÕES E CONSTANTES
@@ -738,7 +755,7 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
     // =====================================================
     return (
         <>
-            <div className="relative flex h-full w-full flex-col overflow-hidden bg-white">
+            <div className="relative flex h-full w-full flex-col overflow-hidden bg-white shadow-md shadow-black">
                 <Header
                     totalChamadosFiltrados={apiData?.totalChamados || 0}
                     totalOSFiltrados={apiData?.totalOS || 0}
@@ -938,7 +955,12 @@ const PaginationControls = React.memo(function PaginationControls({
                             : 'cursor-not-allowed border border-gray-400 bg-gray-300 text-gray-600'
                     }`}
                 >
-                    <MdNavigateBefore size={20} />
+                    <MdNavigateBefore
+                        size={20}
+                        className={
+                            hasPreviousPage ? 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]' : ''
+                        }
+                    />
                     Anterior
                 </button>
 
@@ -987,7 +1009,10 @@ const PaginationControls = React.memo(function PaginationControls({
                     }`}
                 >
                     Próximo
-                    <MdNavigateNext size={20} />
+                    <MdNavigateNext
+                        size={20}
+                        className={hasNextPage ? 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.35)]' : ''}
+                    />
                 </button>
             </div>
 
@@ -1049,24 +1074,26 @@ function ColumnVisibilityMenu({ table, status }: { table: any; status: string })
             <button
                 onClick={() => setIsOpen((prev) => !prev)}
                 title="Mostrar/ocultar colunas"
-                className="group flex flex-shrink-0 cursor-pointer items-center gap-2 rounded-full border border-purple-300 bg-white px-3 py-2 text-sm font-extrabold tracking-widest text-black transition-all hover:scale-105 active:scale-95 lg:px-4 lg:py-3"
+                className="group flex h-12 w-12 flex-shrink-0 cursor-pointer items-center justify-center rounded-full border border-purple-300 bg-white shadow-[inset_0_1.5px_0_rgba(255,255,255,0.9),inset_0_-2px_2px_rgba(0,0,0,0.08),0_1px_1px_rgba(0,0,0,0.08),0_6px_14px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-115 hover:shadow-xl hover:shadow-black active:scale-95"
             >
-                <MdChecklist size={16} className="transition-all group-hover:scale-110" />
-                <span className="hidden sm:inline">Colunas</span>
+                <MdChecklist
+                    size={24}
+                    className="text-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)] transition-all group-hover:scale-110"
+                />
             </button>
 
             {isOpen && (
-                <div className="absolute top-full right-0 z-30 mt-2 w-56 rounded-md border border-gray-300 bg-white p-2 shadow-lg shadow-black/40">
+                <div className="absolute top-full right-0 z-30 mt-2 w-56 rounded-md border border-gray-300 bg-white p-2 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.9),inset_0_-1px_2px_rgba(0,0,0,0.06),0_1px_1px_rgba(0,0,0,0.12),0_16px_32px_-10px_rgba(0,0,0,0.55)]">
                     {colunasOpcionais.map((col: any) => (
                         <label
                             key={col.id}
-                            className="flex cursor-pointer items-center gap-2 rounded px-2 py-2 text-sm font-semibold tracking-wide text-black select-none hover:bg-gray-100"
+                            className="flex cursor-pointer items-center gap-3 rounded px-2 py-2 text-sm font-semibold tracking-wide text-black select-none hover:bg-gray-100"
                         >
                             <input
                                 type="checkbox"
                                 checked={col.getIsVisible()}
                                 onChange={col.getToggleVisibilityHandler()}
-                                className="cursor-pointer"
+                                className="relative h-5 w-5 shrink-0 cursor-pointer appearance-none rounded border-2 border-gray-400 bg-white shadow-[inset_0_1.5px_0_rgba(255,255,255,0.9),inset_0_-1px_1px_rgba(0,0,0,0.1)] transition-all duration-150 after:absolute after:top-1/2 after:left-1/2 after:h-2.5 after:w-1.5 after:-translate-x-1/2 after:-translate-y-[60%] after:rotate-45 after:border-r-2 after:border-b-2 after:border-white after:opacity-0 after:content-[''] checked:border-purple-800 checked:bg-purple-600 checked:shadow-[inset_0_1.5px_0_rgba(255,255,255,0.5),inset_0_-2px_2px_rgba(88,28,135,0.5),0_1px_1px_rgba(88,28,135,0.3),0_3px_8px_-2px_rgba(88,28,135,0.6)] checked:after:opacity-100"
                             />
                             {COLUNA_LABELS[col.id]}
                         </label>
@@ -1124,6 +1151,22 @@ const Header = React.memo(function Header({
         (columnFilters.find((f) => f.id === 'ASSUNTO_CHAMADO')?.value as string | undefined) ?? '';
     const [buscaAssunto, setBuscaAssunto] = useState(buscaAssuntoAtual);
 
+    // Busca expansível — começa recolhida (só o ícone) e abre pra esquerda
+    // ao clicar; fecha sozinha ao clicar fora dela.
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const searchRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!isSearchOpen) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+                setIsSearchOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [isSearchOpen]);
+
     useEffect(() => {
         setBuscaAssunto(buscaAssuntoAtual);
     }, [buscaAssuntoAtual]);
@@ -1164,44 +1207,18 @@ const Header = React.memo(function Header({
     }, [status, totalGeralChamadosAPI, totalChamadosNaoFinalizados]);
 
     return (
-        <header className="grid grid-cols-1 items-center gap-x-4 gap-y-3 rounded-tl-4xl rounded-tr-4xl bg-purple-900 p-4 sm:p-6 lg:grid-cols-[auto_1fr_auto]">
+        <header className="flex flex-col items-center gap-3 bg-purple-900 p-4 sm:p-6 lg:flex-row lg:justify-between">
             <div className="flex items-center gap-4">
-                <IoCall className="text-white" size={50} />
+                <IoCall className="text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]" size={50} />
                 <div className="flex items-center gap-10">
                     <h2 className="text-2xl font-extrabold tracking-widest text-white select-none">
                         CHAMADOS {labelContagem}
                     </h2>
-                    <div className="rounded-full bg-white/30 px-8 py-1 shadow-md ring-2 shadow-black ring-white/30">
+                    <div className="rounded-full bg-white/20 px-8 py-1 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.5),inset_0_-2px_3px_rgba(0,0,0,0.35),0_1px_1px_rgba(0,0,0,0.25),0_8px_20px_-5px_rgba(0,0,0,0.6)] ring-1 ring-white/30">
                         <span className="text-3xl font-extrabold tracking-widest text-white select-none">
                             {contagemExibida}
                         </span>
                     </div>
-                </div>
-            </div>
-
-            <div className="flex justify-center">
-                <div className="relative w-full max-w-xl">
-                    <FaSearch
-                        className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-gray-400"
-                        size={16}
-                    />
-                    <input
-                        type="text"
-                        value={buscaAssunto}
-                        onChange={(e) => setBuscaAssunto(e.target.value)}
-                        placeholder="Buscar chamados por assunto ou código..."
-                        className="w-full rounded-full border border-purple-300 bg-white py-3 pr-10 pl-11 text-base font-semibold tracking-wide text-black placeholder:text-gray-400 focus:outline-none"
-                    />
-                    {buscaAssunto && (
-                        <button
-                            type="button"
-                            onClick={() => setBuscaAssunto('')}
-                            title="Limpar busca"
-                            className="absolute top-1/2 right-3.5 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-700"
-                        >
-                            <IoClose size={18} />
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -1210,14 +1227,65 @@ const Header = React.memo(function Header({
                     <button
                         onClick={clearAllFilters}
                         title="Limpar Filtros"
-                        className="group flex-shrink-0 cursor-pointer rounded-full border border-purple-300 bg-white p-2 text-lg font-extrabold tracking-widest text-white transition-all hover:scale-110 active:scale-95 lg:p-3"
+                        className="group flex-shrink-0 cursor-pointer rounded-full border border-purple-300 bg-white p-2 text-lg font-extrabold tracking-widest text-white shadow-[inset_0_1.5px_0_rgba(255,255,255,0.9),inset_0_-2px_2px_rgba(0,0,0,0.08),0_1px_1px_rgba(0,0,0,0.08),0_6px_14px_-5px_rgba(0,0,0,0.35)] transition-all duration-200 hover:scale-115 hover:shadow-xl hover:shadow-black active:scale-95 lg:p-3"
                     >
                         <FaEraser
                             size={14}
-                            className="text-black transition-all group-hover:scale-110"
+                            className="text-black drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] transition-all group-hover:scale-110"
                         />
                     </button>
                 )}
+
+                <div ref={searchRef} className="relative h-12 w-12 flex-shrink-0">
+                    <div
+                        className={`absolute top-0 right-0 flex h-12 items-center overflow-hidden rounded-full border border-purple-300 bg-white shadow-[inset_0_1.5px_0_rgba(255,255,255,0.9),inset_0_-2px_3px_rgba(0,0,0,0.08),0_1px_1px_rgba(0,0,0,0.08),0_6px_16px_-6px_rgba(0,0,0,0.35)] transition-all duration-300 ease-out ${
+                            isSearchOpen
+                                ? 'w-96'
+                                : 'w-12 hover:scale-115 hover:shadow-xl hover:shadow-black active:scale-95'
+                        }`}
+                    >
+                        {isSearchOpen && (
+                            <input
+                                autoFocus
+                                type="text"
+                                value={buscaAssunto}
+                                onChange={(e) => setBuscaAssunto(e.target.value)}
+                                placeholder="Buscar por assunto ou código..."
+                                className="h-full flex-1 bg-transparent pr-1 pl-5 text-base font-semibold text-black placeholder:text-gray-400 focus:outline-none"
+                            />
+                        )}
+                        {isSearchOpen && buscaAssunto && (
+                            <button
+                                type="button"
+                                onClick={() => setBuscaAssunto('')}
+                                title="Limpar busca"
+                                className="flex h-12 w-8 flex-shrink-0 cursor-pointer items-center justify-center text-gray-400 hover:text-gray-700"
+                            >
+                                <IoClose
+                                    size={18}
+                                    className="drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)]"
+                                />
+                            </button>
+                        )}
+                        <button
+                            type="button"
+                            onClick={() => setIsSearchOpen((prev) => !prev)}
+                            title="Buscar"
+                            className="flex h-12 w-12 flex-shrink-0 cursor-pointer items-center justify-center rounded-full"
+                        >
+                            <FaSearch
+                                size={18}
+                                className={`drop-shadow-[0_1px_1px_rgba(0,0,0,0.15)] ${
+                                    !isSearchOpen
+                                        ? 'text-black'
+                                        : buscaAssunto
+                                          ? 'text-purple-700'
+                                          : 'text-gray-400'
+                                }`}
+                            />
+                        </button>
+                    </div>
+                </div>
 
                 <ColumnVisibilityMenu table={table} status={status} />
 
@@ -1272,7 +1340,15 @@ const TableHeader = React.memo(function TableHeader({
                         return (
                             <th
                                 key={header.id}
-                                className="relative bg-teal-600 p-4 shadow-md shadow-black"
+                                className={`relative bg-teal-600 p-4 ${
+                                    // Sulco (sombra interna) nas divisões
+                                    // verticais entre um cabeçalho e o outro.
+                                    idx > 0 && idx < headerGroup.headers.length - 1
+                                        ? 'shadow-[inset_4px_0_4px_-4px_rgba(0,0,0,0.45),inset_-4px_0_4px_-4px_rgba(0,0,0,0.45)]'
+                                        : idx > 0
+                                          ? 'shadow-[inset_4px_0_4px_-4px_rgba(0,0,0,0.45)]'
+                                          : 'shadow-[inset_-4px_0_4px_-4px_rgba(0,0,0,0.45)]'
+                                }`}
                                 style={{ width: `${columnWidths[header.id]}px` }}
                             >
                                 {header.isPlaceholder ? null : isSortable ? (
@@ -1288,12 +1364,21 @@ const TableHeader = React.memo(function TableHeader({
                                         )}
                                         {isSorted ? (
                                             sorting?.desc ? (
-                                                <MdArrowDownward size={24} className="text-white" />
+                                                <MdArrowDownward
+                                                    size={24}
+                                                    className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+                                                />
                                             ) : (
-                                                <MdArrowUpward size={24} className="text-white" />
+                                                <MdArrowUpward
+                                                    size={24}
+                                                    className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+                                                />
                                             )
                                         ) : (
-                                            <MdUnfoldMore size={24} className="text-white/50" />
+                                            <MdUnfoldMore
+                                                size={24}
+                                                className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+                                            />
                                         )}
                                     </button>
                                 ) : (
@@ -1349,24 +1434,18 @@ const TableBody = React.memo(function TableBody({
 
     return (
         <tbody className="relative">
-            {rows.map((row: any, rowIndex: number) => (
+            {rows.map((row: any) => (
                 <tr
                     key={row.id}
                     data-chamado-id={row.original.COD_CHAMADO}
-                    className={`transition-all hover:bg-teal-200 ${
-                        rowIndex % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                    }`}
+                    className="bg-white transition-all hover:bg-teal-200"
                 >
                     {row.getVisibleCells().map((cell: any, cellIndex: number) => (
                         <td
                             key={cell.id}
                             style={{ width: `${columnWidths[cell.column.id]}px` }}
-                            className={`border-b border-gray-400 px-2 py-3 transition-all ${
-                                cellIndex === 0 ? 'border-l border-l-gray-400 pl-4' : ''
-                            } ${
-                                cellIndex === row.getVisibleCells().length - 1
-                                    ? 'border-r border-r-gray-400'
-                                    : ''
+                            className={`px-2 py-3 shadow-[inset_0_-4px_4px_-4px_rgba(0,0,0,0.4)] transition-all ${
+                                cellIndex === 0 ? 'pl-4' : ''
                             }`}
                         >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}

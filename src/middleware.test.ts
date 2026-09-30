@@ -56,6 +56,11 @@ describe('middleware', () => {
         expect(response.status).toBe(200);
     });
 
+    it('deixa passar avaliacao sem cookie (rota pública dinâmica, autorização feita na própria rota)', async () => {
+        const response = await middleware(criarRequest('/api/chamados/501/avaliacao'));
+        expect(response.status).toBe(200);
+    });
+
     it('retorna 401 em /api/salvar-validacao sem sessão (não é mais rota pública)', async () => {
         const response = await middleware(criarRequest('/api/salvar-validacao'));
         expect(response.status).toBe(401);

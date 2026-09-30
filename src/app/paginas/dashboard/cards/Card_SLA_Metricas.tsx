@@ -37,7 +37,7 @@ interface MetricasSLAResponse {
 
 // ==================== SKELETON LOADING ====================
 const SkeletonLoadingCard = () => (
-    <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-teal-200 bg-gradient-to-br from-white via-teal-50/30 to-teal-100/20 shadow-lg sm:h-64 lg:h-72">
+    <div className="flex h-56 flex-col overflow-hidden rounded-xl border border-teal-200 bg-white bg-gradient-to-br from-white via-teal-50/30 to-teal-100/20 shadow-lg sm:h-64 lg:h-72">
         <div className="flex h-full items-center justify-center">
             <LoadingRingSpinner palette="teal-cyan" />
         </div>

@@ -16,10 +16,12 @@ interface SLACellProps {
 
 const getSLABadgeStyles = (status: 'OK' | 'ALERTA' | 'CRITICO' | 'VENCIDO'): string => {
     const styles = {
-        OK: 'bg-green-300 border border-green-500 text-black',
-        ALERTA: 'bg-yellow-300 border border-yellow-500 text-black',
-        CRITICO: 'bg-orange-300 border border-orange-500 text-black',
-        VENCIDO: 'bg-red-300 border border-red-500 text-black',
+        OK: 'border-green-500 bg-green-500 text-green-950 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(21,128,61,0.35),0_1px_1px_rgba(21,128,61,0.3),0_8px_20px_-5px_rgba(21,128,61,0.6)]',
+        ALERTA: 'border-yellow-500 bg-yellow-500 text-yellow-950 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(161,98,7,0.35),0_1px_1px_rgba(161,98,7,0.3),0_8px_20px_-5px_rgba(161,98,7,0.6)]',
+        CRITICO:
+            'border-orange-500 bg-orange-500 text-orange-950 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(194,65,12,0.35),0_1px_1px_rgba(194,65,12,0.3),0_8px_20px_-5px_rgba(194,65,12,0.6)]',
+        VENCIDO:
+            'border-red-500 bg-red-500 text-white shadow-[inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_2px_rgba(185,28,28,0.35),0_1px_1px_rgba(185,28,28,0.3),0_8px_20px_-5px_rgba(185,28,28,0.6)]',
     };
 
     return styles[status];
@@ -63,7 +65,7 @@ export const SLACell: React.FC<SLACellProps> = ({
     return (
         <div className="flex items-center justify-center">
             <div
-                className={`w-full cursor-help rounded py-1.5 text-center text-base font-extrabold tracking-wide select-none ${badgeStyles}`}
+                className={`w-full cursor-help rounded border py-1.5 text-center text-base font-extrabold tracking-wide select-none ${badgeStyles}`}
                 title="Tempo decorrido, do momento que o chamado é aberto, até o início do atendimento."
             >
                 {formatarHorasRelogio(sla.tempoDecorrido)}

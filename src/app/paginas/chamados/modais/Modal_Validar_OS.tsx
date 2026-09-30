@@ -4,14 +4,17 @@
 
 import { OSRowProps } from '@/app/paginas/chamados/tabelas/Colunas_Tabela_OS';
 import { LoadingButton } from '@/components/Loading_Button';
+import { ZOOM_PAGINAS } from '@/components/loading-titles';
 import { formatarDataParaBR } from '@/formatters/formatar-data';
 import { formatarHora, formatarHorasTotaisSufixo } from '@/formatters/formatar-hora';
 import { formatarNumeros } from '@/formatters/formatar-numeros';
+import { useIsDesktop } from '@/hooks/useIsDesktop';
 import { alertError, alertSuccess } from '@/store/useAlertDialogStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 // =====================================================
 import { memo, useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { BsChatSquareTextFill } from 'react-icons/bs';
 import { FaCalendar, FaClock, FaHashtag, FaUser } from 'react-icons/fa';
 import {
@@ -253,6 +256,11 @@ export function ModalValidarOS({
 }: ModalValidacaoOSProps) {
     const queryClient = useQueryClient();
     const codCliente = useAuthStore((state) => state.codCliente);
+    // A página de Chamados aplica CSS zoom no <main>; sem portal, esse modal
+    // (fixed inset-0) herdaria o zoom e ficaria menor que a tela de verdade.
+    // O portal escapa pro <body>, e reaplicamos o mesmo zoom manualmente,
+    // igual ao overlay de navegação do Sidebar.
+    const isDesktop = useIsDesktop();
 
     // Estados locais
     const [modalData, setModalData] = useState<ModalDataProps>({
@@ -423,16 +431,22 @@ export function ModalValidarOS({
     // ==================
 
     // Renderização condicional
-    if (!isOpen || !selectedRow) return null;
+    if (!isOpen || !selectedRow || typeof document === 'undefined') return null;
     // ==================
 
     // =================== RENDERIZAÇÃO PRINCIPAL ===================
-    return (
-        <div className="animate-in fade-in fixed inset-0 z-[120] flex items-center justify-center p-2 transition-all duration-200 ease-out">
+    return createPortal(
+        <div
+            className="animate-in fade-in fixed inset-0 z-[120] flex items-center justify-center p-2 transition-all duration-200 ease-out"
+            style={{ zoom: isDesktop ? ZOOM_PAGINAS : 1 }}
+        >
             {/* Overlay */}
             <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
 
-            <div className="animate-in slide-in-from-bottom-4 relative z-10 flex h-auto max-h-[100vh] w-7xl flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out">
+            <div
+                style={{ maxHeight: isDesktop ? `${95 / ZOOM_PAGINAS}vh` : '95vh' }}
+                className="animate-in slide-in-from-bottom-4 relative z-10 flex w-7xl flex-col overflow-hidden rounded-xl bg-white transition-all duration-200 ease-out"
+            >
                 {/* ========== HEADER ========== */}
                 <header className="relative flex flex-shrink-0 items-center justify-between bg-teal-700 p-4 shadow-md shadow-black">
                     <div className="flex items-center gap-6">
@@ -455,7 +469,7 @@ export function ModalValidarOS({
                 {/* ========== */}
 
                 {/* ========== CONTEÚDO ========== */}
-                <div className="flex flex-1 flex-col gap-6 overflow-y-auto bg-stone-300 px-6 py-10">
+                <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto bg-stone-100 px-6 py-10">
                     {/* ===== CARDS INFORMAÇÕES ===== */}
                     <div className="grid grid-cols-4 gap-4">
                         <InfoCard
@@ -535,7 +549,7 @@ export function ModalValidarOS({
                             </div>
                             {/* = */}
                             <div className="relative flex justify-center">
-                                <span className="bg-stone-300 px-4 font-extrabold tracking-widest text-slate-800 select-none">
+                                <span className="bg-stone-100 px-4 font-extrabold tracking-widest text-slate-800 select-none">
                                     VALIDAÇÃO OS
                                 </span>
                             </div>
@@ -778,6 +792,7 @@ export function ModalValidarOS({
                 </div>
                 {/* ========== */}
             </div>
-        </div>
+        </div>,
+        document.body
     );
 }

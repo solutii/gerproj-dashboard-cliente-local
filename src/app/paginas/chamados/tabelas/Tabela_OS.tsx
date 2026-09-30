@@ -413,27 +413,27 @@ const ModalHeader = React.memo(function ModalHeader({
                 <div className="flex flex-wrap items-center gap-3">
                     <TotalPill
                         color="black"
-                        label="Qtd. OS"
+                        label="Qtd. OS's ="
                         value={formatarNumeros(totais.quantidade_OS)}
                     />
                     {totais.horas_adicional.horasSemAdicional > 0 && (
                         <TotalPill
                             color="green"
-                            label="Total Horas Comerciais"
+                            label="Total Horas Comerciais ="
                             value={formatarHorasRelogio(totais.horas_adicional.horasSemAdicional)}
                         />
                     )}
                     {totais.horas_adicional.horasComAdicional > 0 && (
                         <TotalPill
                             color="orange"
-                            label="Total Horas Não Comerciais"
+                            label="Total Horas Não Comerciais ="
                             value={formatarHorasRelogio(totais.horas_adicional.horasComAdicional)}
                         />
                     )}
                     {totais.horas_adicional.horasAdicionalGerado > 0 && (
                         <TotalPill
                             color="yellow"
-                            label="Total Horas Adicionais"
+                            label="Total Horas Adicionais ="
                             value={formatarHorasRelogio(
                                 totais.horas_adicional.horasAdicionalGerado
                             )}
@@ -441,7 +441,7 @@ const ModalHeader = React.memo(function ModalHeader({
                     )}
                     <TotalPill
                         color="purple"
-                        label="Total de Horas"
+                        label="Total de Horas ="
                         value={formatarHorasRelogio(totais.horas_adicional.totalHorasEquivalente)}
                     />
                 </div>
@@ -450,12 +450,20 @@ const ModalHeader = React.memo(function ModalHeader({
     );
 });
 
+// Cada cor tem sua própria dupla de sombra — colada (define a borda inferior,
+// dá "peso") + espalhada (na cor do próprio tom, não cinza genérico) — e um
+// brilho interno no topo (inset), simulando luz batendo numa superfície
+// curva. É isso que lê como "profundidade" em vez de uma cor chapada.
+// Quatro camadas por cor: brilho no topo (inset claro) + friso escuro embaixo
+// por dentro (inset escuro, a "sombra própria" da curva) + sombra colada
+// (define a borda) + sombra espalhada, mais larga e mais escura que antes —
+// e o degradê de fundo com mais contraste entre topo e base.
 const TOTAL_PILL_COLORS = {
-    black: 'border-gray-700 bg-gray-900 text-white',
-    green: 'border-green-300 bg-green-100 text-green-700',
-    orange: 'border-orange-300 bg-orange-100 text-orange-700',
-    yellow: 'border-yellow-300 bg-yellow-100 text-yellow-700',
-    purple: 'border-purple-300 bg-purple-100 text-purple-700',
+    black: 'border-gray-700 bg-gradient-to-b from-gray-600 to-black text-white shadow-[inset_0_1.5px_0_rgba(255,255,255,0.3),inset_0_-2px_2px_rgba(0,0,0,0.5),0_1px_1px_rgba(0,0,0,0.6),0_8px_20px_-4px_rgba(0,0,0,0.75)]',
+    green: 'border-green-400 bg-gradient-to-b from-green-50 to-green-300 text-green-900 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(21,128,61,0.25),0_1px_1px_rgba(21,128,61,0.25),0_8px_20px_-5px_rgba(21,128,61,0.55)]',
+    orange: 'border-orange-400 bg-gradient-to-b from-orange-50 to-orange-300 text-orange-900 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(194,65,12,0.25),0_1px_1px_rgba(194,65,12,0.25),0_8px_20px_-5px_rgba(194,65,12,0.55)]',
+    yellow: 'border-yellow-400 bg-gradient-to-b from-yellow-50 to-yellow-300 text-yellow-900 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(161,98,7,0.25),0_1px_1px_rgba(161,98,7,0.25),0_8px_20px_-5px_rgba(161,98,7,0.55)]',
+    purple: 'border-purple-400 bg-gradient-to-b from-purple-50 to-purple-300 text-purple-900 shadow-[inset_0_1.5px_0_rgba(255,255,255,0.95),inset_0_-2px_2px_rgba(126,34,206,0.25),0_1px_1px_rgba(126,34,206,0.25),0_8px_20px_-5px_rgba(126,34,206,0.55)]',
 } as const;
 
 interface TotalPillProps {
@@ -467,7 +475,7 @@ interface TotalPillProps {
 const TotalPill = React.memo(function TotalPill({ label, value, color }: TotalPillProps) {
     return (
         <div
-            className={`flex items-center gap-2 rounded-full border px-4 py-1.5 shadow-sm shadow-black select-none ${TOTAL_PILL_COLORS[color]}`}
+            className={`flex items-center gap-2 rounded-full border px-4 py-1.5 select-none ${TOTAL_PILL_COLORS[color]}`}
         >
             <span className="text-xs font-bold tracking-wide uppercase">{label}</span>
             <span className="text-sm font-extrabold tracking-wide">{value}</span>
@@ -480,11 +488,7 @@ interface ModalContentProps {
 }
 
 const ModalContent = React.memo(function ModalContent({ children }: ModalContentProps) {
-    return (
-        <div className="flex flex-1 flex-col overflow-y-auto bg-stone-300 px-6 py-10">
-            {children}
-        </div>
-    );
+    return <div className="flex flex-1 flex-col overflow-y-auto px-6 py-10">{children}</div>;
 });
 
 interface TableContainerProps {
@@ -493,7 +497,7 @@ interface TableContainerProps {
 
 const TableContainer = React.memo(function TableContainer({ children }: TableContainerProps) {
     return (
-        <div className="relative z-10 flex flex-1 flex-col overflow-hidden">
+        <div className="relative z-10 flex flex-1 flex-col overflow-hidden shadow-md shadow-black">
             <div className="scrollbar-thin scrollbar-track-purple-100 scrollbar-thumb-purple-600 hover:scrollbar-thumb-purple-800 flex-1 overflow-x-auto overflow-y-auto">
                 {children}
             </div>
@@ -572,9 +576,15 @@ const OSTableHeader = React.memo(function OSTableHeader({
                         return (
                             <th
                                 key={header.id}
-                                className={`relative bg-purple-600 p-4 shadow-md shadow-black ${
-                                    idx === 0 ? 'rounded-tl-2xl' : ''
-                                } ${idx === headerGroup.headers.length - 1 ? 'rounded-tr-2xl' : ''}`}
+                                className={`relative bg-purple-600 p-4 ${
+                                    // Sulco (sombra interna) nas divisões
+                                    // verticais entre um cabeçalho e o outro.
+                                    idx > 0 && idx < headerGroup.headers.length - 1
+                                        ? 'shadow-[inset_4px_0_4px_-4px_rgba(0,0,0,0.45),inset_-4px_0_4px_-4px_rgba(0,0,0,0.45)]'
+                                        : idx > 0
+                                          ? 'shadow-[inset_4px_0_4px_-4px_rgba(0,0,0,0.45)]'
+                                          : 'shadow-[inset_-4px_0_4px_-4px_rgba(0,0,0,0.45)]'
+                                }`}
                                 style={{
                                     width: `${columnWidths[header.id]}px`,
                                 }}
@@ -591,11 +601,20 @@ const OSTableHeader = React.memo(function OSTableHeader({
                                             header.getContext()
                                         )}
                                         {sortDirection === 'asc' ? (
-                                            <MdArrowUpward size={24} className="text-white" />
+                                            <MdArrowUpward
+                                                size={24}
+                                                className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+                                            />
                                         ) : sortDirection === 'desc' ? (
-                                            <MdArrowDownward size={24} className="text-white" />
+                                            <MdArrowDownward
+                                                size={24}
+                                                className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+                                            />
                                         ) : (
-                                            <MdUnfoldMore size={24} className="text-white/50" />
+                                            <MdUnfoldMore
+                                                size={24}
+                                                className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]"
+                                            />
                                         )}
                                     </button>
                                 ) : (
@@ -632,25 +651,16 @@ const OSTableBody = React.memo(function OSTableBody({ table, columnWidths }: OST
 
     return (
         <tbody>
-            {rows.map((row: any, idx: number) => (
-                <tr
-                    key={row.id}
-                    className={`transition-all ${
-                        idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                    } hover:bg-teal-200`}
-                >
+            {rows.map((row: any) => (
+                <tr key={row.id} className="bg-white transition-all hover:bg-black/10">
                     {row.getVisibleCells().map((cell: any, cellIndex: number) => (
                         <td
                             key={cell.id}
                             style={{
                                 width: `${columnWidths[cell.column.id]}px`,
                             }}
-                            className={`border-b border-gray-400 px-2 py-3 transition-all ${
-                                cellIndex === 0 ? 'border-l border-l-gray-400 pl-4' : ''
-                            } ${
-                                cellIndex === row.getVisibleCells().length - 1
-                                    ? 'border-r border-r-gray-400'
-                                    : ''
+                            className={`px-2 py-3 shadow-[inset_0_-4px_4px_-4px_rgba(0,0,0,0.4)] transition-all ${
+                                cellIndex === 0 ? 'pl-4' : ''
                             }`}
                         >
                             {flexRender(cell.column.columnDef.cell, cell.getContext())}

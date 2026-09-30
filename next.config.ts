@@ -65,6 +65,17 @@ const nextConfig: NextConfig = {
     experimental: {
         // Reduz consumo de memória no dev server
         webpackMemoryOptimizations: true,
+        // Tree-shaking melhor pra libs grandes de import "barrel" — reduz
+        // quantidade de módulos processados por página em dev (e o bundle
+        // final em produção). Funciona com webpack e Turbopack.
+        optimizePackageImports: [
+            'react-icons',
+            'lucide-react',
+            'recharts',
+            'date-fns',
+            '@tanstack/react-table',
+            '@tanstack/react-query',
+        ],
     },
 
     webpack: (config, { dev, isServer }) => {

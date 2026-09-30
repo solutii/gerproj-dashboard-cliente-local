@@ -108,23 +108,23 @@ export default function BaseConhecimentoPage() {
                 title={TITULO_LOADING_BASE_CONHECIMENTO}
                 fade={false}
             />
-            <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-teal-100 bg-white shadow-md shadow-black/10">
+            <div className="flex flex-1 flex-col overflow-hidden rounded-xl bg-white shadow-md shadow-black">
                 {/* ========== HERO ========== */}
-                <div className="relative flex flex-shrink-0 flex-col items-center gap-3 rounded-t-xl bg-gradient-to-br from-teal-700 to-teal-800 px-6 pt-10 pb-16 text-center sm:px-10">
+                <div className="relative flex flex-shrink-0 flex-col items-center gap-3 bg-teal-800 px-6 pt-10 pb-16 text-center sm:px-10">
                     <div className="flex items-center gap-3">
-                        <FaBook className="text-white" size={26} />
-                        <h1 className="text-xl font-extrabold tracking-widest text-white select-none sm:text-2xl">
+                        <FaBook className="text-white" size={50} />
+                        <h1 className="text-2xl font-extrabold tracking-widest text-white select-none sm:text-2xl">
                             BASE DE CONHECIMENTO
                         </h1>
                     </div>
                     <p className="text-sm tracking-wider text-teal-100 select-none">
-                        Artigos e tutoriais — consulte antes de abrir um chamado.
+                        Artigos e tutoriais.
                     </p>
                 </div>
 
                 {/* Busca — sobreposta na borda inferior do hero */}
                 <div className="relative z-10 -mt-7 flex justify-center px-6 sm:px-10">
-                    <div className="flex w-full max-w-xl items-center gap-3 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-lg shadow-black/20">
+                    <div className="flex w-full max-w-xl items-center gap-3 rounded-xl border border-gray-200 bg-white px-5 py-3 shadow-md shadow-black">
                         <FaSearch className="flex-shrink-0 text-gray-400" size={16} />
                         <input
                             type="text"
@@ -194,13 +194,14 @@ export default function BaseConhecimentoPage() {
                                 <button
                                     key={artigo.slug}
                                     onClick={() => setSlugSelecionado(artigo.slug)}
-                                    className="flex cursor-pointer flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 text-left shadow-sm shadow-black/10 transition-all duration-200 hover:-translate-y-1 hover:border-teal-300 hover:shadow-lg hover:shadow-black/15"
+                                    className="flex cursor-pointer flex-col gap-3 rounded-xl border border-gray-200 bg-white p-5 text-left shadow-md shadow-black transition-all duration-200 hover:-translate-y-1 hover:shadow-xl hover:shadow-black"
                                 >
                                     <div
-                                        className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg ${config.iconBg}`}
+                                        className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg ${config.iconBg}`}
                                     >
-                                        <Icon className={config.iconColor} size={20} />
+                                        <Icon className={config.iconColor} size={24} />
                                     </div>
+
                                     <div className="flex flex-1 flex-col gap-1.5">
                                         <span className="text-base font-bold tracking-wide text-black">
                                             {artigo.title}
@@ -209,6 +210,7 @@ export default function BaseConhecimentoPage() {
                                             {artigo.resumo}
                                         </span>
                                     </div>
+
                                     <div className="flex items-center justify-between border-t border-gray-100 pt-2.5">
                                         <span
                                             className={`text-[11px] font-bold tracking-widest uppercase select-none ${config.tagColor}`}

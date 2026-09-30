@@ -55,7 +55,8 @@ test.describe('Validação de chamado pelo cliente (/paginas/validar/[token])', 
         await mockApiOS(page);
         await page.goto(`/paginas/validar/${token}`);
 
-        await expect(page.getByText(`Nº ${String(COD_CHAMADO).padStart(5, '0')}`)).toBeVisible();
+        // O cabeçalho mostra o número com 5 dígitos e separador de milhar (pt-BR).
+        await expect(page.getByText('# 00.501')).toBeVisible();
         await expect(page.getByText('Consultor Teste')).toBeVisible();
         await expect(page.getByRole('heading', { name: 'VALIDAÇÃO DO CHAMADO' })).toBeVisible();
         await expect(page.getByText('Cliente Teste Ltda')).toBeVisible();

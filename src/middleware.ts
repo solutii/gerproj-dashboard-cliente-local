@@ -33,10 +33,16 @@ const ROTAS_PUBLICAS = new Set([
 
 const REGEX_VALIDAR_TUDO = /^\/api\/chamados\/\d+\/validar-tudo$/;
 const REGEX_OS = /^\/api\/chamados\/\d+\/os$/;
+// A própria rota exige token do link OU sessão de cliente (ver route.ts) —
+// pública aqui só pra permitir o fluxo sem login de /paginas/validar/[token].
+const REGEX_AVALIACAO = /^\/api\/chamados\/\d+\/avaliacao$/;
 
 function isRotaPublica(pathname: string): boolean {
     return (
-        ROTAS_PUBLICAS.has(pathname) || REGEX_VALIDAR_TUDO.test(pathname) || REGEX_OS.test(pathname)
+        ROTAS_PUBLICAS.has(pathname) ||
+        REGEX_VALIDAR_TUDO.test(pathname) ||
+        REGEX_OS.test(pathname) ||
+        REGEX_AVALIACAO.test(pathname)
     );
 }
 
