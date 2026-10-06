@@ -197,27 +197,6 @@ const CAMPOS_CHAMADO_BASE_SELECT = `CHAMADO.COD_CHAMADO,
     HISTCHAMADO_INICIO.DATA_HISTCHAMADO AS DATA_INICIO_ATENDIMENTO,
     HISTCHAMADO_INICIO.HORA_HISTCHAMADO AS HORA_INICIO_ATENDIMENTO`;
 
-const CAMPOS_CHAMADO_BASE_GROUPBY = `CHAMADO.COD_CHAMADO,
-    CHAMADO.DATA_CHAMADO,
-    CHAMADO.HORA_CHAMADO,
-    CHAMADO.SOLICITACAO_CHAMADO,
-    CHAMADO.CONCLUSAO_CHAMADO,
-    CHAMADO.STATUS_CHAMADO,
-    CHAMADO.DTENVIO_CHAMADO,
-    CHAMADO.DTINI_CHAMADO,
-    CHAMADO.ASSUNTO_CHAMADO,
-    CHAMADO.EMAIL_CHAMADO,
-    CHAMADO.PRIOR_CHAMADO,
-    CHAMADO.COD_CLASSIFICACAO,
-    CHAMADO.COD_RECURSO,
-    CLIENTE.NOME_CLIENTE,
-    RECURSO.NOME_RECURSO,
-    CLASSIFICACAO.NOME_CLASSIFICACAO,
-    HISTCHAMADO.DATA_HISTCHAMADO,
-    HISTCHAMADO.HORA_HISTCHAMADO,
-    HISTCHAMADO_INICIO.DATA_HISTCHAMADO,
-    HISTCHAMADO_INICIO.HORA_HISTCHAMADO`;
-
 // ==================== ORDENAÇÃO (allowlist — nunca interpolar nome de coluna vindo do cliente) ====================
 // Mapeia o id de coluna do front-end pra expressão SQL real. `buscarChamadosTodos`
 // (status=TODOS) usa um subconjunto — só colunas que já vivem direto em CHAMADO,
@@ -267,11 +246,83 @@ const construirRangeDataUnico = (dataBR: string): { inicio: string; fim: string 
     return { inicio: fmt(dataObj), fim: fmt(proximoDia) };
 };
 
-const CAMPOS_AVALIACAO_SELECT = `,
-    CHAMADO.AVALIA_CHAMADO,
-    CHAMADO.OBSAVAL_CHAMADO`;
+// ==================== TEXTO DE BUSCA (LIKE seguro) ====================
+// No Firebird o parâmetro de um LIKE herda o tamanho da coluna comparada: um texto maior que ela (ou que o CAST usado
+// na comparação) dava "string truncation" e a tela recebia erro 500. Por isso o texto é limitado e só é comparado com
+// o número do chamado quando é um número curto; "%" e "_" digitados valem como texto comum, não como curingas.
 
-const CAMPOS_AVALIACAO_GROUPBY = `,
+const TAMANHO_MAXIMO_DA_BUSCA = 100; // ASSUNTO_CHAMADO tem 150 e EMAIL_CHAMADO 250 caracteres
+const DIGITOS_DO_CODIGO_NO_CAST = 18; // CAST(COD_CHAMADO AS VARCHAR(20)) comporta "%" + 18 dígitos + "%"
+const DIGITOS_DO_CODIGO_NA_OS = 8; // OS.CHAMADO_OS é VARCHAR(10)
+
+const textoDeBusca = (valor: string): string => valor.trim().slice(0, TAMANHO_MAXIMO_DA_BUSCA);
+const escaparLike = (valor: string): string => valor.replace(/[\\%_]/g, '\\$&');
+const ehCodigoCurto = (valor: string): boolean =>
+    new RegExp(`^\\d{1,${DIGITOS_DO_CODIGO_NO_CAST}}$`).test(valor);
+
+// Condição da busca por assunto (também acha pelo número do chamado quando o texto é um número curto)
+const condicaoDeAssunto = (valor: string): { sql: string; params: string[] } | null => {
+    const termo = textoDeBusca(valor);
+    if (!termo) return null;
+
+    const like = `%${escaparLike(termo)}%`;
+    if (ehCodigoCurto(termo)) {
+        return {
+            sql: `(UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?) ESCAPE '\\' OR CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?)`,
+            params: [like, `%${termo}%`],
+        };
+    }
+
+    return { sql: `UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?) ESCAPE '\\'`, params: [like] };
+};
+
+// Condição do filtro por parte do número do chamado (só dígitos). Mais dígitos do que o campo comporta: nada casa.
+const condicaoDeCodigo = (valor: string): { sql: string; params: string[] } | null => {
+    const digitos = valor.replace(/\D/g, '');
+    if (!digitos) return null;
+    if (digitos.length > DIGITOS_DO_CODIGO_NO_CAST) return { sql: '1=0', params: [] };
+
+    return { sql: `CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?`, params: [`%${digitos}%`] };
+};
+
+// Código exato (número do chamado digitado no filtro): um INTEGER do banco comporta até 9 dígitos aqui
+const codigoExato = (valor: string): number | null =>
+    /^\d{1,9}$/.test(valor.trim()) ? parseInt(valor, 10) : null;
+
+// Filtro de conclusão: aceita "DD/MM/AAAA" (um dia), "MM/AAAA" (um mês) ou "AAAA" (um ano); outro formato não filtra nada
+const condicaoDeConclusao = (valor: string): { sql: string; params: string[] } | null => {
+    const texto = valor.trim();
+    const dia = construirRangeDataUnico(texto);
+    if (dia)
+        return {
+            sql: `(CHAMADO.CONCLUSAO_CHAMADO >= ? AND CHAMADO.CONCLUSAO_CHAMADO < ?)`,
+            params: [dia.inicio, dia.fim],
+        };
+
+    const mesAno = /^(0[1-9]|1[0-2])\/(\d{4})$/.exec(texto);
+    if (mesAno) {
+        const mes = Number(mesAno[1]);
+        const ano = Number(mesAno[2]);
+        const proximo =
+            mes === 12 ? `01.01.${ano + 1}` : `01.${String(mes + 1).padStart(2, '0')}.${ano}`;
+
+        return {
+            sql: `(CHAMADO.CONCLUSAO_CHAMADO >= ? AND CHAMADO.CONCLUSAO_CHAMADO < ?)`,
+            params: [`01.${mesAno[1]}.${ano}`, proximo],
+        };
+    }
+
+    if (/^\d{4}$/.test(texto)) {
+        return {
+            sql: `(CHAMADO.CONCLUSAO_CHAMADO >= ? AND CHAMADO.CONCLUSAO_CHAMADO < ?)`,
+            params: [`01.01.${texto}`, `01.01.${Number(texto) + 1}`],
+        };
+    }
+
+    return null;
+};
+
+const CAMPOS_AVALIACAO_SELECT = `,
     CHAMADO.AVALIA_CHAMADO,
     CHAMADO.OBSAVAL_CHAMADO`;
 
@@ -455,8 +506,9 @@ const construirWherePrincipal = (
     }
 
     if (params.codChamadoFilter) {
-        whereClauses.push(`CHAMADO.COD_CHAMADO = ?`);
-        whereParams.push(parseInt(params.codChamadoFilter));
+        const codigo = codigoExato(params.codChamadoFilter);
+        whereClauses.push(codigo === null ? '1=0' : `CHAMADO.COD_CHAMADO = ?`);
+        if (codigo !== null) whereParams.push(codigo);
     }
 
     if (params.statusFilter && params.statusFilter.toUpperCase() !== 'TODOS') {
@@ -467,10 +519,10 @@ const construirWherePrincipal = (
     const cf = params.columnFilters;
     if (cf) {
         if (cf.COD_CHAMADO) {
-            const v = cf.COD_CHAMADO.replace(/\D/g, '');
-            if (v) {
-                whereClauses.push(`CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?`);
-                whereParams.push(`%${v}%`);
+            const c = condicaoDeCodigo(cf.COD_CHAMADO);
+            if (c) {
+                whereClauses.push(c.sql);
+                whereParams.push(...c.params);
             }
         }
 
@@ -493,15 +545,16 @@ const construirWherePrincipal = (
         if (cf.ASSUNTO_CHAMADO) {
             // Busca também por código do chamado — mesma caixa de busca cobre
             // "digitei parte do assunto" e "digitei o número do chamado".
-            whereClauses.push(
-                `(UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?) OR CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?)`
-            );
-            whereParams.push(`%${cf.ASSUNTO_CHAMADO}%`, `%${cf.ASSUNTO_CHAMADO}%`);
+            const c = condicaoDeAssunto(cf.ASSUNTO_CHAMADO);
+            if (c) {
+                whereClauses.push(c.sql);
+                whereParams.push(...c.params);
+            }
         }
 
         if (cf.EMAIL_CHAMADO) {
-            whereClauses.push(`UPPER(CHAMADO.EMAIL_CHAMADO) LIKE UPPER(?)`);
-            whereParams.push(`%${cf.EMAIL_CHAMADO}%`);
+            whereClauses.push(`UPPER(CHAMADO.EMAIL_CHAMADO) LIKE UPPER(?) ESCAPE '\\'`);
+            whereParams.push(`%${escaparLike(textoDeBusca(cf.EMAIL_CHAMADO))}%`);
         }
 
         if (cf.NOME_CLASSIFICACAO) {
@@ -551,19 +604,188 @@ const construirWherePrincipal = (
         }
 
         if (cf.CONCLUSAO_CHAMADO) {
-            const v = cf.CONCLUSAO_CHAMADO.replace(/\D/g, '');
-            if (v) {
-                whereClauses.push(`(
-                    CAST(EXTRACT(DAY FROM CHAMADO.CONCLUSAO_CHAMADO) AS VARCHAR(2)) ||
-                    CAST(EXTRACT(MONTH FROM CHAMADO.CONCLUSAO_CHAMADO) AS VARCHAR(2)) ||
-                    CAST(EXTRACT(YEAR FROM CHAMADO.CONCLUSAO_CHAMADO) AS VARCHAR(4))
-                ) LIKE ?`);
-                whereParams.push(`%${v}%`);
+            const c = condicaoDeConclusao(cf.CONCLUSAO_CHAMADO);
+            if (c) {
+                whereClauses.push(c.sql);
+                whereParams.push(...c.params);
             }
         }
     }
 
     return { whereClauses, whereParams };
+};
+
+// ==================== DETALHES DOS CHAMADOS DA PÁGINA ====================
+//
+// Antes, uma única query juntava CHAMADO com OS, TAREFA e duas subconsultas de HISTCHAMADO e agrupava tudo. No
+// Firebird essa combinação reavaliava as subconsultas do histórico a cada linha de OS e levava de 4 a 12 s só para
+// ~20 chamados (dois ou três pedidos ao mesmo tempo esgotavam o pool de 5 conexões e davam timeout). Agora a página
+// é montada com consultas simples, só para os IDs da página (cerca de 0,5 s no total), e o resultado é juntado aqui.
+
+type OpcoesDosDetalhes = {
+    // inclui AVALIA_CHAMADO e OBSAVAL_CHAMADO
+    incluirAvaliacao: boolean;
+    // só soma as horas das OS lançadas dentro deste período ('DD.MM.AAAA')
+    horasNoPeriodo: { inicio: string; fim: string } | null;
+    // só considera OS cuja tarefa aparece no chamado (TAREFA.EXIBECHAM_TAREFA = 1) — o antigo INNER JOIN
+    exigeTarefaQueExibe: boolean;
+    // preenche POSSUI_OS (existência de OS em qualquer mês)
+    comPossuiOs: boolean;
+    // a finalização considerada é a mais recente DENTRO deste período (FINALIZADO com mês filtrado)
+    finalizacaoNoPeriodo?: { inicio: string; fim: string } | null;
+};
+
+// "DD.MM.AAAA" -> Date local (meia-noite)
+const dataDoSql = (s: string): Date => {
+    const [d, m, a] = s.split('.').map(Number);
+    return new Date(a, m - 1, d);
+};
+
+// Horas de uma OS (HHMM -> HHMM), como o antigo SUBSTRING/CAST do SQL; null se algum horário estiver fora do padrão
+const horasDaOs = (ini: unknown, fim: unknown): number | null => {
+    const hhmm = /^(\d{2})(\d{2})/;
+    const a = hhmm.exec(String(ini ?? ''));
+    const b = hhmm.exec(String(fim ?? ''));
+    if (!a || !b) return null;
+
+    return (Number(b[1]) * 60 + Number(b[2]) - (Number(a[1]) * 60 + Number(a[2]))) / 60;
+};
+
+const CAMPOS_CHAMADO_SEM_HISTORICO = CAMPOS_CHAMADO_BASE_SELECT.split(
+    ',\n    HISTCHAMADO.DATA_HISTCHAMADO'
+)[0];
+
+const buscarDetalhesDosChamados = async (
+    ids: number[],
+    opcoes: OpcoesDosDetalhes
+): Promise<ChamadoRaw[]> => {
+    if (ids.length === 0) return [];
+
+    const ph = ids.map(() => '?').join(', ');
+    const idsComoTexto = ids.map(String); // OS.CHAMADO_OS guarda o código como texto
+    const camposAvaliacao = opcoes.incluirAvaliacao ? CAMPOS_AVALIACAO_SELECT : '';
+
+    // o último registro do histórico de cada chamado para uma descrição (a mais recente = maior código)
+    const ultimoDoHistorico = async (
+        filtroDescricao: string,
+        periodo?: { inicio: string; fim: string } | null
+    ) => {
+        const maximos = await firebirdQuery<{ COD_CHAMADO: number; MAX_COD: number }>(
+            `SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD FROM HISTCHAMADO
+             WHERE COD_CHAMADO IN (${ph}) AND ${filtroDescricao}${
+                 periodo
+                     ? ` AND DATA_HISTCHAMADO >= '${dataSqlSegura(periodo.inicio)}' AND DATA_HISTCHAMADO < '${dataSqlSegura(periodo.fim)}'`
+                     : ''
+             } GROUP BY COD_CHAMADO`,
+            ids
+        );
+        if (maximos.length === 0)
+            return new Map<
+                number,
+                { DATA_HISTCHAMADO: Date | null; HORA_HISTCHAMADO: string | null }
+            >();
+
+        const linhas = await firebirdQuery<{
+            COD_HISTCHAMADO: number;
+            DATA_HISTCHAMADO: Date | null;
+            HORA_HISTCHAMADO: string | null;
+        }>(
+            `SELECT COD_HISTCHAMADO, DATA_HISTCHAMADO, HORA_HISTCHAMADO FROM HISTCHAMADO
+             WHERE COD_HISTCHAMADO IN (${maximos.map(() => '?').join(', ')})`,
+            maximos.map((m) => m.MAX_COD)
+        );
+        const porCodigo = new Map(linhas.map((l) => [l.COD_HISTCHAMADO, l]));
+
+        return new Map(
+            maximos.map((m) => [
+                m.COD_CHAMADO,
+                porCodigo.get(m.MAX_COD) ?? { DATA_HISTCHAMADO: null, HORA_HISTCHAMADO: null },
+            ])
+        );
+    };
+
+    const joinTarefa = opcoes.exigeTarefaQueExibe
+        ? 'JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1'
+        : '';
+
+    const [chamados, finalizados, inicios, oss] = await Promise.all([
+        firebirdQuery<ChamadoRaw>(
+            `SELECT ${CAMPOS_CHAMADO_SEM_HISTORICO}${camposAvaliacao}
+             FROM CHAMADO
+             LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
+             LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO
+             LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO
+             WHERE CHAMADO.COD_CHAMADO IN (${ph})`,
+            ids
+        ),
+        ultimoDoHistorico("UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'", opcoes.finalizacaoNoPeriodo),
+        ultimoDoHistorico("UPPER(DESC_HISTCHAMADO) LIKE 'EM ATENDIMENTO%'"),
+        firebirdQuery<{
+            CHAMADO_OS: string;
+            FATURADO_OS: string | null;
+            HRINI_OS: string | null;
+            HRFIM_OS: string | null;
+            DTINI_OS: Date | null;
+        }>(
+            `SELECT OS.CHAMADO_OS, OS.FATURADO_OS, OS.HRINI_OS, OS.HRFIM_OS, OS.DTINI_OS
+             FROM OS ${joinTarefa}
+             WHERE OS.CHAMADO_OS IN (${ph})`,
+            idsComoTexto
+        ),
+    ]);
+
+    const inicioDoPeriodo = opcoes.horasNoPeriodo
+        ? dataDoSql(opcoes.horasNoPeriodo.inicio).getTime()
+        : null;
+    const fimDoPeriodo = opcoes.horasNoPeriodo
+        ? dataDoSql(opcoes.horasNoPeriodo.fim).getTime()
+        : null;
+
+    const somas = new Map<number, { faturadas: number; naoFaturadas: number; possui: boolean }>();
+    for (const os of oss) {
+        const codigo = Number(String(os.CHAMADO_OS).trim());
+        const soma = somas.get(codigo) ?? { faturadas: 0, naoFaturadas: 0, possui: false };
+        soma.possui = true;
+        somas.set(codigo, soma);
+
+        if (inicioDoPeriodo !== null && fimDoPeriodo !== null) {
+            const dia = os.DTINI_OS ? new Date(os.DTINI_OS).getTime() : NaN;
+            if (!(dia >= inicioDoPeriodo && dia < fimDoPeriodo)) continue;
+        }
+
+        const horas = horasDaOs(os.HRINI_OS, os.HRFIM_OS);
+        const faturado =
+            os.FATURADO_OS === null || os.FATURADO_OS === undefined
+                ? null
+                : String(os.FATURADO_OS).toUpperCase();
+        if (horas === null || faturado === null) continue;
+
+        if (faturado === 'NAO') soma.naoFaturadas += horas;
+        else soma.faturadas += horas;
+    }
+
+    const porCodigo = new Map(chamados.map((c) => [c.COD_CHAMADO, c]));
+
+    return ids
+        .map((id) => porCodigo.get(id))
+        .filter((c): c is ChamadoRaw => c !== undefined)
+        .map((c) => {
+            const soma = somas.get(c.COD_CHAMADO);
+            const fim = finalizados.get(c.COD_CHAMADO);
+            const inicio = inicios.get(c.COD_CHAMADO);
+
+            return {
+                ...c,
+                DATA_HISTCHAMADO: fim?.DATA_HISTCHAMADO ?? null,
+                HORA_HISTCHAMADO: fim?.HORA_HISTCHAMADO ?? null,
+                DATA_INICIO_ATENDIMENTO: inicio?.DATA_HISTCHAMADO ?? null,
+                HORA_INICIO_ATENDIMENTO: inicio?.HORA_HISTCHAMADO ?? null,
+                TOTAL_HORAS_OS: soma?.faturadas ?? 0,
+                TOTAL_HORAS_OS_FATURADAS: soma?.faturadas ?? 0,
+                TOTAL_HORAS_OS_NAO_FATURADAS: soma?.naoFaturadas ?? 0,
+                ...(opcoes.comPossuiOs ? { POSSUI_OS: soma?.possui ? 1 : 0 } : {}),
+            };
+        });
 };
 
 const buscarChamadosTodos = async (
@@ -601,16 +823,17 @@ const buscarChamadosTodos = async (
 
         // filtros de coluna que precisam de join simples
         if (params.columnFilters?.COD_CHAMADO) {
-            const v = params.columnFilters.COD_CHAMADO.replace(/\D/g, '');
-            if (v) {
-                clauses.push(`CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?`);
-                p.push(`%${v}%`);
+            const c = condicaoDeCodigo(params.columnFilters.COD_CHAMADO);
+            if (c) {
+                clauses.push(c.sql);
+                p.push(...c.params);
             }
         }
 
         if (params.codChamadoFilter) {
-            clauses.push(`CHAMADO.COD_CHAMADO = ?`);
-            p.push(parseInt(params.codChamadoFilter));
+            const codigo = codigoExato(params.codChamadoFilter);
+            clauses.push(codigo === null ? '1=0' : `CHAMADO.COD_CHAMADO = ?`);
+            if (codigo !== null) p.push(codigo);
         }
 
         // Filtros do painel de Filtros — mesmos campos que `construirWherePrincipal`
@@ -646,10 +869,11 @@ const buscarChamadosTodos = async (
         }
 
         if (cf?.ASSUNTO_CHAMADO) {
-            clauses.push(
-                `(UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?) OR CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?)`
-            );
-            p.push(`%${cf.ASSUNTO_CHAMADO}%`, `%${cf.ASSUNTO_CHAMADO}%`);
+            const c = condicaoDeAssunto(cf.ASSUNTO_CHAMADO);
+            if (c) {
+                clauses.push(c.sql);
+                p.push(...c.params);
+            }
         }
 
         // NOME_CLASSIFICACAO precisa de join — só adicionado quando o filtro está ativo
@@ -777,7 +1001,10 @@ const buscarChamadosTodos = async (
         }
         const diff = new Date(b.DATA_CHAMADO).getTime() - new Date(a.DATA_CHAMADO).getTime();
         if (diff !== 0) return diff;
-        return (b.HORA_CHAMADO ?? '').localeCompare(a.HORA_CHAMADO ?? '');
+        const porHora = (b.HORA_CHAMADO ?? '').localeCompare(a.HORA_CHAMADO ?? '');
+        if (porHora !== 0) return porHora;
+        // sem isto chamados abertos no mesmo minuto trocavam de lugar entre uma página e a outra
+        return b.COD_CHAMADO - a.COD_CHAMADO;
     });
 
     const totalChamados = merged.length;
@@ -788,78 +1015,16 @@ const buscarChamadosTodos = async (
         return { chamados: [], totalChamados };
     }
 
-    // ── PASSO 3: query completa só para os IDs da página ────────────────
-    // Máximo params.limit registros (geralmente 50) — sempre rápida
+    // ── PASSO 3: detalhes só dos IDs da página (consultas simples, juntadas em JS) ─────────
+    // Todas as horas (finalizados ou não) só contam OS lançadas dentro do mês/ano filtrado, para bater com o
+    // total do card de resumo. O histórico completo de cada chamado fica em /api/chamados/horas-por-mes.
 
-    const placeholders = paginaIds.map(() => '?').join(', ');
-
-    // Todas as horas (finalizados ou não) só contam OS lançadas dentro do mês/ano
-    // filtrado, para bater com o total exibido no card de resumo. O histórico
-    // completo (todas as OS do chamado, de qualquer mês) fica disponível à parte,
-    // via /api/chamados/horas-por-mes, exibido no tooltip da coluna.
-    const dentroDoMes =
-        dataInicio && dataFim
-            ? `(OS.DTINI_OS >= '${dataSqlSegura(dataInicio)}' AND OS.DTINI_OS < '${dataSqlSegura(dataFim)}')`
-            : `1=1`;
-
-    const sqlCompleta = `
-        SELECT ${CAMPOS_CHAMADO_BASE_SELECT}${CAMPOS_AVALIACAO_SELECT},
-        COALESCE(SUM(
-            CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' AND ${dentroDoMes} THEN
-                (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-                    CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-                    CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-                    CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
-            ELSE 0 END
-        ), 0) AS TOTAL_HORAS_OS,
-        COALESCE(SUM(
-            CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' AND ${dentroDoMes} THEN
-                (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-                    CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-                    CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-                    CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
-            ELSE 0 END
-        ), 0) AS TOTAL_HORAS_OS_FATURADAS,
-        COALESCE(SUM(
-            CASE WHEN UPPER(OS.FATURADO_OS) = 'NAO' AND ${dentroDoMes} THEN
-                (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-                    CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-                    CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-                    CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
-            ELSE 0 END
-        ), 0) AS TOTAL_HORAS_OS_NAO_FATURADAS,
-        MAX(CASE WHEN OS.COD_OS IS NOT NULL THEN 1 ELSE 0 END) AS POSSUI_OS
-        FROM CHAMADO
-        LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
-        LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO
-        LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO
-        LEFT JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
-        LEFT JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1
-        LEFT JOIN (
-            SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
-            FROM HISTCHAMADO
-            WHERE UPPER(DESC_HISTCHAMADO) = 'FINALIZADO'
-            GROUP BY COD_CHAMADO
-        ) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO
-        LEFT JOIN HISTCHAMADO ON HISTCHAMADO.COD_HISTCHAMADO = HIST_MAX.MAX_COD
-        LEFT JOIN (
-            SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
-            FROM HISTCHAMADO
-            WHERE UPPER(DESC_HISTCHAMADO) LIKE 'EM ATENDIMENTO%'
-            GROUP BY COD_CHAMADO
-        ) HIST_INICIO ON CHAMADO.COD_CHAMADO = HIST_INICIO.COD_CHAMADO
-        LEFT JOIN HISTCHAMADO HISTCHAMADO_INICIO ON HISTCHAMADO_INICIO.COD_HISTCHAMADO = HIST_INICIO.MAX_COD
-        WHERE CHAMADO.COD_CHAMADO IN (${placeholders})
-        GROUP BY ${CAMPOS_CHAMADO_BASE_GROUPBY}${CAMPOS_AVALIACAO_GROUPBY}
-    `;
-
-    const chamadosRaw = await firebirdQuery<ChamadoRaw>(sqlCompleta, paginaIds);
-
-    // Reordena o resultado para bater com a ordem da página
-    const ordemMap = new Map(paginaIds.map((id, i) => [id, i]));
-    chamadosRaw.sort(
-        (a, b) => (ordemMap.get(a.COD_CHAMADO) ?? 0) - (ordemMap.get(b.COD_CHAMADO) ?? 0)
-    );
+    const chamadosRaw = await buscarDetalhesDosChamados(paginaIds, {
+        incluirAvaliacao: true,
+        horasNoPeriodo: dataInicio && dataFim ? { inicio: dataInicio, fim: dataFim } : null,
+        exigeTarefaQueExibe: false,
+        comPossuiOs: true,
+    });
 
     return { chamados: chamadosRaw, totalChamados };
 };
@@ -881,21 +1046,10 @@ const buscarChamados = async (
         params.statusFilter.toUpperCase().includes('FINALIZADO') ||
         params.statusFilter.toUpperCase() === 'TODOS';
 
-    const camposSelect = incluirAvaliacao
-        ? CAMPOS_CHAMADO_BASE_SELECT + CAMPOS_AVALIACAO_SELECT
-        : CAMPOS_CHAMADO_BASE_SELECT;
-
-    const camposGroupBy = incluirAvaliacao
-        ? CAMPOS_CHAMADO_BASE_GROUPBY + CAMPOS_AVALIACAO_GROUPBY
-        : CAMPOS_CHAMADO_BASE_GROUPBY;
-
     const { whereClauses, whereParams } = construirWherePrincipal(params, dataInicio, dataFim);
     const whereClause = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     const sortColumn = params.sortBy ? SORT_COLUMN_MAP[params.sortBy] : undefined;
-    const orderByClause = sortColumn
-        ? `ORDER BY ${sortColumn} ${params.sortDir === 'asc' ? 'ASC' : 'DESC'}`
-        : `ORDER BY CHAMADO.DATA_CHAMADO DESC, CHAMADO.HORA_CHAMADO DESC`;
 
     const offset = (params.page - 1) * params.limit;
 
@@ -919,57 +1073,44 @@ const buscarChamados = async (
         GROUP BY COD_CHAMADO
     ) HIST_MAX ON CHAMADO.COD_CHAMADO = HIST_MAX.COD_CHAMADO`;
 
-    const sqlChamados = `SELECT ${camposSelect},
-    COALESCE(SUM(
-        CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
-            (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-                CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-                CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-                CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
-        ELSE 0 END
-    ), 0) AS TOTAL_HORAS_OS,
-    COALESCE(SUM(
-        CASE WHEN UPPER(OS.FATURADO_OS) <> 'NAO' THEN
-            (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-                CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-                CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-                CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
-        ELSE 0 END
-    ), 0) AS TOTAL_HORAS_OS_FATURADAS,
-    COALESCE(SUM(
-        CASE WHEN UPPER(OS.FATURADO_OS) = 'NAO' THEN
-            (CAST(SUBSTRING(OS.HRFIM_OS FROM 1 FOR 2) AS INTEGER) * 60 +
-                CAST(SUBSTRING(OS.HRFIM_OS FROM 3 FOR 2) AS INTEGER) -
-                CAST(SUBSTRING(OS.HRINI_OS FROM 1 FOR 2) AS INTEGER) * 60 -
-                CAST(SUBSTRING(OS.HRINI_OS FROM 3 FOR 2) AS INTEGER)) / 60.0
-        ELSE 0 END
-    ), 0) AS TOTAL_HORAS_OS_NAO_FATURADAS
-    FROM CHAMADO
-    LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE
-    LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO
-    LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO
-    ${osJoinType} JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))
-    ${osJoinType} JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1
-    ${histMaxJoin}
-    LEFT JOIN HISTCHAMADO ON HISTCHAMADO.COD_HISTCHAMADO = HIST_MAX.MAX_COD
-    LEFT JOIN (
-        SELECT COD_CHAMADO, MAX(COD_HISTCHAMADO) AS MAX_COD
-        FROM HISTCHAMADO
-        WHERE UPPER(DESC_HISTCHAMADO) LIKE 'EM ATENDIMENTO%'
-        GROUP BY COD_CHAMADO
-    ) HIST_INICIO ON CHAMADO.COD_CHAMADO = HIST_INICIO.COD_CHAMADO
-    LEFT JOIN HISTCHAMADO HISTCHAMADO_INICIO ON HISTCHAMADO_INICIO.COD_HISTCHAMADO = HIST_INICIO.MAX_COD
-    ${whereClause}
-    GROUP BY ${camposGroupBy}
-    ${orderByClause}
-    ROWS ${offset + 1} TO ${offset + params.limit}`;
+    // PASSO 1: só os IDs da página (e o total), com os joins estritamente necessários para os filtros e a ordem.
+    const { joins } = construirJoinsLeves(params, osJoinType, histMaxJoin, whereClause);
+    const ordenacao = sortColumn
+        ? `ORDEM_EXTRA ${params.sortDir === 'asc' ? 'ASC' : 'DESC'}, CHAMADO.COD_CHAMADO DESC`
+        : 'CHAMADO.DATA_CHAMADO DESC, CHAMADO.HORA_CHAMADO DESC, CHAMADO.COD_CHAMADO DESC';
 
-    const sqlCount = buildCountQuery(params, whereClause, osJoinType, histMaxJoin);
+    const sqlIds = `SELECT DISTINCT CHAMADO.COD_CHAMADO, CHAMADO.DATA_CHAMADO, CHAMADO.HORA_CHAMADO${sortColumn ? `, ${sortColumn} AS ORDEM_EXTRA` : ''}
+FROM CHAMADO
+${joins}
+${whereClause}
+ORDER BY ${ordenacao}
+ROWS ${offset + 1} TO ${offset + params.limit}`;
 
-    const [chamados, countResult] = await Promise.all([
-        firebirdQuery<ChamadoRaw>(sqlChamados, [...whereParams]),
+    const sqlCount = buildCountQuery(joins, whereClause);
+
+    const [idsDaPagina, countResult] = await Promise.all([
+        firebirdQuery<{ COD_CHAMADO: number }>(sqlIds, [...whereParams]),
         firebirdQuery<{ TOTAL: number }>(sqlCount, [...whereParams]),
     ]);
+
+    // PASSO 2: detalhes só dos chamados da página
+    const chamados = await buscarDetalhesDosChamados(
+        idsDaPagina.map((r) => r.COD_CHAMADO),
+        {
+            incluirAvaliacao,
+            // com mês filtrado (e status diferente de FINALIZADO) só contam as OS lançadas no mês
+            horasNoPeriodo:
+                dataInicio && dataFim && !isFinalizado
+                    ? { inicio: dataInicio, fim: dataFim }
+                    : null,
+            // com mês filtrado a OS precisa ter tarefa que aparece no chamado (o antigo INNER JOIN)
+            exigeTarefaQueExibe: osJoinType === 'INNER',
+            comPossuiOs: false,
+            // FINALIZADO com mês: a data de finalização mostrada é a do mês filtrado (como o antigo INNER JOIN do histórico)
+            finalizacaoNoPeriodo:
+                dataInicio && dataFim && isFinalizado ? { inicio: dataInicio, fim: dataFim } : null,
+        }
+    );
 
     return {
         chamados,
@@ -977,30 +1118,42 @@ const buscarChamados = async (
     };
 };
 
-const buildCountQuery = (
+// Joins das consultas leves (IDs e contagem): só entra o que o WHERE ou a ordem precisam.
+//  - OS/TAREFA: só quando a OS é obrigatória (INNER, com mês filtrado); sem mês o LEFT JOIN não filtra nada e
+//    custava segundos (a junção OS x CHAMADO compara texto com número, sem índice);
+//  - histórico (HIST_MAX): só quando o WHERE o usa (FINALIZADO com mês, ou filtro por data de finalização).
+const construirJoinsLeves = (
     params: QueryParams,
-    whereClause: string,
     osJoinType: string,
-    histMaxJoin: string
-): string => {
-    let joins = `${osJoinType} JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))\n`;
-    joins += `${osJoinType} JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1\n`;
+    histMaxJoin: string,
+    whereClause: string
+): { joins: string } => {
+    const precisaRecurso = !!(
+        params.codRecursoFilter ||
+        params.columnFilters?.NOME_RECURSO ||
+        params.sortBy === 'NOME_RECURSO'
+    );
+    const precisaClassificacao = !!(
+        params.columnFilters?.NOME_CLASSIFICACAO || params.sortBy === 'NOME_CLASSIFICACAO'
+    );
+    const precisaHistorico =
+        whereClause.includes('HISTCHAMADO.') || histMaxJoin.trimStart().startsWith('INNER');
 
-    joins += `LEFT JOIN CLIENTE ON CHAMADO.COD_CLIENTE = CLIENTE.COD_CLIENTE\n`;
-    if (params.codRecursoFilter || params.columnFilters?.NOME_RECURSO) {
-        joins += `LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO\n`;
-    }
-    if (params.columnFilters?.NOME_CLASSIFICACAO) {
+    let joins = '';
+    if (precisaRecurso) joins += `LEFT JOIN RECURSO ON CHAMADO.COD_RECURSO = RECURSO.COD_RECURSO\n`;
+    if (precisaClassificacao)
         joins += `LEFT JOIN CLASSIFICACAO ON CHAMADO.COD_CLASSIFICACAO = CLASSIFICACAO.COD_CLASSIFICACAO\n`;
+    if (precisaHistorico)
+        joins += `${histMaxJoin}\nLEFT JOIN HISTCHAMADO ON HISTCHAMADO.COD_HISTCHAMADO = HIST_MAX.MAX_COD\n`;
+    if (osJoinType === 'INNER') {
+        joins += `INNER JOIN OS ON OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20))\n`;
+        joins += `INNER JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1\n`;
     }
 
-    // Mesmo join (mesmo alias HIST_MAX/HISTCHAMADO) que `sqlChamados` usa —
-    // recebido pronto do chamador pra garantir que o `whereClause`
-    // compartilhado (que pode referenciar HISTCHAMADO.DATA_HISTCHAMADO, ver
-    // cf.DATA_HISTCHAMADO em construirWherePrincipal) resolva igual nas duas
-    // queries, sem duplicar a lógica nem arriscar um alias divergente.
-    joins += `${histMaxJoin}\nLEFT JOIN HISTCHAMADO ON HISTCHAMADO.COD_HISTCHAMADO = HIST_MAX.MAX_COD\n`;
+    return { joins };
+};
 
+const buildCountQuery = (joins: string, whereClause: string): string => {
     return `SELECT COUNT(DISTINCT CHAMADO.COD_CHAMADO) AS TOTAL
 FROM CHAMADO
 ${joins}
@@ -1072,8 +1225,14 @@ const buscarTotais = async (
     if (params.columnFilters?.COD_CHAMADO) {
         const v = params.columnFilters.COD_CHAMADO.replace(/\D/g, '');
         if (v) {
-            whereTotais.push('OS.CHAMADO_OS LIKE ?');
-            sqlParamsTotais.push(`%${v}%`);
+            // OS.CHAMADO_OS é VARCHAR(10): com mais dígitos do que cabe no LIKE, só o código inteiro pode casar
+            if (v.length > DIGITOS_DO_CODIGO_NA_OS) {
+                whereTotais.push('OS.CHAMADO_OS = ?');
+                sqlParamsTotais.push(v.slice(0, 10));
+            } else {
+                whereTotais.push('OS.CHAMADO_OS LIKE ?');
+                sqlParamsTotais.push(`%${v}%`);
+            }
         }
     }
 

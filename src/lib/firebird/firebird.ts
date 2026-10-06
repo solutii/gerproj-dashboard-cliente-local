@@ -206,7 +206,12 @@ async function processRow(row: any, transaction: any, rawBlobs = false): Promise
 // conexões, algumas travas ao longo de dias esgotam o pool inteiro e toda
 // query nova passa a ficar pendurada indefinidamente. Esse timeout garante
 // que a conexão sempre volta ao pool (via db.detach), mesmo em caso de trava.
-const QUERY_TIMEOUT_MS = 20_000;
+// Padrão 20 s; dá para aumentar sem mexer no código com FIREBIRD_QUERY_TIMEOUT_MS no .env (a listagem de chamados
+// agora leva ~1 s: o timeout é só a rede de segurança contra conexão travada)
+const QUERY_TIMEOUT_MS =
+    Number(process.env.FIREBIRD_QUERY_TIMEOUT_MS) > 0
+        ? Number(process.env.FIREBIRD_QUERY_TIMEOUT_MS)
+        : 20_000;
 
 function settleOnce<T>(
     fn: (

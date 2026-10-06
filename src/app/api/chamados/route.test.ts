@@ -281,6 +281,51 @@ const totaisFixture = [
 ];
 const nomeClienteFixture = [{ NOME_CLIENTE: 'Cliente Teste' }];
 
+// A listagem (modo normal) faz: 1) IDs da página e contagem; 2) detalhes só desses IDs (chamado, histórico e OS);
+// mais os totais e os nomes. Cada consulta é reconhecida pelo texto do SQL.
+function mockarBanco(
+    opcoes: {
+        ids?: number[];
+        total?: number;
+        detalhes?: unknown[];
+        totais?: unknown[];
+        historico?: unknown[];
+        os?: unknown[];
+    } = {}
+) {
+    const ids = opcoes.ids ?? [501];
+    const detalhes = opcoes.detalhes ?? [chamadoRawFixture()];
+
+    firebirdQueryMock.mockImplementation((sql: string) => {
+        if (sql.includes('COUNT(DISTINCT CHAMADO.COD_CHAMADO)')) {
+            return Promise.resolve([{ TOTAL: opcoes.total ?? ids.length }]);
+        }
+        if (sql.includes('SELECT DISTINCT CHAMADO.COD_CHAMADO')) {
+            return Promise.resolve(ids.map((COD_CHAMADO) => ({ COD_CHAMADO })));
+        }
+        // modo TODOS: as consultas leves de IDs trazem também os campos de ordenação
+        if (sql.includes('CHAMADO.DTINI_CHAMADO, CHAMADO.ASSUNTO_CHAMADO')) {
+            return Promise.resolve(
+                ids.map((COD_CHAMADO) => ({
+                    COD_CHAMADO,
+                    DATA_CHAMADO: new Date(2026, 8, 6),
+                    HORA_CHAMADO: '0900',
+                }))
+            );
+        }
+        if (sql.includes('TOTAL_OS')) return Promise.resolve(opcoes.totais ?? totaisFixture);
+        if (sql.includes('NOME_CLIENTE FROM CLIENTE')) return Promise.resolve(nomeClienteFixture);
+        if (sql.includes('WHERE CHAMADO.COD_CHAMADO IN')) return Promise.resolve(detalhes);
+        if (sql.includes('FROM HISTCHAMADO')) return Promise.resolve(opcoes.historico ?? []);
+        if (sql.includes('FROM OS')) return Promise.resolve(opcoes.os ?? []);
+
+        return Promise.resolve([]);
+    });
+}
+
+const chamadasComSql = (trecho: string) =>
+    firebirdQueryMock.mock.calls.filter(([sql]) => String(sql).includes(trecho)).length;
+
 describe('GET /api/chamados (listagem)', () => {
     beforeEach(() => {
         limparCacheChamados();
@@ -332,11 +377,7 @@ describe('GET /api/chamados (listagem)', () => {
     });
 
     it('retorna a listagem paginada com SLA incluído por padrão', async () => {
-        firebirdQueryMock
-            .mockResolvedValueOnce([chamadoRawFixture()]) // sqlChamados
-            .mockResolvedValueOnce([{ TOTAL: 1 }]) // sqlCount
-            .mockResolvedValueOnce(totaisFixture) // buscarTotais
-            .mockResolvedValueOnce(nomeClienteFixture); // buscarNomes (cliente)
+        mockarBanco();
 
         const response = await GET(criarGetRequest('?codCliente=9'));
 
@@ -358,11 +399,7 @@ describe('GET /api/chamados (listagem)', () => {
     });
 
     it('omite os campos SLA quando incluirSLA=false', async () => {
-        firebirdQueryMock
-            .mockResolvedValueOnce([chamadoRawFixture()])
-            .mockResolvedValueOnce([{ TOTAL: 1 }])
-            .mockResolvedValueOnce(totaisFixture)
-            .mockResolvedValueOnce(nomeClienteFixture);
+        mockarBanco();
 
         const response = await GET(criarGetRequest('?codCliente=9&incluirSLA=false'));
 
@@ -372,18 +409,18 @@ describe('GET /api/chamados (listagem)', () => {
     });
 
     it('retorna a forma vazia quando não há chamados', async () => {
-        firebirdQueryMock
-            .mockResolvedValueOnce([]) // sqlChamados
-            .mockResolvedValueOnce([{ TOTAL: 0 }]) // sqlCount
-            .mockResolvedValueOnce([
+        mockarBanco({
+            ids: [],
+            total: 0,
+            totais: [
                 {
                     TOTAL_OS: 0,
                     TOTAL_HORAS: 0,
                     TOTAL_HORAS_OS_NAO_FATURADAS: 0,
                     TOTAL_HORAS_OS_FATURADAS: 0,
                 },
-            ])
-            .mockResolvedValueOnce(nomeClienteFixture);
+            ],
+        });
 
         const response = await GET(criarGetRequest('?codCliente=9'));
 
@@ -395,16 +432,7 @@ describe('GET /api/chamados (listagem)', () => {
     });
 
     it('reaproveita o cache de nomes e totais em requisições subsequentes com os mesmos parâmetros', async () => {
-        firebirdQueryMock
-            // 1ª requisição: sqlChamados, sqlCount, buscarTotais, buscarNomes
-            .mockResolvedValueOnce([chamadoRawFixture()])
-            .mockResolvedValueOnce([{ TOTAL: 1 }])
-            .mockResolvedValueOnce(totaisFixture)
-            .mockResolvedValueOnce(nomeClienteFixture)
-            // 2ª requisição: só sqlChamados e sqlCount são refeitas — totais e
-            // nome do cliente reaproveitam a Promise já cacheada.
-            .mockResolvedValueOnce([chamadoRawFixture()])
-            .mockResolvedValueOnce([{ TOTAL: 1 }]);
+        mockarBanco();
 
         const primeira = await GET(criarGetRequest('?codCliente=9'));
         expect(primeira.status).toBe(200);
@@ -412,12 +440,105 @@ describe('GET /api/chamados (listagem)', () => {
         const segunda = await GET(criarGetRequest('?codCliente=9'));
         expect(segunda.status).toBe(200);
 
-        expect(firebirdQueryMock).toHaveBeenCalledTimes(6);
+        // a lista e a contagem são refeitas a cada requisição; totais e nome do cliente reaproveitam o cache
+        expect(chamadasComSql('SELECT DISTINCT CHAMADO.COD_CHAMADO')).toBe(2);
+        expect(chamadasComSql('COUNT(DISTINCT CHAMADO.COD_CHAMADO)')).toBe(2);
+        expect(chamadasComSql('TOTAL_OS')).toBe(1);
+        expect(chamadasComSql('NOME_CLIENTE FROM CLIENTE')).toBe(1);
+    });
+
+    it('sem mês filtrado, a lista e a contagem NÃO juntam OS nem histórico (era o que travava por mais de 20 s)', async () => {
+        mockarBanco();
+
+        await GET(criarGetRequest('?codCliente=9'));
+
+        const sqls = firebirdQueryMock.mock.calls.map(([sql]) => String(sql));
+        const ids = sqls.find((s) => s.includes('SELECT DISTINCT CHAMADO.COD_CHAMADO'))!;
+        const contagem = sqls.find((s) => s.includes('COUNT(DISTINCT CHAMADO.COD_CHAMADO)'))!;
+        for (const sql of [ids, contagem]) {
+            expect(sql).not.toContain('JOIN OS');
+            expect(sql).not.toContain('HISTCHAMADO');
+        }
+        // os detalhes só são pedidos para os IDs da página, em consultas simples (sem GROUP BY nem junção OS x histórico)
+        const detalhe = sqls.find((s) => s.includes('WHERE CHAMADO.COD_CHAMADO IN'))!;
+        expect(detalhe).not.toContain('GROUP BY');
+        expect(detalhe).not.toContain('JOIN OS');
+    });
+
+    it('com mês filtrado, a lista exige OS do mês (com tarefa visível) e as horas somam só as OS do mês', async () => {
+        mockarBanco({
+            os: [
+                // dentro de setembro/2026: 08:00-10:00 (2 h, faturada) e 10:00-10:30 (0,5 h, não faturada)
+                {
+                    CHAMADO_OS: '501',
+                    FATURADO_OS: 'SIM',
+                    HRINI_OS: '0800',
+                    HRFIM_OS: '1000',
+                    DTINI_OS: new Date(2026, 8, 10),
+                },
+                {
+                    CHAMADO_OS: '501',
+                    FATURADO_OS: 'NAO',
+                    HRINI_OS: '1000',
+                    HRFIM_OS: '1030',
+                    DTINI_OS: new Date(2026, 8, 11),
+                },
+            ],
+        });
+
+        const response = await GET(criarGetRequest('?codCliente=9&mes=9&ano=2026'));
+        const body = await response.json();
+
+        const ids = firebirdQueryMock.mock.calls
+            .map(([sql]) => String(sql))
+            .find((s) => s.includes('SELECT DISTINCT CHAMADO.COD_CHAMADO'))!;
+        expect(ids).toContain('INNER JOIN OS');
+        expect(ids).toContain('INNER JOIN TAREFA');
+        expect(ids).toContain('OS.DTINI_OS >= ?');
+        expect(body.data[0].TOTAL_HORAS_OS).toBe(2);
+        expect(body.data[0].TOTAL_HORAS_OS_FATURADAS).toBe(2);
+        expect(body.data[0].TOTAL_HORAS_OS_NAO_FATURADAS).toBe(0.5);
+        // a consulta de OS dos detalhes usa o código como TEXTO (OS.CHAMADO_OS) e a regra da tarefa visível
+        const consultaOs = firebirdQueryMock.mock.calls.find(([sql]) =>
+            String(sql).includes('OS.CHAMADO_OS IN')
+        )!;
+        expect(String(consultaOs[0])).toContain('EXIBECHAM_TAREFA = 1');
+        expect(consultaOs[1]).toEqual(['501']);
+    });
+
+    it('as horas das OS fora do mês filtrado não entram na soma', async () => {
+        mockarBanco({
+            os: [
+                {
+                    CHAMADO_OS: '501',
+                    FATURADO_OS: 'SIM',
+                    HRINI_OS: '0800',
+                    HRFIM_OS: '1000',
+                    DTINI_OS: new Date(2026, 8, 10),
+                },
+                {
+                    CHAMADO_OS: '501',
+                    FATURADO_OS: 'SIM',
+                    HRINI_OS: '0800',
+                    HRFIM_OS: '1000',
+                    DTINI_OS: new Date(2026, 9, 2),
+                }, // outubro
+            ],
+        });
+
+        const response = await GET(
+            criarGetRequest('?codCliente=9&statusFilter=TODOS&mes=9&ano=2026')
+        );
+        const body = await response.json();
+
+        expect(response.status).toBe(200);
+        expect(body.data[0].TOTAL_HORAS_OS).toBe(2); // só a de setembro
+        expect(body.data[0].TEM_OS).toBe(true); // mas o chamado possui OS (qualquer mês)
     });
 
     it('modo TODOS retorna a listagem combinando chamados finalizados e não finalizados', async () => {
         firebirdQueryMock.mockImplementation((sql: string) => {
-            if (sql.includes('POSSUI_OS')) {
+            if (sql.includes('WHERE CHAMADO.COD_CHAMADO IN')) {
                 return Promise.resolve([chamadoRawFixture()]);
             }
             if (sql.includes('TOTAL_OS')) {
@@ -450,9 +571,180 @@ describe('GET /api/chamados (listagem)', () => {
         expect(body.totalChamados).toBe(1);
     });
 
+    describe('filtros de coluna (texto do usuário nunca pode derrubar a consulta)', () => {
+        const sqlDaLista = () =>
+            firebirdQueryMock.mock.calls
+                .map(([sql]) => String(sql))
+                .find((s) => s.includes('SELECT DISTINCT CHAMADO.COD_CHAMADO'))!;
+        const paramsDaLista = () =>
+            firebirdQueryMock.mock.calls.find(([sql]) =>
+                String(sql).includes('SELECT DISTINCT CHAMADO.COD_CHAMADO')
+            )![1] as unknown[];
+        const consultar = (query: string) => GET(criarGetRequest(`?codCliente=9&${query}`));
+        const recomecar = () => {
+            firebirdQueryMock.mockClear();
+            limparCacheChamados();
+        };
+        const barra = String.fromCharCode(92);
+
+        it('assunto em texto: só compara com o assunto (sem o CAST de 20 caracteres, que estourava com texto longo)', async () => {
+            mockarBanco();
+            const longo = 'ajuste no calculo de faltas e dsr folha de pagamento';
+
+            const response = await consultar(`filter_ASSUNTO_CHAMADO=${encodeURIComponent(longo)}`);
+
+            expect(response.status).toBe(200);
+            expect(sqlDaLista()).toContain(
+                `UPPER(CHAMADO.ASSUNTO_CHAMADO) LIKE UPPER(?) ESCAPE '${barra}'`
+            );
+            expect(sqlDaLista()).not.toContain('CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE');
+            expect(paramsDaLista()).toContain(`%${longo}%`);
+        });
+
+        it('assunto que é um número curto: também acha pelo número do chamado', async () => {
+            mockarBanco();
+
+            await consultar('filter_ASSUNTO_CHAMADO=15191');
+
+            expect(sqlDaLista()).toContain('CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?');
+            expect(paramsDaLista()).toEqual(expect.arrayContaining(['%15191%']));
+        });
+
+        it('número com mais de 18 dígitos não é comparado com o CAST de 20 caracteres', async () => {
+            mockarBanco();
+
+            await consultar(`filter_ASSUNTO_CHAMADO=${'1'.repeat(25)}`);
+
+            expect(sqlDaLista()).not.toContain('CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE');
+        });
+
+        it('o texto da busca é cortado em 100 caracteres', async () => {
+            mockarBanco();
+
+            await consultar(`filter_ASSUNTO_CHAMADO=${'a'.repeat(300)}`);
+
+            const parametro = paramsDaLista().find(
+                (p) => typeof p === 'string' && p.includes('aaa')
+            );
+            expect(parametro).toBe(`%${'a'.repeat(100)}%`);
+        });
+
+        it('porcentagem, sublinhado e barra invertida digitados valem como texto comum (são escapados)', async () => {
+            mockarBanco();
+
+            await consultar(`filter_ASSUNTO_CHAMADO=${encodeURIComponent(`50%_a${barra}b`)}`);
+
+            expect(paramsDaLista()).toContain(`%50${barra}%${barra}_a${barra}${barra}b%`);
+        });
+
+        it('filtro de e-mail: limitado e escapado', async () => {
+            mockarBanco();
+
+            await consultar(`filter_EMAIL_CHAMADO=${encodeURIComponent('a_b')}`);
+
+            expect(sqlDaLista()).toContain(
+                `UPPER(CHAMADO.EMAIL_CHAMADO) LIKE UPPER(?) ESCAPE '${barra}'`
+            );
+            expect(paramsDaLista()).toContain(`%a${barra}_b%`);
+        });
+
+        it('parte do número do chamado: com dígitos demais nada casa (em vez de estourar o campo)', async () => {
+            mockarBanco();
+
+            const ok = await consultar('filter_COD_CHAMADO=151');
+            expect(ok.status).toBe(200);
+            expect(sqlDaLista()).toContain('CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE ?');
+
+            recomecar();
+            const demais = await consultar(`filter_COD_CHAMADO=${'1'.repeat(30)}`);
+            expect(demais.status).toBe(200);
+            expect(sqlDaLista()).toContain('1=0');
+        });
+
+        it('código exato com mais de 9 dígitos não vira um número gigante para o banco (nada casa)', async () => {
+            mockarBanco();
+
+            const response = await consultar(`codChamado=${'9'.repeat(15)}`);
+
+            expect(response.status).toBe(200);
+            expect(sqlDaLista()).toContain('1=0');
+            expect(paramsDaLista()).not.toContain(999999999999999);
+        });
+
+        it('conclusão: dia, mês ou ano viram um intervalo de datas; outro formato não filtra', async () => {
+            mockarBanco();
+
+            await consultar(`filter_CONCLUSAO_CHAMADO=${encodeURIComponent('10/01/2026')}`);
+            expect(sqlDaLista()).toContain(
+                'CHAMADO.CONCLUSAO_CHAMADO >= ? AND CHAMADO.CONCLUSAO_CHAMADO < ?'
+            );
+            expect(paramsDaLista()).toEqual(expect.arrayContaining(['10.01.2026', '11.01.2026']));
+
+            recomecar();
+            await consultar(`filter_CONCLUSAO_CHAMADO=${encodeURIComponent('12/2026')}`);
+            expect(paramsDaLista()).toEqual(expect.arrayContaining(['01.12.2026', '01.01.2027']));
+
+            recomecar();
+            await consultar('filter_CONCLUSAO_CHAMADO=2026');
+            expect(paramsDaLista()).toEqual(expect.arrayContaining(['01.01.2026', '01.01.2027']));
+
+            recomecar();
+            await consultar('filter_CONCLUSAO_CHAMADO=abc');
+            expect(sqlDaLista()).not.toContain('CONCLUSAO_CHAMADO >=');
+            expect(sqlDaLista()).not.toContain('EXTRACT');
+        });
+
+        it('modo TODOS: mesmo cuidado com o texto da busca de assunto', async () => {
+            mockarBanco({ ids: [501] });
+
+            const response = await consultar(
+                `statusFilter=TODOS&mes=1&ano=2026&filter_ASSUNTO_CHAMADO=${'b'.repeat(40)}`
+            );
+
+            expect(response.status).toBe(200);
+            const sqls = firebirdQueryMock.mock.calls.map(([sql]) => String(sql));
+            const idsTodos = sqls.filter((s) =>
+                s.includes('CHAMADO.DTINI_CHAMADO, CHAMADO.ASSUNTO_CHAMADO')
+            );
+            expect(idsTodos.length).toBeGreaterThan(0);
+            for (const sql of idsTodos)
+                expect(sql).not.toContain('CAST(CHAMADO.COD_CHAMADO AS VARCHAR(20)) LIKE');
+        });
+
+        it('modo TODOS: chamados com a mesma data e hora ficam em ordem estável (o de maior código primeiro)', async () => {
+            firebirdQueryMock.mockImplementation((sql: string) => {
+                if (sql.includes('CHAMADO.DTINI_CHAMADO, CHAMADO.ASSUNTO_CHAMADO')) {
+                    return Promise.resolve(
+                        [101, 103, 102].map((COD_CHAMADO) => ({
+                            COD_CHAMADO,
+                            DATA_CHAMADO: new Date(2026, 0, 6),
+                            HORA_CHAMADO: '0900',
+                        }))
+                    );
+                }
+                if (sql.includes('WHERE CHAMADO.COD_CHAMADO IN')) {
+                    return Promise.resolve(
+                        [101, 102, 103].map((COD_CHAMADO) => chamadoRawFixture({ COD_CHAMADO }))
+                    );
+                }
+                if (sql.includes('TOTAL_OS')) return Promise.resolve(totaisFixture);
+                if (sql.includes('NOME_CLIENTE FROM CLIENTE'))
+                    return Promise.resolve(nomeClienteFixture);
+
+                return Promise.resolve([]);
+            });
+
+            const response = await consultar('statusFilter=TODOS&mes=1&ano=2026');
+            const body = await response.json();
+
+            expect(body.data.map((c: { COD_CHAMADO: number }) => c.COD_CHAMADO)).toEqual([
+                103, 102, 101,
+            ]);
+        });
+    });
+
     it('retorna 500 quando a consulta principal falha', async () => {
-        firebirdQueryMock.mockRejectedValueOnce(new Error('timeout'));
-        firebirdQueryMock.mockResolvedValue([]);
+        firebirdQueryMock.mockRejectedValue(new Error('timeout'));
 
         const response = await GET(criarGetRequest('?codCliente=9'));
 

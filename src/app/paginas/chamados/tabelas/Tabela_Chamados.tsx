@@ -41,6 +41,7 @@ import {
 } from 'react-icons/md';
 import { TbMoodEmptyFilled } from 'react-icons/tb';
 import { ChamadoRowProps, getColunasChamados } from './Colunas_Tabela_Chamados';
+import { linhaPassaNoFiltroDeColuna } from './filtro-de-coluna';
 
 // ExcelJS e jsPDF são pesados (milhares de módulos) e só são usados quando
 // o usuário de fato clica em exportar — carregar sob demanda em vez de no
@@ -132,6 +133,9 @@ interface FetchChamadosParams {
     limit: number;
     columnFilters?: ColumnFiltersState;
 }
+
+// Tamanho máximo do texto da busca de assunto (o servidor também corta nele: acima disso o banco recusava a consulta)
+const TAMANHO_MAXIMO_DA_BUSCA = 100;
 
 // Colunas ordenáveis — ordenação é client-side, sobre a página já carregada
 // (ver dadosCompletosFiltrados). Com PAGINATION_LIMIT em 50, a imensa
@@ -468,18 +472,9 @@ export function TabelaChamados({ onDataChange }: TabelaChamadosProps = {}) {
             columnFilters.length === 0
                 ? chamados
                 : chamados.filter((row) => {
-                      return columnFilters.every((filter) => {
-                          if (
-                              !filter.value ||
-                              (typeof filter.value === 'string' && !filter.value.trim())
-                          )
-                              return true;
-                          const cellValue = row[filter.id as keyof ChamadoRowProps];
-                          if (cellValue == null) return false;
-                          return String(cellValue)
-                              .toUpperCase()
-                              .includes(String(filter.value).toUpperCase());
-                      });
+                      return columnFilters.every((filter) =>
+                          linhaPassaNoFiltroDeColuna(row, filter)
+                      );
                   });
 
         if (!sorting) return filtrados;
@@ -1175,7 +1170,7 @@ const Header = React.memo(function Header({
         const timer = setTimeout(() => {
             setColumnFilters((prev) => {
                 const semAssunto = prev.filter((f) => f.id !== 'ASSUNTO_CHAMADO');
-                const termo = buscaAssunto.trim();
+                const termo = buscaAssunto.trim().slice(0, TAMANHO_MAXIMO_DA_BUSCA);
                 return termo
                     ? [...semAssunto, { id: 'ASSUNTO_CHAMADO', value: termo }]
                     : semAssunto;
@@ -1249,6 +1244,7 @@ const Header = React.memo(function Header({
                                 autoFocus
                                 type="text"
                                 value={buscaAssunto}
+                                maxLength={TAMANHO_MAXIMO_DA_BUSCA}
                                 onChange={(e) => setBuscaAssunto(e.target.value)}
                                 placeholder="Buscar por assunto ou código..."
                                 className="h-full flex-1 bg-transparent pr-1 pl-5 text-base font-semibold text-black placeholder:text-gray-400 focus:outline-none"

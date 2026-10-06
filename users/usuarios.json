@@ -98,5 +98,10 @@
     "email": "portoseco@portoseco.com.br",
     "password": "$2b$10$Ir.v8WEwBiziPE4u8/BGfu4JgPcDA74fXGVgRtzJaqDRp2tLBa9/S",
     "cod_cliente": "173"
+  },
+  {
+    "email": "giancarlo@grupoemtel.com.br",
+    "password": "$2b$10$3i2Xz3jroasslDx7LBiQseBQNSFXFEx99QzvKDOpL9M6k5iYAwhUm",
+    "cod_cliente": "175"
   }
 ]

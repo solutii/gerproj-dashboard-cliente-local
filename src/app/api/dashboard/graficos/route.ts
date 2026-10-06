@@ -138,6 +138,75 @@ function aplicarFiltros(
     return { sql, params: paramsArray };
 }
 
+// ==================== CAMINHO RÁPIDO (sem filtro de status) ====================
+//
+// A consulta antiga juntava OS com CHAMADO comparando texto com número (OS.CHAMADO_OS = CAST(CHAMADO.COD_CHAMADO ...)),
+// o que impede o uso de índice, e o gráfico anual disparava 12 dessas consultas ao mesmo tempo (mais a do mês), ocupando
+// as 5 conexões do pool e atrasando as outras telas. Agora: uma consulta de OS por período, sem o CHAMADO, e uma busca
+// simples dos chamados pelos códigos (a OS só entra se o chamado existir, como no antigo INNER JOIN). O resultado é o mesmo.
+// Com filtro de status continua valendo o caminho antigo (o LIKE do banco), que é raro.
+
+const CONSULTA_OS_DO_PERIODO = `
+    SELECT
+      OS.DTINI_OS,
+      OS.HRINI_OS,
+      OS.HRFIM_OS,
+      OS.CHAMADO_OS,
+      OS.CODTRF_OS,
+      RECURSO.COD_RECURSO,
+      RECURSO.NOME_RECURSO,
+      CLIENTE.COD_CLIENTE,
+      CLIENTE.NOME_CLIENTE
+    FROM OS
+    INNER JOIN TAREFA ON OS.CODTRF_OS = TAREFA.COD_TAREFA AND TAREFA.EXIBECHAM_TAREFA = 1
+    INNER JOIN PROJETO ON TAREFA.CODPRO_TAREFA = PROJETO.COD_PROJETO
+    INNER JOIN CLIENTE ON PROJETO.CODCLI_PROJETO = CLIENTE.COD_CLIENTE
+    LEFT JOIN RECURSO ON OS.CODREC_OS = RECURSO.COD_RECURSO
+    WHERE OS.DTINI_OS >= ?
+      AND OS.DTINI_OS < ?
+      AND OS.CHAMADO_OS IS NOT NULL
+      AND TRIM(OS.CHAMADO_OS) <> ''
+      AND UPPER(OS.FATURADO_OS) <> 'NAO'
+  `;
+
+const LOTE_DE_CODIGOS = 400;
+
+// status de cada chamado (chave = código como texto, igual ao OS.CHAMADO_OS); só códigos numéricos sem zeros à esquerda
+// casam com a antiga comparação de texto
+async function statusDosChamados(codigos: string[]): Promise<Map<string, string | null>> {
+    const validos = Array.from(new Set(codigos.filter((c) => /^(0|[1-9]\d{0,8})$/.test(c))));
+    const mapa = new Map<string, string | null>();
+
+    for (let i = 0; i < validos.length; i += LOTE_DE_CODIGOS) {
+        const lote = validos.slice(i, i + LOTE_DE_CODIGOS);
+        const linhas = await firebirdQuery<{ COD_CHAMADO: number; STATUS_CHAMADO: string | null }>(
+            `SELECT COD_CHAMADO, STATUS_CHAMADO FROM CHAMADO WHERE COD_CHAMADO IN (${lote.map(() => '?').join(', ')})`,
+            lote.map(Number)
+        );
+        for (const l of linhas) mapa.set(String(l.COD_CHAMADO), l.STATUS_CHAMADO);
+    }
+
+    return mapa;
+}
+
+// OS do período já com o status do chamado; descarta as OS cujo chamado não existe (o antigo INNER JOIN)
+async function buscarOsComStatus(
+    dataInicio: string,
+    dataFim: string,
+    params: QueryParams
+): Promise<OSData[]> {
+    const { sql, params: sqlParams } = aplicarFiltros(CONSULTA_OS_DO_PERIODO, params, [
+        dataInicio,
+        dataFim,
+    ]);
+    const linhas = await firebirdQuery<Omit<OSData, 'STATUS_CHAMADO'>>(sql, sqlParams);
+    const status = await statusDosChamados(linhas.map((l) => l.CHAMADO_OS));
+
+    return linhas
+        .filter((l) => status.has(l.CHAMADO_OS))
+        .map((l) => ({ ...l, STATUS_CHAMADO: status.get(l.CHAMADO_OS) as string }));
+}
+
 // ==================== CÁLCULOS ====================
 function calcularHorasTrabalhadas(
     hrIni: string | null = '0000',
@@ -289,7 +358,48 @@ function processarDadosUnificados(dados: OSData[], mes: number, ano: number) {
 }
 
 // ==================== GRÁFICO ANUAL (Paralelo) ====================
+async function gerarHorasPorMesRapido(ano: number, params: QueryParams) {
+    const nomes = [
+        'Jan',
+        'Fev',
+        'Mar',
+        'Abr',
+        'Mai',
+        'Jun',
+        'Jul',
+        'Ago',
+        'Set',
+        'Out',
+        'Nov',
+        'Dez',
+    ];
+    const somas = new Array<number>(12).fill(0);
+
+    try {
+        const { dataInicio } = construirDatas(1, ano);
+        const { dataFim } = construirDatas(12, ano);
+        const oss = await buscarOsComStatus(dataInicio, dataFim, params);
+
+        for (const os of oss) {
+            // DTINI_OS vem como Date; texto "DD.MM.AAAA" também é aceito
+            const indice =
+                os.DTINI_OS instanceof Date
+                    ? os.DTINI_OS.getMonth()
+                    : parseInt(String(os.DTINI_OS).split('.')[1], 10) - 1;
+            if (!(indice >= 0 && indice < 12)) continue;
+            somas[indice] += calcularHorasTrabalhadas(os.HRINI_OS, os.HRFIM_OS);
+        }
+    } catch (error) {
+        // como antes: um erro no gráfico anual não derruba a resposta; os meses ficam com 0 hora
+        console.error('[API GRAFICOS] Erro ao buscar o ano:', error);
+    }
+
+    return nomes.map((mes, i) => ({ mes, mesNum: i + 1, horas: parseFloat(somas[i].toFixed(2)) }));
+}
+
 async function gerarHorasPorMes(ano: number, params: QueryParams) {
+    if (!params.status) return gerarHorasPorMesRapido(ano, params);
+
     const mesesNomes = [
         'Jan',
         'Fev',
@@ -372,7 +482,9 @@ export async function GET(request: Request) {
         ]);
 
         const [dadosMes, horasPorMes] = await Promise.all([
-            firebirdQuery<OSData>(sqlFinal, paramsFinal),
+            params.status
+                ? firebirdQuery<OSData>(sqlFinal, paramsFinal)
+                : buscarOsComStatus(dataInicio, dataFim, params),
             gerarHorasPorMes(params.ano, params),
         ]);
 
